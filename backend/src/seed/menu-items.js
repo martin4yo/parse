@@ -71,7 +71,7 @@ const menuData = [
       },
       {
         id: 'menu_comprobantes_parse',
-        title: 'Extracción de datos',
+        title: 'Comprobantes',
         icon: 'ScanText',
         url: '/parse',
         description: 'Procesamiento y extracción de información de comprobantes',

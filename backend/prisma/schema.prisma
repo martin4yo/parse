@@ -98,6 +98,8 @@ model profiles {
 
 model documentos_procesados {
   id                        String    @id
+  rendicionItemId           String?
+  cajaId                    String?
   nombreArchivo             String
   tipoArchivo               String
   rutaArchivo               String
@@ -110,6 +112,7 @@ model documentos_procesados {
   numeroComprobanteExtraido String?
   observaciones             String?
   usuarioId                 String
+  tipo                      String    @default("tarjeta")
   tenantId                  String
   createdAt                 DateTime  @default(now())
   updatedAt                 DateTime
@@ -128,6 +131,8 @@ model documentos_procesados {
   impuestos documento_impuestos[]
 
   @@index([tenantId])
+  @@index([cajaId])
+  @@index([tipo])
 }
 
 model documento_lineas {
