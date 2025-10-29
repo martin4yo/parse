@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -11,6 +11,7 @@
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
     "@hookform/resolvers": "^3.3.0",
+    "@next/swc-win32-x64-msvc": "^16.0.1",
     "@rendiciones/shared": "file:../shared",
     "@types/js-cookie": "^3.0.4",
     "@types/node": "^20.8.0",
