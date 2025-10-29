@@ -6,8 +6,8 @@ import { AuthProvider } from '@/contexts/AuthContext';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'AxiomaCloud - Rendiciones',
-  description: 'Sistema de gestión de rendiciones de tarjetas',
+  title: 'Axioma - Parse',
+  description: 'Sistema de extracción de información de documentos digitales',
   icons: {
     icon: '/favicon.svg',
     apple: '/favicon.svg',
