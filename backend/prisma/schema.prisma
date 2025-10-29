@@ -1,0 +1,486 @@
+// ============================================
+// PARSE - Schema Limpio
+// Solo tablas necesarias para funcionalidad core
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// SISTEMA BASE - Autenticación y Multitenant
+// ============================================
+
+model tenants {
+  id               String    @id @default(uuid())
+  slug             String    @unique
+  nombre           String
+  cuit             String    @unique
+  razonSocial      String?
+  direccion        String?
+  telefono         String?
+  email            String?
+  planId           String?
+  activo           Boolean   @default(true)
+  esDefault        Boolean   @default(false)
+  fechaCreacion    DateTime  @default(now())
+  fechaVencimiento DateTime?
+  configuracion    Json      @default("{}")
+  limites          Json      @default("{}")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relaciones Parse
+  users                   users[]
+  documentos_procesados   documentos_procesados[]
+  ai_prompts              ai_prompts[]
+  reglas_negocio          reglas_negocio[]
+  parametros_maestros     parametros_maestros[]
+  parametros_relaciones   parametros_relaciones[]
+  sync_configurations     sync_configurations?
+  sync_logs               sync_logs[]
+  sync_api_keys           sync_api_keys[]
+  ai_provider_configs     ai_provider_configs[]
+  menu_items              menu_items[]
+  documento_lineas        documento_lineas[]
+  documento_impuestos     documento_impuestos[]
+  plan_relation           planes?               @relation(fields: [planId], references: [id])
+
+  @@index([slug])
+  @@index([cuit])
+  @@index([activo])
+  @@index([planId])
+}
+
+model users {
+  id                        String    @id @default(cuid())
+  email                     String    @unique
+  password                  String?
+  nombre                    String
+  apellido                  String
+  activo                    Boolean   @default(true)
+  profileId                 String?
+  tenantId                  String?
+  superuser                 Boolean   @default(false)
+  emailVerified             Boolean   @default(false)
+  verificationToken         String?
+  verificationExpires       DateTime?
+  recibeNotificacionesEmail Boolean   @default(false)
+  googleId                  String?   @unique
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+
+  tenant                tenants?                @relation(fields: [tenantId], references: [id])
+  profiles              profiles?               @relation(fields: [profileId], references: [id])
+  documentos_procesados documentos_procesados[]
+
+  @@index([tenantId])
+}
+
+model profiles {
+  id          String   @id
+  codigo      String   @unique
+  descripcion String
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  users       users[]
+}
+
+// ============================================
+// CORE PARSE - Procesamiento de Documentos
+// ============================================
+
+model documentos_procesados {
+  id                        String    @id
+  nombreArchivo             String
+  tipoArchivo               String
+  rutaArchivo               String
+  fechaProcesamiento        DateTime  @default(now())
+  estadoProcesamiento       String    @default("procesando")
+  datosExtraidos            Json?
+  fechaExtraida             DateTime?
+  importeExtraido           Decimal?
+  cuitExtraido              String?
+  numeroComprobanteExtraido String?
+  observaciones             String?
+  usuarioId                 String
+  tenantId                  String
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime
+  caeExtraido               String?
+  cuponExtraido             String?
+  exentoExtraido            Decimal?
+  netoGravadoExtraido       Decimal?
+  impuestosExtraido         Decimal?
+  razonSocialExtraida       String?
+  tipoComprobanteExtraido   String?
+  modeloIA                  String?
+
+  tenant   tenants @relation(fields: [tenantId], references: [id])
+  users    users   @relation(fields: [usuarioId], references: [id])
+  lineas   documento_lineas[]
+  impuestos documento_impuestos[]
+
+  @@index([tenantId])
+}
+
+model documento_lineas {
+  id             String   @id @default(cuid())
+  documentoId    String
+  numero         Int
+  descripcion    String   @db.VarChar(500)
+  codigoProducto String?  @db.VarChar(100)
+  cantidad       Decimal  @db.Decimal(10, 3)
+  unidad         String?  @db.VarChar(100)
+  precioUnitario Decimal  @db.Decimal(15, 4)
+  subtotal       Decimal  @db.Decimal(15, 2)
+  alicuotaIva    Decimal? @db.Decimal(5, 2)
+  importeIva     Decimal? @db.Decimal(15, 2)
+  totalLinea     Decimal  @db.Decimal(15, 2)
+  tenantId       String
+  createdAt      DateTime @default(now())
+
+  documento documentos_procesados @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+  tenant    tenants               @relation(fields: [tenantId], references: [id])
+
+  @@index([documentoId])
+  @@index([tenantId])
+  @@map("documento_lineas")
+}
+
+model documento_impuestos {
+  id            String   @id @default(cuid())
+  documentoId   String
+  tipo          String   @db.VarChar(50)
+  descripcion   String   @db.VarChar(200)
+  alicuota      Decimal? @db.Decimal(5, 2)
+  baseImponible Decimal? @db.Decimal(15, 2)
+  importe       Decimal  @db.Decimal(15, 2)
+  tenantId      String
+  createdAt     DateTime @default(now())
+
+  documento documentos_procesados @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+  tenant    tenants               @relation(fields: [tenantId], references: [id])
+
+  @@index([documentoId])
+  @@index([tenantId])
+  @@index([tipo])
+  @@map("documento_impuestos")
+}
+
+// ============================================
+// IA Y PROMPTS
+// ============================================
+
+model ai_prompts {
+  id          String    @id @default(cuid())
+  clave       String
+  nombre      String
+  descripcion String?   @db.Text
+  prompt      String    @db.Text
+  variables   Json?
+  activo      Boolean   @default(true)
+  version     Int       @default(1)
+  motor       String?
+  tipo        String?   @default("EXTRACTOR_SIMPLE")
+  vecesUsado  Int       @default(0)
+  ultimoUso   DateTime?
+  tasaExito   Decimal?
+  tenantId    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdBy   String?
+  updatedBy   String?
+
+  tenant tenants? @relation(fields: [tenantId], references: [id])
+
+  @@unique([clave, tenantId])
+  @@index([clave])
+  @@index([tenantId])
+  @@index([activo])
+  @@index([motor])
+  @@index([tipo])
+}
+
+model ai_provider_configs {
+  id                String   @id @default(cuid())
+  tenantId          String?
+  provider          String
+  apiKeyEncrypted   String?  @db.Text
+  modelo            String?
+  maxRequestsPerDay Int?
+  config            Json?
+  activo            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant tenants? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, provider])
+  @@index([tenantId])
+  @@index([provider])
+  @@index([activo])
+}
+
+// ============================================
+// REGLAS DE NEGOCIO
+// ============================================
+
+model reglas_negocio {
+  id            String    @id
+  codigo        String    @unique
+  nombre        String
+  descripcion   String?
+  tipo          String
+  activa        Boolean   @default(true)
+  prioridad     Int       @default(100)
+  version       Int       @default(1)
+  fechaVigencia DateTime?
+  configuracion Json
+  tenantId      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdBy     String?
+  updatedBy     String?
+
+  tenant             tenants?             @relation(fields: [tenantId], references: [id])
+  reglas_ejecuciones reglas_ejecuciones[]
+
+  @@index([prioridad])
+  @@index([tipo, activa])
+}
+
+model reglas_ejecuciones {
+  id         String   @id
+  reglaId    String
+  contexto   String
+  entrada    Json
+  salida     Json?
+  exitosa    Boolean
+  mensaje    String?
+  duracionMs Int?
+  createdAt  DateTime @default(now())
+
+  reglas_negocio reglas_negocio @relation(fields: [reglaId], references: [id])
+
+  @@index([contexto])
+  @@index([createdAt])
+  @@index([reglaId])
+}
+
+// ============================================
+// PARÁMETROS MAESTROS
+// ============================================
+
+model parametros_maestros {
+  id              Int      @id @default(autoincrement())
+  codigo          String
+  nombre          String
+  descripcion     String?
+  tipo_campo      String
+  valor_padre     String?
+  orden           Int      @default(1)
+  activo          Boolean  @default(true)
+  tenantId        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  parametros_json Json?
+
+  tenant tenants? @relation(fields: [tenantId], references: [id])
+
+  @@unique([tipo_campo, codigo])
+  @@index([tenantId])
+}
+
+model parametros_relaciones {
+  id          Int      @id @default(autoincrement())
+  campo_padre String
+  campo_hijo  String
+  descripcion String?
+  activo      Boolean  @default(true)
+  tenantId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  tenant tenants? @relation(fields: [tenantId], references: [id])
+
+  @@unique([campo_padre, campo_hijo, tenantId])
+  @@index([tenantId])
+}
+
+// ============================================
+// SINCRONIZACIÓN SQL
+// ============================================
+
+model sync_configurations {
+  id                  String   @id @default(cuid())
+  tenantId            String   @unique
+  sqlServerHost       String
+  sqlServerPort       Int      @default(1433)
+  sqlServerDatabase   String
+  sqlServerUser       String
+  sqlServerPassword   String
+  configuracionTablas Json
+  version             Int      @default(1)
+  ultimaModificacion  DateTime @updatedAt
+  activo              Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  tenant    tenants     @relation(fields: [tenantId], references: [id])
+  sync_logs sync_logs[]
+
+  @@index([tenantId])
+  @@index([activo])
+}
+
+model sync_logs {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  configId           String?
+  direccion          String
+  tabla              String
+  fase               String?
+  ejecutadoEn        String?
+  estado             String
+  registrosAfectados Int?
+  mensaje            String?   @db.Text
+  errorDetalle       String?   @db.Text
+  duracionMs         Int?
+  metadatos          Json?
+  fechaInicio        DateTime
+  fechaFin           DateTime?
+  createdAt          DateTime  @default(now())
+
+  tenant tenants               @relation(fields: [tenantId], references: [id])
+  config sync_configurations? @relation(fields: [configId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@index([estado])
+  @@index([tabla])
+  @@index([configId])
+}
+
+model sync_api_keys {
+  id             String    @id @default(cuid())
+  tenantId       String
+  nombre         String
+  key            String    @unique
+  keyPreview     String
+  permisos       Json      @default("{}")
+  activo         Boolean   @default(true)
+  ultimoUso      DateTime?
+  ultimoUsoIp    String?
+  vecesUtilizada Int       @default(0)
+  expiraEn       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdBy      String?
+
+  tenant tenants @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@index([key])
+  @@index([activo])
+}
+
+// ============================================
+// PROCESAMIENTO ASÍNCRONO
+// ============================================
+
+model processing_jobs {
+  id             String    @id
+  type           String
+  status         String
+  progress       Int       @default(0)
+  totalItems     Int?
+  processedItems Int?
+  message        String?
+  userId         String
+  parameters     Json
+  result         Json?
+  error          String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime
+
+  @@index([createdAt])
+  @@index([status])
+  @@index([type])
+  @@index([userId])
+}
+
+// ============================================
+// SISTEMA DE PLANES
+// ============================================
+
+model planes {
+  id          String   @id @default(cuid())
+  codigo      String   @unique
+  nombre      String
+  descripcion String?  @db.Text
+  precio      Decimal? @db.Decimal(10, 2)
+  activo      Boolean  @default(true)
+  orden       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  features plan_features[]
+  tenants  tenants[]
+
+  @@index([codigo])
+  @@index([activo])
+}
+
+model plan_features {
+  id        String   @id @default(cuid())
+  planId    String
+  feature   String
+  config    Json?
+  createdAt DateTime @default(now())
+
+  plan planes @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, feature])
+  @@index([planId])
+  @@index([feature])
+}
+
+// ============================================
+// MENÚ DINÁMICO
+// ============================================
+
+model menu_items {
+  id                 String   @id @default(cuid())
+  parentId           String?
+  title              String   @db.VarChar(100)
+  icon               String   @db.VarChar(50)
+  url                String?  @db.VarChar(255)
+  description        String?  @db.VarChar(500)
+  orderIndex         Int      @default(0)
+  isActive           Boolean  @default(true)
+  requiresPermission String?  @db.VarChar(100)
+  superuserOnly      Boolean  @default(false)
+  tenantId           String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  createdBy          String?
+  updatedBy          String?
+
+  tenant   tenants?      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent   menu_items?   @relation("MenuHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children menu_items[]  @relation("MenuHierarchy")
+
+  @@index([parentId])
+  @@index([tenantId])
+  @@index([isActive])
+  @@index([orderIndex])
+  @@index([superuserOnly])
+}

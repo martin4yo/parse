@@ -1,0 +1,1147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model atributos {
+  id          String   @id @default(cuid())
+  codigo      String
+  descripcion String
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // MULTITENANT: Relación con tenant (opcional para superusers)
+  tenantId String?
+  tenant   tenants? @relation(fields: [tenantId], references: [id])
+
+  valores_atributo valores_atributo[]
+
+  @@unique([codigo, tenantId])
+}
+
+model banco_tipo_tarjeta {
+  id                    String                  @id
+  bancoId               String
+  tipoTarjetaId         String
+  activo                Boolean                 @default(true)
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime
+  bancos                bancos                  @relation(fields: [bancoId], references: [id])
+  tipos_tarjeta         tipos_tarjeta           @relation(fields: [tipoTarjetaId], references: [id])
+  movimientos_tesoreria movimientos_tesoreria[]
+  resumen_tarjeta       resumen_tarjeta[]
+
+  @@unique([bancoId, tipoTarjetaId])
+}
+
+model bancos {
+  id                 String               @id
+  codigo             String               @unique
+  descripcion        String
+  activo             Boolean              @default(true)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime
+  banco_tipo_tarjeta banco_tipo_tarjeta[]
+}
+
+model delegacion_tarjetas {
+  id               String  @id @default(cuid())
+  usuarioId        String
+  tarjetaCreditoId String
+  activo           Boolean @default(true)
+
+  // MULTITENANT: Relación con tenant (opcional para superusers)
+  tenantId String?
+  tenant   tenants? @relation(fields: [tenantId], references: [id])
+
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  user_tarjetas_credito user_tarjetas_credito @relation(fields: [tarjetaCreditoId], references: [id])
+  users                 users                 @relation(fields: [usuarioId], references: [id])
+
+  @@unique([usuarioId, tarjetaCreditoId])
+  @@index([tenantId])
+}
+
+model documentos_asociados {
+  id                      String                   @id
+  documentoProcesadoId    String
+  resumenTarjetaId        String?
+  rendicionItemId         String? // Para asociar directamente con items de rendición
+  fechaAsociacion         DateTime                 @default(now())
+  usuarioAsociacion       String
+  observaciones           String?
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime
+  documentos_procesados   documentos_procesados    @relation(fields: [documentoProcesadoId], references: [id])
+  resumen_tarjeta         resumen_tarjeta?         @relation(fields: [resumenTarjetaId], references: [id])
+  rendicion_tarjeta_items rendicion_tarjeta_items? @relation(fields: [rendicionItemId], references: [id])
+
+  @@unique([documentoProcesadoId, resumenTarjetaId])
+  @@index([rendicionItemId])
+}
+
+model documentos_procesados {
+  id                        String    @id
+  rendicionItemId           String?
+  cajaId                    String? // ID de la caja para documentos de efectivo
+  nombreArchivo             String
+  tipoArchivo               String
+  rutaArchivo               String
+  fechaProcesamiento        DateTime  @default(now())
+  estadoProcesamiento       String    @default("procesando")
+  datosExtraidos            Json?
+  fechaExtraida             DateTime?
+  importeExtraido           Decimal?
+  cuitExtraido              String?
+  numeroComprobanteExtraido String?
+  observaciones             String?
+  usuarioId                 String
+  tipo                      String    @default("tarjeta") // "efectivo" o "tarjeta"
+
+  // MULTITENANT: Relación con tenant
+  tenantId String
+  tenant   tenants @relation(fields: [tenantId], references: [id])
+
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime
+  caeExtraido             String?
+  cuponExtraido           String?
+  exentoExtraido          Decimal?
+  netoGravadoExtraido     Decimal?
+  impuestosExtraido       Decimal?
+  razonSocialExtraida     String?
+  tipoComprobanteExtraido String?
+  modeloIA                String?
+  documentos_asociados    documentos_asociados[]
+  rendicion_tarjeta_items rendicion_tarjeta_items? @relation(fields: [rendicionItemId], references: [id])
+  users                   users                    @relation(fields: [usuarioId], references: [id])
+  caja                    cajas?                   @relation(fields: [cajaId], references: [id])
+
+  // Nuevas relaciones
+  lineas                  documento_lineas[]
+  impuestos               documento_impuestos[]
+
+  @@index([tenantId])
+  @@index([cajaId])
+}
+
+// ============================================
+// DETALLE DE DOCUMENTOS - LINE ITEMS E IMPUESTOS
+// ============================================
+
+model documento_lineas {
+  id             String   @id @default(cuid())
+  documentoId    String
+  numero         Int      // Número de línea (1, 2, 3...)
+  descripcion    String   @db.VarChar(500)
+  codigoProducto String?  @db.VarChar(100) // Código de producto/artículo
+  cantidad       Decimal  @db.Decimal(10, 3)
+  unidad         String?  @db.VarChar(100) // "un", "kg", "m", "lt", "hs", etc.
+  precioUnitario Decimal  @db.Decimal(15, 4)
+  subtotal       Decimal  @db.Decimal(15, 2)
+  alicuotaIva    Decimal? @db.Decimal(5, 2) // 21.00, 10.50, 27.00, 5.00, 0.00
+  importeIva     Decimal? @db.Decimal(15, 2)
+  totalLinea     Decimal  @db.Decimal(15, 2)
+
+  // Metadatos
+  tenantId       String
+  createdAt      DateTime @default(now())
+
+  // Relaciones
+  documento      documentos_procesados @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+  tenant         tenants               @relation(fields: [tenantId], references: [id])
+
+  @@index([documentoId])
+  @@index([tenantId])
+  @@map("documento_lineas")
+}
+
+model documento_impuestos {
+  id             String   @id @default(cuid())
+  documentoId    String
+  tipo           String   @db.VarChar(50) // "IVA", "PERCEPCION", "RETENCION", "IMPUESTO_INTERNO", etc.
+  descripcion    String   @db.VarChar(200) // "IVA 21%", "Percepción IIBB", "Retención Ganancias", etc.
+  alicuota       Decimal? @db.Decimal(5, 2) // Porcentaje del impuesto (21.00, 10.50, etc.) - null si es monto fijo
+  baseImponible  Decimal? @db.Decimal(15, 2) // Monto sobre el que se calcula (null si no aplica)
+  importe        Decimal  @db.Decimal(15, 2) // Importe del impuesto
+
+  // Metadatos
+  tenantId       String
+  createdAt      DateTime @default(now())
+
+  // Relaciones
+  documento      documentos_procesados @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+  tenant         tenants               @relation(fields: [tenantId], references: [id])
+
+  @@index([documentoId])
+  @@index([tenantId])
+  @@index([tipo])
+  @@map("documento_impuestos")
+}
+
+model estados {
+  id                         String                       @id
+  codigo                     String                       @unique
+  descripcion                String
+  activo                     Boolean                      @default(true)
+  createdAt                  DateTime                     @default(now())
+  updatedAt                  DateTime
+  color                      String                       @default("#6B7280")
+  rendicion_tarjeta_cabecera rendicion_tarjeta_cabecera[]
+}
+
+model parametros_maestros {
+  id          Int     @id @default(autoincrement())
+  codigo      String
+  nombre      String
+  descripcion String?
+  tipo_campo  String
+  valor_padre String?
+  orden       Int     @default(1)
+  activo      Boolean @default(true)
+
+  // MULTITENANT: Relación con tenant (opcional para superusers)
+  tenantId String?
+  tenant   tenants? @relation(fields: [tenantId], references: [id])
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  parametros_json Json?
+
+  @@unique([tipo_campo, codigo])
+  @@index([tenantId])
+}
+
+model parametros_relaciones {
+  id          Int     @id @default(autoincrement())
+  campo_padre String
+  campo_hijo  String
+  descripcion String?
+  activo      Boolean @default(true)
+
+  // MULTITENANT: Relación con tenant (opcional para superusers)
+  tenantId String?
+  tenant   tenants? @relation(fields: [tenantId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([campo_padre, campo_hijo, tenantId])
+  @@index([tenantId])
+}
+
+model processing_jobs {
+  id             String    @id
+  type           String
+  status         String
+  progress       Int       @default(0)
+  totalItems     Int?
+  processedItems Int?
+  message        String?
+  userId         String
+  parameters     Json
+  result         Json?
+  error          String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime
+
+  @@index([createdAt])
+  @@index([status])
+  @@index([type])
+  @@index([userId])
+}
+
+model profiles {
+  id          String   @id
+  codigo      String   @unique
+  descripcion String
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  users       users[]
+}
+
+model reglas_ejecuciones {
+  id             String         @id
+  reglaId        String
+  contexto       String
+  entrada        Json
+  salida         Json?
+  exitosa        Boolean
+  mensaje        String?
+  duracionMs     Int?
+  createdAt      DateTime       @default(now())
+  reglas_negocio reglas_negocio @relation(fields: [reglaId], references: [id])
+
+  @@index([contexto])
+  @@index([createdAt])
+  @@index([reglaId])
+}
+
+model reglas_negocio {
+  id            String    @id
+  codigo        String    @unique
+  nombre        String
+  descripcion   String?
+  tipo          String
+  activa        Boolean   @default(true)
+  prioridad     Int       @default(100)
+  version       Int       @default(1)
+  fechaVigencia DateTime?
+  configuracion Json
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdBy     String?
+  updatedBy     String?
+
+  // MULTITENANT: Relación con tenant (opcional para superusers)
+  tenantId String?
+  tenant   tenants? @relation(fields: [tenantId], references: [id])
+
+  reglas_ejecuciones reglas_ejecuciones[]
+
+  @@index([prioridad])
+  @@index([tipo, activa])
+}
+
+model rendicion_tarjeta_cabecera {
+  id            String  @id
+  loteId        String
+  numeroTarjeta String?
+  periodo       String
+  estadoCodigo  String
+  cajaId        String? // Campo para vincular con caja de efectivo
+
+  // MULTITENANT: Relación con tenant
+  tenantId String
+  tenant   tenants @relation(fields: [tenantId], references: [id])
+
+  createdAt               DateTime                        @default(now())
+  updatedAt               DateTime
+  estados                 estados                         @relation(fields: [estadoCodigo], references: [codigo])
+  rendicion_tarjeta_items rendicion_tarjeta_items[]
+  caja                    cajas?                          @relation(fields: [cajaId], references: [id])
+  detalles_movimientos    detalle_movimientos_tesoreria[]
+
+  @@unique([loteId, numeroTarjeta, periodo, tenantId])
+  @@index([tenantId])
+  @@index([cajaId])
+}
+
+model rendicion_tarjeta_detalle {
+  id                String    @id
+  rendicionItemId   String
+  tipoComprobante   String?
+  numeroComprobante String?
+  fechaComprobante  DateTime?
+  proveedorId       String?
+  cuitProveedor     String?
+  tipoProducto      String?
+  netoGravado       Decimal?
+  exento            Decimal?
+  moneda            String?
+  codigoDimension   String?
+  subcuenta         String?
+  observaciones     String?
+  cuentaContable    String?
+  cargaManual       Boolean   @default(false)
+  rechazo           Boolean   @default(false)
+  motivoRechazo     String?
+  patente           String?
+  km                String?
+  tipoOrdenCompra   String?
+  ordenCompra       String?
+
+  // MULTITENANT: Relación con tenant
+  tenantId String
+  tenant   tenants @relation(fields: [tenantId], references: [id])
+
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime
+  codigoProducto          String?
+  rendicion_tarjeta_items rendicion_tarjeta_items @relation(fields: [rendicionItemId], references: [id])
+
+  @@index([tenantId])
+}
+
+model rendicion_tarjeta_items {
+  id                  String    @id
+  rendicionCabeceraId String
+  resumenTarjetaId    String?
+  tipoComprobante     String?
+  numeroComprobante   String?
+  fechaComprobante    DateTime?
+  proveedorId         String?
+  cuitProveedor       String?
+  tipoProducto        String?
+  netoGravado         Decimal?
+  exento              Decimal?
+  importeImpuestos    Decimal?
+  importeTotal        Decimal?
+  moneda              String?
+  codigoDimension     String?
+  subcuenta           String?
+  observaciones       String?
+  cuentaContable      String?
+  cargaManual         Boolean   @default(false)
+  rechazo             Boolean   @default(false)
+  motivoRechazo       String?
+  patente             String?
+  km                  String?
+  tipoOrdenCompra     String?
+  ordenCompra         String?
+  sinComprobante      Boolean   @default(false)
+  // MULTITENANT: Relación con tenant
+  tenantId            String
+  tenant              tenants   @relation(fields: [tenantId], references: [id])
+
+  createdAt                  DateTime                    @default(now())
+  updatedAt                  DateTime
+  codigoProducto             String?
+  documentos_procesados      documentos_procesados[]
+  rendicion_tarjeta_detalle  rendicion_tarjeta_detalle[]
+  documentos_asociados       documentos_asociados[]
+  rendicion_tarjeta_cabecera rendicion_tarjeta_cabecera  @relation(fields: [rendicionCabeceraId], references: [id])
+  resumen_tarjeta            resumen_tarjeta?            @relation(fields: [resumenTarjetaId], references: [id])
+
+  @@index([tenantId])
+}
+
+model resumen_tarjeta {
+  id                              String   @id
+  codigoTarjeta                   String
+  tarjetaId                       String?
+  loteId                          String
+  codigoBanco                     String?
+  codigoEmpresa                   String?
+  codigoPlanta                    String?
+  codigoArea                      String?
+  codigoSector                    String?
+  periodo                         String
+  cartera                         String?
+  tipoTransaccion                 String?
+  codigoSucursal                  String?
+  grupoAfinidad                   String?
+  numeroCuenta                    String?
+  codigoGeograficoUsuario         String?
+  numeroTarjeta                   String?
+  apellidoNombreUsuario           String?
+  fechaTransaccion                String?
+  descripcionCupon                String?
+  restoMensaje                    String?
+  numeroCupon                     String?
+  moneda                          String?
+  importeTransaccion              Decimal?
+  tipoConsumo                     String?
+  localidad                       String?
+  debitoAutomatico                String?
+  movimientoCajero                String?
+  grupoRubro                      String?
+  descripcionRubro                String?
+  codigoGeograficoEstablecimiento String?
+  limiteCompraExcepcion           Decimal?
+  limiteCuotasExcepcion           Decimal?
+  limiteAdelantoExcepcion         Decimal?
+  fechaVigenciaCompra             String?
+  fechaVigenciaAdelanto           String?
+  xxx1                            String?
+  xxx2                            String?
+  cuit                            String?
+  rubroVisa                       String?
+  monedaOrigenDescripcion         String?
+  importeOrigen                   Decimal?
+  campoVacio                      String?
+  fechaImportacion                DateTime @default(now())
+  usuarioImportacion              String?
+  estado                          String   @default("importado")
+
+  // MULTITENANT: Relación con tenant
+  tenantId String
+  tenant   tenants @relation(fields: [tenantId], references: [id])
+
+  documentos_asociados     documentos_asociados[]
+  rendicion_tarjeta_items  rendicion_tarjeta_items[]
+  resumen_tarjeta_concepto resumen_tarjeta_concepto[]
+  banco_tipo_tarjeta       banco_tipo_tarjeta?        @relation(fields: [tarjetaId], references: [id])
+
+  @@index([tenantId])
+}
+
+model tarjetas {
+  id          String
+  codigo      String
+  descripcion String
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+
+  // MULTITENANT: Relación con tenant
+  tenantId String  @default("36f4effe-2097-462e-a161-eda1d23162e3")
+  tenant   tenants @relation(fields: [tenantId], references: [id])
+
+  tipos_tarjeta tipos_tarjeta[]
+
+  @@id([id])
+  @@unique([codigo, tenantId])
+}
+
+model tipos_tarjeta {
+  id          String   @unique
+  codigo      String
+  descripcion String
+  tarjetaId   String
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+
+  // MULTITENANT: Relación con tenant
+  tenantId String  @default("36f4effe-2097-462e-a161-eda1d23162e3")
+  tenant   tenants @relation(fields: [tenantId], references: [id])
+
+  banco_tipo_tarjeta banco_tipo_tarjeta[]
+  tarjetas           tarjetas             @relation(fields: [tarjetaId], references: [id])
+
+  @@id([id, tenantId])
+  @@unique([tarjetaId, codigo, tenantId])
+}
+
+model user_atributos {
+  id               String           @id
+  userId           String
+  valorAtributoId  String
+  activo           Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime
+  users            users            @relation(fields: [userId], references: [id])
+  valores_atributo valores_atributo @relation(fields: [valorAtributoId], references: [id])
+
+  @@unique([userId, valorAtributoId])
+}
+
+model user_tarjetas_credito {
+  id            String   @id
+  userId        String
+  numeroTarjeta String
+  marcaTarjeta  String
+  activo        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime
+  autorizanteId String?
+  codigoExterno String?  @db.VarChar(50)
+
+  // MULTITENANT: Relación con tenant
+  tenantId String
+  tenant   tenants @relation(fields: [tenantId], references: [id])
+
+  delegacion_tarjetas                              delegacion_tarjetas[]
+  users_user_tarjetas_credito_autorizanteIdTousers users?                @relation("user_tarjetas_credito_autorizanteIdTousers", fields: [autorizanteId], references: [id])
+  users_user_tarjetas_credito_userIdTousers        users                 @relation("user_tarjetas_credito_userIdTousers", fields: [userId], references: [id])
+
+  @@unique([userId, numeroTarjeta])
+  @@index([tenantId])
+}
+
+model users {
+  id        String  @id @default(cuid())
+  email     String  @unique
+  password  String?
+  nombre    String
+  apellido  String
+  activo    Boolean @default(true)
+  profileId String?
+
+  // MULTITENANT: Relación con tenant
+  tenantId String?
+  tenant   tenants? @relation(fields: [tenantId], references: [id])
+
+  // SUPERUSER: Can access multiple tenants and admin functions
+  superuser Boolean @default(false)
+
+  // EMAIL VERIFICATION: Campos para verificación de email
+  emailVerified       Boolean   @default(false)
+  verificationToken   String?
+  verificationExpires DateTime?
+
+  // EMAIL NOTIFICATIONS: Preferencia de notificaciones por email
+  recibeNotificacionesEmail Boolean @default(false)
+
+  // TESORERÍA: Flag para permisos de tesorería
+  esUsuarioTesoreria Boolean @default(false)
+
+  // GOOGLE OAUTH: ID de Google para autenticación OAuth
+  googleId String? @unique
+
+  createdAt                                                        DateTime                @default(now())
+  updatedAt                                                        DateTime                @updatedAt
+  delegacion_tarjetas                                              delegacion_tarjetas[]
+  documentos_procesados                                            documentos_procesados[]
+  user_atributos                                                   user_atributos[]
+  user_cajas                                                       user_cajas[]
+  user_tarjetas_credito_user_tarjetas_credito_autorizanteIdTousers user_tarjetas_credito[] @relation("user_tarjetas_credito_autorizanteIdTousers")
+  user_tarjetas_credito_user_tarjetas_credito_userIdTousers        user_tarjetas_credito[] @relation("user_tarjetas_credito_userIdTousers")
+  profiles                                                         profiles?               @relation(fields: [profileId], references: [id])
+  usuario_autorizantes_usuario_autorizantes_autorizanteIdTousers   usuario_autorizantes[]  @relation("usuario_autorizantes_autorizanteIdTousers")
+  usuario_autorizantes_usuario_autorizantes_usuarioIdTousers       usuario_autorizantes[]  @relation("usuario_autorizantes_usuarioIdTousers")
+  movimientos_solicitados                                          movimientos_tesoreria[] @relation("MovimientosSolicitante")
+  movimientos_autorizados                                          movimientos_tesoreria[] @relation("MovimientosAutorizante")
+  movimientos_procesados                                           movimientos_tesoreria[] @relation("MovimientosProcesado")
+
+  @@index([tenantId])
+}
+
+model usuario_autorizantes {
+  id                                              String   @id
+  usuarioId                                       String
+  autorizanteId                                   String
+  activo                                          Boolean  @default(true)
+  createdAt                                       DateTime @default(now())
+  updatedAt                                       DateTime
+  users_usuario_autorizantes_autorizanteIdTousers users    @relation("usuario_autorizantes_autorizanteIdTousers", fields: [autorizanteId], references: [id])
+  users_usuario_autorizantes_usuarioIdTousers     users    @relation("usuario_autorizantes_usuarioIdTousers", fields: [usuarioId], references: [id])
+
+  @@unique([usuarioId, autorizanteId])
+}
+
+model valores_atributo {
+  id             String           @id @default(cuid())
+  codigo         String
+  descripcion    String
+  atributoId     String
+  activo         Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  user_atributos user_atributos[]
+  atributos      atributos        @relation(fields: [atributoId], references: [id])
+
+  @@unique([atributoId, codigo])
+}
+
+// ============================================
+// MULTITENANT MODELS
+// ============================================
+
+model tenants {
+  id               String    @id @default(uuid())
+  slug             String    @unique
+  nombre           String
+  cuit             String    @unique
+  razonSocial      String?
+  direccion        String?
+  telefono         String?
+  email            String?
+  plan             String    @default("Common") // Common, Uncommon, Rare, Mythic (deprecated - usar planId)
+  planId           String?   // Relación con tabla planes
+  activo           Boolean   @default(true)
+  esDefault        Boolean   @default(false) // Tenant por defecto para nuevos registros
+  fechaCreacion    DateTime  @default(now())
+  fechaVencimiento DateTime?
+
+  // Configuración específica del tenant (JSON)
+  configuracion Json @default("{}")
+
+  // Límites del plan (JSON)
+  limites Json @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  users                      users[]
+  documentos_procesados      documentos_procesados[]
+  resumen_tarjeta            resumen_tarjeta[]
+  rendicion_tarjeta_items    rendicion_tarjeta_items[]
+  rendicion_tarjeta_cabecera rendicion_tarjeta_cabecera[]
+  rendicion_tarjeta_detalle  rendicion_tarjeta_detalle[]
+  user_tarjetas_credito      user_tarjetas_credito[]
+  delegacion_tarjetas        delegacion_tarjetas[]
+  parametros_maestros        parametros_maestros[]
+  parametros_relaciones      parametros_relaciones[]
+  atributos                  atributos[]
+  reglas_negocio             reglas_negocio[]
+  cajas                      cajas[]
+  tarjetas                   tarjetas[]
+  tipos_tarjeta              tipos_tarjeta[]
+  movimientos_tesoreria      movimientos_tesoreria[]
+  saldos_cajas               saldos_cajas[]
+  resumen_tarjeta_concepto   resumen_tarjeta_concepto[]
+  sync_configurations        sync_configurations?
+  sync_logs                  sync_logs[]
+  sync_api_keys              sync_api_keys[]
+  ai_prompts                 ai_prompts[]
+  documento_lineas           documento_lineas[]
+  documento_impuestos        documento_impuestos[]
+
+  // Nuevas relaciones para sistema de planes
+  plan_relation              planes?               @relation(fields: [planId], references: [id])
+  ai_provider_configs        ai_provider_configs[]
+  menu_items                 menu_items[]
+
+  @@index([slug])
+  @@index([cuit])
+  @@index([activo])
+  @@index([planId])
+}
+
+// ============================================
+// MONEDAS Y CAJAS
+// ============================================
+
+model monedas {
+  id        String   @id @default(cuid())
+  codigo    String   @unique
+  nombre    String
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  cajas                 cajas[]
+  movimientos_tesoreria movimientos_tesoreria[]
+}
+
+model cajas {
+  id          String   @id @default(cuid())
+  codigo      String
+  nombre      String
+  descripcion String?
+  fondoFijo   Boolean  @default(false)
+  limite      Decimal?
+  monedaId    String
+  activo      Boolean  @default(true)
+  color       String   @default("#FCE5B7")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // MULTITENANT: Relación con tenant
+  tenantId String?
+  tenant   tenants? @relation(fields: [tenantId], references: [id])
+
+  // Relaciones
+  moneda                     monedas                      @relation(fields: [monedaId], references: [id])
+  user_cajas                 user_cajas[]
+  documentos_procesados      documentos_procesados[]
+  rendicion_tarjeta_cabecera rendicion_tarjeta_cabecera[]
+  movimientos_origen         movimientos_tesoreria[]      @relation("MovimientosCajaOrigen")
+  movimientos_destino        movimientos_tesoreria[]      @relation("MovimientosCajaDestino")
+  saldos_cajas               saldos_cajas[]
+
+  @@unique([codigo, tenantId])
+  @@index([tenantId])
+}
+
+model user_cajas {
+  id        String   @id @default(cuid())
+  userId    String
+  cajaId    String
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  user users @relation(fields: [userId], references: [id])
+  caja cajas @relation(fields: [cajaId], references: [id])
+
+  @@unique([userId, cajaId])
+  @@index([userId])
+  @@index([cajaId])
+}
+
+// ============================================
+// TESORERÍA - MODELOS PARA GESTIÓN DE ADELANTOS Y MOVIMIENTOS
+// ============================================
+
+model movimientos_tesoreria {
+  id      String   @id @default(cuid())
+  numero  String // Número secuencial por tenant
+  fecha   DateTime @default(now())
+  tipo    String // 'adelanto', 'ingreso', 'egreso', 'transferencia', 'liquidacion', 'devolucion'
+  subtipo String? // Para liquidaciones: 'tarjeta', 'efectivo', 'fondo_fijo'
+
+  // Cajas involucradas
+  cajaOrigenId  String? // Para transferencias y egresos
+  cajaDestinoId String? // Para transferencias e ingresos
+
+  // Montos
+  monedaId String
+  importe  Decimal
+
+  // Estados del proceso
+  estado String @default("solicitado") // 'solicitado', 'autorizado', 'procesado', 'rechazado', 'cancelado'
+
+  // Usuarios involucrados
+  solicitanteId  String // Usuario que solicita
+  autorizanteId  String? // Usuario que autoriza
+  procesadoPorId String? // Usuario de administración que procesa
+
+  // Fechas del proceso
+  fechaSolicitud    DateTime  @default(now())
+  fechaAutorizacion DateTime?
+  fechaProceso      DateTime?
+
+  // Información adicional
+  concepto                  String
+  observaciones             String?
+  observacionesAutorizacion String? // Observaciones del autorizante
+  observacionesProceso      String? // Observaciones del procesamiento
+  referencia                String? // Para referencias externas (ej: número de liquidación)
+
+  // Relación con lote de resumen (para pagos de liquidación de lote)
+  loteId String? // ID del lote liquidado
+
+  // Relación con tarjetas (para adelantos/egresos de tarjetas)
+  bancoTipoTarjetaId String? // ID de banco_tipo_tarjeta para vincular con tipo de tarjeta
+  periodoTarjeta     String? // Periodo de la tarjeta (ej: "202401")
+
+  // Multitenant
+  tenantId String
+  tenant   tenants @relation(fields: [tenantId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  cajaOrigen       cajas?              @relation("MovimientosCajaOrigen", fields: [cajaOrigenId], references: [id])
+  cajaDestino      cajas?              @relation("MovimientosCajaDestino", fields: [cajaDestinoId], references: [id])
+  moneda           monedas             @relation(fields: [monedaId], references: [id])
+  solicitante      users               @relation("MovimientosSolicitante", fields: [solicitanteId], references: [id])
+  autorizante      users?              @relation("MovimientosAutorizante", fields: [autorizanteId], references: [id])
+  procesadoPor     users?              @relation("MovimientosProcesado", fields: [procesadoPorId], references: [id])
+  bancoTipoTarjeta banco_tipo_tarjeta? @relation(fields: [bancoTipoTarjetaId], references: [id])
+
+  // Detalle de movimientos relacionados
+  detalles detalle_movimientos_tesoreria[]
+  saldos   saldos_cajas[]
+
+  @@unique([numero, tenantId])
+  @@index([tenantId, fecha])
+  @@index([estado])
+  @@index([tipo])
+  @@index([solicitanteId])
+  @@index([autorizanteId])
+}
+
+model detalle_movimientos_tesoreria {
+  id           String @id @default(cuid())
+  movimientoId String
+
+  // Referencias a otros módulos
+  rendicionCabeceraId String? // Para liquidaciones de rendiciones (tarjeta y efectivo)
+
+  // Detalles del item
+  concepto      String
+  importe       Decimal
+  observaciones String?
+
+  createdAt DateTime @default(now())
+
+  // Relaciones
+  movimiento        movimientos_tesoreria       @relation(fields: [movimientoId], references: [id], onDelete: Cascade)
+  rendicionCabecera rendicion_tarjeta_cabecera? @relation(fields: [rendicionCabeceraId], references: [id])
+
+  @@index([movimientoId])
+}
+
+model saldos_cajas {
+  id            String   @id @default(cuid())
+  cajaId        String
+  fecha         DateTime @default(now())
+  saldoAnterior Decimal
+  movimiento    Decimal // +/- del movimiento
+  saldoNuevo    Decimal
+  movimientoId  String // Referencia al movimiento que generó este saldo
+
+  // Multitenant
+  tenantId String
+  tenant   tenants @relation(fields: [tenantId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  // Relaciones
+  caja                cajas                 @relation(fields: [cajaId], references: [id])
+  movimientoTesoreria movimientos_tesoreria @relation(fields: [movimientoId], references: [id])
+
+  @@index([cajaId, fecha])
+  @@index([tenantId])
+}
+
+model resumen_tarjeta_concepto {
+  id          String   @id @default(cuid())
+  resumenId   String? // Opcional: para conceptos de resumen individual
+  loteId      String // Requerido: lote al que pertenece el concepto
+  concepto    String
+  descripcion String?
+  importe     Decimal
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // MULTITENANT: Relación con tenant
+  tenantId String
+  tenant   tenants @relation(fields: [tenantId], references: [id])
+
+  // Relaciones
+  resumen resumen_tarjeta? @relation(fields: [resumenId], references: [id])
+
+  @@index([resumenId])
+  @@index([loteId])
+  @@index([tenantId])
+}
+
+// ============================================
+// SINCRONIZACIÓN CON SQL SERVER
+// ============================================
+
+model sync_configurations {
+  id String @id @default(cuid())
+
+  // MULTITENANT: Relación con tenant
+  tenantId String  @unique
+  tenant   tenants @relation(fields: [tenantId], references: [id])
+
+  // Conexión SQL Server del cliente
+  sqlServerHost     String
+  sqlServerPort     Int    @default(1433)
+  sqlServerDatabase String
+  sqlServerUser     String
+  sqlServerPassword String // Encriptado en BD
+
+  // Configuración de tablas (JSON con estructura de ETL de 3 fases)
+  configuracionTablas Json // { tablasSubida: [...], tablasBajada: [...] }
+
+  // Control de versión
+  version            Int      @default(1)
+  ultimaModificacion DateTime @updatedAt
+
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  sync_logs sync_logs[]
+
+  @@index([tenantId])
+  @@index([activo])
+}
+
+model sync_logs {
+  id String @id @default(cuid())
+
+  // MULTITENANT: Relación con tenant
+  tenantId String
+  tenant   tenants @relation(fields: [tenantId], references: [id])
+
+  // Relación con configuración
+  configId String?
+  config   sync_configurations? @relation(fields: [configId], references: [id])
+
+  // Información del proceso
+  direccion   String // 'upload' | 'download'
+  tabla       String // Nombre de tabla/vista procesada
+  fase        String? // 'pre_process' | 'process' | 'post_process'
+  ejecutadoEn String? // 'origen' | 'destino'
+
+  // Resultado
+  estado             String // 'exitoso' | 'error' | 'parcial'
+  registrosAfectados Int?
+  mensaje            String? @db.Text
+  errorDetalle       String? @db.Text
+
+  // Performance
+  duracionMs Int?
+
+  // Metadata adicional (JSON)
+  metadatos Json?
+
+  // Timestamps
+  fechaInicio DateTime
+  fechaFin    DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([estado])
+  @@index([tabla])
+  @@index([configId])
+}
+
+model sync_api_keys {
+  id String @id @default(cuid())
+
+  // MULTITENANT: Relación con tenant
+  tenantId String
+  tenant   tenants @relation(fields: [tenantId], references: [id])
+
+  // API Key
+  nombre      String // Nombre descriptivo (ej: "Servidor Producción", "Servidor Test")
+  key         String @unique // Hash de la API key
+  keyPreview  String // Primeros y últimos 4 caracteres para mostrar (ej: "sk_1234...7890")
+
+  // Permisos
+  permisos Json @default("{}") // { "sync": true, "logs": true, "admin": false }
+
+  // Estado
+  activo        Boolean   @default(true)
+  ultimoUso     DateTime?
+  ultimoUsoIp   String?
+  vecesUtilizada Int      @default(0)
+
+  // Expiración
+  expiraEn DateTime?
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String? // ID del usuario que creó la key
+
+  @@index([tenantId])
+  @@index([key])
+  @@index([activo])
+}
+
+// ============================================
+// AI PROMPTS - GESTIÓN DE PROMPTS EDITABLES
+// ============================================
+
+model ai_prompts {
+  id          String   @id @default(cuid())
+  clave       String   // Clave única para identificar el prompt (ej: "EXTRACCION_FACTURA")
+  nombre      String   // Nombre descriptivo
+  descripcion String?  @db.Text // Descripción del propósito del prompt
+  prompt      String   @db.Text // El prompt completo
+  variables   Json?    // Variables disponibles/esperadas: {campo1: "descripcion", campo2: "descripcion"}
+  activo      Boolean  @default(true)
+  version     Int      @default(1)
+
+  // Motor de IA al que aplica (opcional)
+  motor       String?  // "gemini", "openai", "ollama", "document-ai", null = todos
+
+  // Tipo de prompt para pipeline
+  tipo        String?  @default("EXTRACTOR_SIMPLE") // "CLASIFICADOR", "EXTRACTOR_ESPECIALIZADO", "EXTRACTOR_SIMPLE"
+
+  // Métricas de uso
+  vecesUsado  Int      @default(0)
+  ultimoUso   DateTime?
+  tasaExito   Decimal? // Porcentaje de éxito (0-100)
+
+  // MULTITENANT: Prompts personalizados por tenant (null = global)
+  tenantId    String?
+  tenant      tenants? @relation(fields: [tenantId], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String?  // ID del usuario que lo creó
+  updatedBy   String?  // ID del último usuario que lo modificó
+
+  // Permite una clave única global (tenantId=null) + una clave única por tenant
+  @@unique([clave, tenantId])
+  @@index([clave])
+  @@index([tenantId])
+  @@index([activo])
+  @@index([motor])
+  @@index([tipo])
+}
+
+// ============================================
+// SISTEMA DE PLANES Y FEATURES
+// ============================================
+
+model planes {
+  id          String   @id @default(cuid())
+  codigo      String   @unique // "Common", "Uncommon", "Rare", "Mythic"
+  nombre      String   // "Plan Common", "Plan Uncommon", etc.
+  descripcion String?  @db.Text
+  precio      Decimal? @db.Decimal(10, 2)
+  activo      Boolean  @default(true)
+  orden       Int      @default(0) // Para ordenar en UI
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relaciones
+  features    plan_features[]
+  tenants     tenants[]
+
+  @@index([codigo])
+  @@index([activo])
+}
+
+model plan_features {
+  id        String   @id @default(cuid())
+  planId    String
+  feature   String   // "AI_PIPELINE_EXTRACTION", "AI_SIMPLE_EXTRACTION", etc.
+  config    Json?    // Configuración específica del feature
+  createdAt DateTime @default(now())
+
+  // Relaciones
+  plan      planes   @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, feature])
+  @@index([planId])
+  @@index([feature])
+}
+
+// ============================================
+// CONFIGURACIÓN DE IA POR TENANT
+// ============================================
+
+model ai_provider_configs {
+  id                String   @id @default(cuid())
+  tenantId          String?  // null = configuración global del sistema
+  provider          String   // "gemini", "anthropic", "openai", "google-document-ai"
+  apiKeyEncrypted   String?  @db.Text // API key cifrada (solo si tenant tiene BYO)
+  modelo            String?  // Modelo específico a usar
+  maxRequestsPerDay Int?     // Límite de requests diarios
+  config            Json?    // Configuraciones adicionales
+  activo            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relaciones
+  tenant            tenants? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, provider])
+  @@index([tenantId])
+  @@index([provider])
+  @@index([activo])
+}
+
+// ============================================
+// SISTEMA DE MENÚ DINÁMICO
+// ============================================
+
+model menu_items {
+  id             String   @id @default(cuid())
+  parentId       String?  // null = nivel 1, ID del padre = nivel 2
+  title          String   @db.VarChar(100)
+  icon           String   @db.VarChar(50) // Nombre del ícono de lucide-react (ej: "Home", "FileText")
+  url            String?  @db.VarChar(255) // Ruta frontend (/dashboard, null si solo es contenedor)
+  description    String?  @db.VarChar(500)
+  orderIndex     Int      @default(0) // Para ordenar items
+  isActive       Boolean  @default(true)
+  requiresPermission String? @db.VarChar(100) // Opcional: para control de acceso
+  superuserOnly  Boolean  @default(false) // true = solo visible para superusuarios
+
+  // MULTITENANT: null = menú global, ID = menú personalizado por tenant
+  tenantId       String?
+  tenant         tenants? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  createdBy      String?  // ID del usuario que lo creó
+  updatedBy      String?  // ID del último usuario que lo modificó
+
+  // Relaciones jerárquicas
+  parent         menu_items?  @relation("MenuHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children       menu_items[] @relation("MenuHierarchy")
+
+  @@index([parentId])
+  @@index([tenantId])
+  @@index([isActive])
+  @@index([orderIndex])
+  @@index([superuserOnly])
+}

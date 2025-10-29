@@ -1,0 +1,27 @@
+SISTEMA DE RENDICIONES DE TARJETAS DE CRÉDITO
+==============================================
+
+PROPIETARIOS DEL PRODUCTO:
+--------------------------
+Martín Fourgeaux
+Rodrigo Narajo
+Socios de AXIOMA
+
+COPYRIGHT NOTICE:
+-----------------
+Copyright (c) 2025 Axioma
+Martín Fourgeaux y Rodrigo Narajo
+
+Todos los derechos reservados.
+
+Este software y toda la documentación asociada son propiedad
+exclusiva de Axioma, representada por sus socios
+Martín Fourgeaux y Rodrigo Narajo.
+
+Queda prohibida la reproducción, distribución, modificación
+o uso comercial sin autorización expresa de los propietarios.
+
+CONTACTO:
+---------
+Para consultas sobre licencias: contactar a los propietarios
+Fecha: 20 de Septiembre de 2025

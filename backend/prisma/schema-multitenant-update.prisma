@@ -1,0 +1,38 @@
+// INSTRUCCIONES PARA AGREGAR TENANT A MODELOS
+// Agregar estas líneas a cada modelo que necesite ser filtrado por tenant:
+
+// Para ResumenTarjeta:
+  tenantId                String
+  tenant                  Tenant                 @relation(fields: [tenantId], references: [id])
+
+// Para RendicionTarjetaCabecera:
+  tenantId                String
+  tenant                  Tenant                 @relation(fields: [tenantId], references: [id])
+
+// Para RendicionTarjetaItem:
+  tenantId                String
+  tenant                  Tenant                 @relation(fields: [tenantId], references: [id])
+
+// Para RendicionTarjetaDetalle:
+  tenantId                String
+  tenant                  Tenant                 @relation(fields: [tenantId], references: [id])
+
+// Para DocumentoProcesado:
+  tenantId                String
+  tenant                  Tenant                 @relation(fields: [tenantId], references: [id])
+
+// Para ParametroMaestro:
+  tenantId                String
+  tenant                  Tenant                 @relation(fields: [tenantId], references: [id])
+
+// Para ParametroRelacion:
+  tenantId                String
+  tenant                  Tenant                 @relation(fields: [tenantId], references: [id])
+
+// Para UserTarjetaCredito:
+  tenantId                String
+  tenant                  Tenant                 @relation(fields: [tenantId], references: [id])
+
+// Para DelegacionTarjeta:
+  tenantId                String
+  tenant                  Tenant                 @relation(fields: [tenantId], references: [id])

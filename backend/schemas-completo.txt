@@ -1,0 +1,3457 @@
+
+====================================================================================================
+LISTADO COMPLETO DE TABLAS EN POSTGRESQL
+====================================================================================================
+
+📊 Total de tablas encontradas: 35
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: atributos
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 7
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      codigo                     text                     NVARCHAR(MAX)            NO
+      descripcion                text                     NVARCHAR(MAX)            NO
+      activo                     boolean                  BIT                      NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+      tenantId                   text                     NVARCHAR(MAX)            YES
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "codigo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "descripcion",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "activo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "tenantId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: banco_tipo_tarjeta
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 6
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      bancoId                    text                     NVARCHAR(MAX)            NO
+      tipoTarjetaId              text                     NVARCHAR(MAX)            NO
+      activo                     boolean                  BIT                      NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "bancoId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "tipoTarjetaId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "activo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: bancos
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 6
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      codigo                     text                     NVARCHAR(MAX)            NO
+      descripcion                text                     NVARCHAR(MAX)            NO
+      activo                     boolean                  BIT                      NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "codigo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "descripcion",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "activo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: cajas
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 12
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      codigo                     text                     NVARCHAR(MAX)            NO
+      nombre                     text                     NVARCHAR(MAX)            NO
+      descripcion                text                     NVARCHAR(MAX)            YES
+      fondoFijo                  boolean                  BIT                      NO
+      limite                     numeric                  DECIMAL(65, 30)          YES
+      monedaId                   text                     NVARCHAR(MAX)            NO
+      activo                     boolean                  BIT                      NO
+      color                      text                     NVARCHAR(MAX)            NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+      tenantId                   text                     NVARCHAR(MAX)            YES
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "codigo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "nombre",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "descripcion",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "fondoFijo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "limite",
+         "type": "DECIMAL(65, 30)",
+         "nullable": true
+       },
+       {
+         "name": "monedaId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "activo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "color",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "tenantId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: delegacion_tarjetas
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 7
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      usuarioId                  text                     NVARCHAR(MAX)            NO
+      tarjetaCreditoId           text                     NVARCHAR(MAX)            NO
+      activo                     boolean                  BIT                      NO
+      tenantId                   text                     NVARCHAR(MAX)            YES
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "usuarioId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "tarjetaCreditoId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "activo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "tenantId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: detalle_movimientos_tesoreria
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 7
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      movimientoId               text                     NVARCHAR(MAX)            NO
+      rendicionCabeceraId        text                     NVARCHAR(MAX)            YES
+      concepto                   text                     NVARCHAR(MAX)            NO
+      importe                    numeric                  DECIMAL(65, 30)          NO
+      observaciones              text                     NVARCHAR(MAX)            YES
+      createdAt                  timestamp without time zoneDATETIME2                NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "movimientoId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "rendicionCabeceraId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "concepto",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "importe",
+         "type": "DECIMAL(65, 30)",
+         "nullable": false
+       },
+       {
+         "name": "observaciones",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: documentos_asociados
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 9
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      documentoProcesadoId       text                     NVARCHAR(MAX)            NO
+      resumenTarjetaId           text                     NVARCHAR(MAX)            YES
+      rendicionItemId            text                     NVARCHAR(MAX)            YES
+      fechaAsociacion            timestamp without time zoneDATETIME2                NO
+      usuarioAsociacion          text                     NVARCHAR(MAX)            NO
+      observaciones              text                     NVARCHAR(MAX)            YES
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "documentoProcesadoId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "resumenTarjetaId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "rendicionItemId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "fechaAsociacion",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "usuarioAsociacion",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "observaciones",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: documentos_procesados
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 27
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      rendicionItemId            text                     NVARCHAR(MAX)            YES
+      cajaId                     text                     NVARCHAR(MAX)            YES
+      nombreArchivo              text                     NVARCHAR(MAX)            NO
+      tipoArchivo                text                     NVARCHAR(MAX)            NO
+      rutaArchivo                text                     NVARCHAR(MAX)            NO
+      fechaProcesamiento         timestamp without time zoneDATETIME2                NO
+      estadoProcesamiento        text                     NVARCHAR(MAX)            NO
+      datosExtraidos             jsonb                    NVARCHAR(MAX)            YES
+      fechaExtraida              timestamp without time zoneDATETIME2                YES
+      importeExtraido            numeric                  DECIMAL(65, 30)          YES
+      cuitExtraido               text                     NVARCHAR(MAX)            YES
+      numeroComprobanteExtraido  text                     NVARCHAR(MAX)            YES
+      observaciones              text                     NVARCHAR(MAX)            YES
+      usuarioId                  text                     NVARCHAR(MAX)            NO
+      tipo                       text                     NVARCHAR(MAX)            NO
+      tenantId                   text                     NVARCHAR(MAX)            NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+      caeExtraido                text                     NVARCHAR(MAX)            YES
+      cuponExtraido              text                     NVARCHAR(MAX)            YES
+      exentoExtraido             numeric                  DECIMAL(65, 30)          YES
+      netoGravadoExtraido        numeric                  DECIMAL(65, 30)          YES
+      impuestosExtraido          numeric                  DECIMAL(65, 30)          YES
+      razonSocialExtraida        text                     NVARCHAR(MAX)            YES
+      tipoComprobanteExtraido    text                     NVARCHAR(MAX)            YES
+      modeloIA                   text                     NVARCHAR(MAX)            YES
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "rendicionItemId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "cajaId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "nombreArchivo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "tipoArchivo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "rutaArchivo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "fechaProcesamiento",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "estadoProcesamiento",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "datosExtraidos",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "fechaExtraida",
+         "type": "DATETIME2",
+         "nullable": true
+       },
+       {
+         "name": "importeExtraido",
+         "type": "DECIMAL(65, 30)",
+         "nullable": true
+       },
+       {
+         "name": "cuitExtraido",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "numeroComprobanteExtraido",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "observaciones",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "usuarioId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "tipo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "tenantId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "caeExtraido",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "cuponExtraido",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "exentoExtraido",
+         "type": "DECIMAL(65, 30)",
+         "nullable": true
+       },
+       {
+         "name": "netoGravadoExtraido",
+         "type": "DECIMAL(65, 30)",
+         "nullable": true
+       },
+       {
+         "name": "impuestosExtraido",
+         "type": "DECIMAL(65, 30)",
+         "nullable": true
+       },
+       {
+         "name": "razonSocialExtraida",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "tipoComprobanteExtraido",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "modeloIA",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: estados
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 7
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      codigo                     text                     NVARCHAR(MAX)            NO
+      descripcion                text                     NVARCHAR(MAX)            NO
+      activo                     boolean                  BIT                      NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+      color                      text                     NVARCHAR(MAX)            NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "codigo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "descripcion",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "activo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "color",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: monedas
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 6
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      codigo                     text                     NVARCHAR(MAX)            NO
+      nombre                     text                     NVARCHAR(MAX)            NO
+      activo                     boolean                  BIT                      NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "codigo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "nombre",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "activo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: movimientos_tesoreria
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 27
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      numero                     text                     NVARCHAR(MAX)            NO
+      fecha                      timestamp without time zoneDATETIME2                NO
+      tipo                       text                     NVARCHAR(MAX)            NO
+      subtipo                    text                     NVARCHAR(MAX)            YES
+      cajaOrigenId               text                     NVARCHAR(MAX)            YES
+      cajaDestinoId              text                     NVARCHAR(MAX)            YES
+      monedaId                   text                     NVARCHAR(MAX)            NO
+      importe                    numeric                  DECIMAL(65, 30)          NO
+      estado                     text                     NVARCHAR(MAX)            NO
+      solicitanteId              text                     NVARCHAR(MAX)            NO
+      autorizanteId              text                     NVARCHAR(MAX)            YES
+      procesadoPorId             text                     NVARCHAR(MAX)            YES
+      fechaSolicitud             timestamp without time zoneDATETIME2                NO
+      fechaAutorizacion          timestamp without time zoneDATETIME2                YES
+      fechaProceso               timestamp without time zoneDATETIME2                YES
+      concepto                   text                     NVARCHAR(MAX)            NO
+      observaciones              text                     NVARCHAR(MAX)            YES
+      observacionesAutorizacion  text                     NVARCHAR(MAX)            YES
+      observacionesProceso       text                     NVARCHAR(MAX)            YES
+      referencia                 text                     NVARCHAR(MAX)            YES
+      tenantId                   text                     NVARCHAR(MAX)            NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+      loteId                     text                     NVARCHAR(MAX)            YES
+      bancoTipoTarjetaId         text                     NVARCHAR(MAX)            YES
+      periodoTarjeta             text                     NVARCHAR(MAX)            YES
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "numero",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "fecha",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "tipo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "subtipo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "cajaOrigenId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "cajaDestinoId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "monedaId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "importe",
+         "type": "DECIMAL(65, 30)",
+         "nullable": false
+       },
+       {
+         "name": "estado",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "solicitanteId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "autorizanteId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "procesadoPorId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "fechaSolicitud",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "fechaAutorizacion",
+         "type": "DATETIME2",
+         "nullable": true
+       },
+       {
+         "name": "fechaProceso",
+         "type": "DATETIME2",
+         "nullable": true
+       },
+       {
+         "name": "concepto",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "observaciones",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "observacionesAutorizacion",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "observacionesProceso",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "referencia",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "tenantId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "loteId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "bancoTipoTarjetaId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "periodoTarjeta",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: parametros_maestros
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 12
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         integer                  INT                      NO
+      codigo                     text                     NVARCHAR(MAX)            NO
+      nombre                     text                     NVARCHAR(MAX)            NO
+      descripcion                text                     NVARCHAR(MAX)            YES
+      tipo_campo                 text                     NVARCHAR(MAX)            NO
+      valor_padre                text                     NVARCHAR(MAX)            YES
+      orden                      integer                  INT                      NO
+      activo                     boolean                  BIT                      NO
+      tenantId                   text                     NVARCHAR(MAX)            YES
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+      parametros_json            jsonb                    NVARCHAR(MAX)            YES
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "INT",
+         "nullable": false
+       },
+       {
+         "name": "codigo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "nombre",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "descripcion",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "tipo_campo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "valor_padre",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "orden",
+         "type": "INT",
+         "nullable": false
+       },
+       {
+         "name": "activo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "tenantId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "parametros_json",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: parametros_relaciones
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 8
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         integer                  INT                      NO
+      campo_padre                text                     NVARCHAR(MAX)            NO
+      campo_hijo                 text                     NVARCHAR(MAX)            NO
+      descripcion                text                     NVARCHAR(MAX)            YES
+      activo                     boolean                  BIT                      NO
+      tenantId                   text                     NVARCHAR(MAX)            YES
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "INT",
+         "nullable": false
+       },
+       {
+         "name": "campo_padre",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "campo_hijo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "descripcion",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "activo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "tenantId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: processing_jobs
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 15
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      type                       text                     NVARCHAR(MAX)            NO
+      status                     text                     NVARCHAR(MAX)            NO
+      progress                   integer                  INT                      NO
+      totalItems                 integer                  INT                      YES
+      processedItems             integer                  INT                      YES
+      message                    text                     NVARCHAR(MAX)            YES
+      userId                     text                     NVARCHAR(MAX)            NO
+      parameters                 jsonb                    NVARCHAR(MAX)            NO
+      result                     jsonb                    NVARCHAR(MAX)            YES
+      error                      text                     NVARCHAR(MAX)            YES
+      startedAt                  timestamp without time zoneDATETIME2                YES
+      completedAt                timestamp without time zoneDATETIME2                YES
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "type",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "status",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "progress",
+         "type": "INT",
+         "nullable": false
+       },
+       {
+         "name": "totalItems",
+         "type": "INT",
+         "nullable": true
+       },
+       {
+         "name": "processedItems",
+         "type": "INT",
+         "nullable": true
+       },
+       {
+         "name": "message",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "userId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "parameters",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "result",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "error",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "startedAt",
+         "type": "DATETIME2",
+         "nullable": true
+       },
+       {
+         "name": "completedAt",
+         "type": "DATETIME2",
+         "nullable": true
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: profiles
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 6
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      codigo                     text                     NVARCHAR(MAX)            NO
+      descripcion                text                     NVARCHAR(MAX)            NO
+      activo                     boolean                  BIT                      NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "codigo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "descripcion",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "activo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: reglas_ejecuciones
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 9
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      reglaId                    text                     NVARCHAR(MAX)            NO
+      contexto                   text                     NVARCHAR(MAX)            NO
+      entrada                    jsonb                    NVARCHAR(MAX)            NO
+      salida                     jsonb                    NVARCHAR(MAX)            YES
+      exitosa                    boolean                  BIT                      NO
+      mensaje                    text                     NVARCHAR(MAX)            YES
+      duracionMs                 integer                  INT                      YES
+      createdAt                  timestamp without time zoneDATETIME2                NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "reglaId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "contexto",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "entrada",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "salida",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "exitosa",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "mensaje",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "duracionMs",
+         "type": "INT",
+         "nullable": true
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: reglas_negocio
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 15
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      codigo                     text                     NVARCHAR(MAX)            NO
+      nombre                     text                     NVARCHAR(MAX)            NO
+      descripcion                text                     NVARCHAR(MAX)            YES
+      tipo                       text                     NVARCHAR(MAX)            NO
+      activa                     boolean                  BIT                      NO
+      prioridad                  integer                  INT                      NO
+      version                    integer                  INT                      NO
+      fechaVigencia              timestamp without time zoneDATETIME2                YES
+      configuracion              jsonb                    NVARCHAR(MAX)            NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+      createdBy                  text                     NVARCHAR(MAX)            YES
+      updatedBy                  text                     NVARCHAR(MAX)            YES
+      tenantId                   text                     NVARCHAR(MAX)            YES
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "codigo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "nombre",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "descripcion",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "tipo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "activa",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "prioridad",
+         "type": "INT",
+         "nullable": false
+       },
+       {
+         "name": "version",
+         "type": "INT",
+         "nullable": false
+       },
+       {
+         "name": "fechaVigencia",
+         "type": "DATETIME2",
+         "nullable": true
+       },
+       {
+         "name": "configuracion",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "createdBy",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "updatedBy",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "tenantId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: rendicion_tarjeta_cabecera
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 9
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      loteId                     text                     NVARCHAR(MAX)            NO
+      numeroTarjeta              text                     NVARCHAR(MAX)            YES
+      periodo                    text                     NVARCHAR(MAX)            NO
+      estadoCodigo               text                     NVARCHAR(MAX)            NO
+      cajaId                     text                     NVARCHAR(MAX)            YES
+      tenantId                   text                     NVARCHAR(MAX)            NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "loteId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "numeroTarjeta",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "periodo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "estadoCodigo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "cajaId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "tenantId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: rendicion_tarjeta_detalle
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 26
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      rendicionItemId            text                     NVARCHAR(MAX)            NO
+      tipoComprobante            text                     NVARCHAR(MAX)            YES
+      numeroComprobante          text                     NVARCHAR(MAX)            YES
+      fechaComprobante           timestamp without time zoneDATETIME2                YES
+      proveedorId                text                     NVARCHAR(MAX)            YES
+      cuitProveedor              text                     NVARCHAR(MAX)            YES
+      tipoProducto               text                     NVARCHAR(MAX)            YES
+      netoGravado                numeric                  DECIMAL(65, 30)          YES
+      exento                     numeric                  DECIMAL(65, 30)          YES
+      moneda                     text                     NVARCHAR(MAX)            YES
+      codigoDimension            text                     NVARCHAR(MAX)            YES
+      subcuenta                  text                     NVARCHAR(MAX)            YES
+      observaciones              text                     NVARCHAR(MAX)            YES
+      cuentaContable             text                     NVARCHAR(MAX)            YES
+      cargaManual                boolean                  BIT                      NO
+      rechazo                    boolean                  BIT                      NO
+      motivoRechazo              text                     NVARCHAR(MAX)            YES
+      patente                    text                     NVARCHAR(MAX)            YES
+      km                         text                     NVARCHAR(MAX)            YES
+      tipoOrdenCompra            text                     NVARCHAR(MAX)            YES
+      ordenCompra                text                     NVARCHAR(MAX)            YES
+      tenantId                   text                     NVARCHAR(MAX)            NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+      codigoProducto             text                     NVARCHAR(MAX)            YES
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "rendicionItemId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "tipoComprobante",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "numeroComprobante",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "fechaComprobante",
+         "type": "DATETIME2",
+         "nullable": true
+       },
+       {
+         "name": "proveedorId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "cuitProveedor",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "tipoProducto",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "netoGravado",
+         "type": "DECIMAL(65, 30)",
+         "nullable": true
+       },
+       {
+         "name": "exento",
+         "type": "DECIMAL(65, 30)",
+         "nullable": true
+       },
+       {
+         "name": "moneda",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "codigoDimension",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "subcuenta",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "observaciones",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "cuentaContable",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "cargaManual",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "rechazo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "motivoRechazo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "patente",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "km",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "tipoOrdenCompra",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "ordenCompra",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "tenantId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "codigoProducto",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: rendicion_tarjeta_items
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 30
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      rendicionCabeceraId        text                     NVARCHAR(MAX)            NO
+      resumenTarjetaId           text                     NVARCHAR(MAX)            YES
+      tipoComprobante            text                     NVARCHAR(MAX)            YES
+      numeroComprobante          text                     NVARCHAR(MAX)            YES
+      fechaComprobante           timestamp without time zoneDATETIME2                YES
+      proveedorId                text                     NVARCHAR(MAX)            YES
+      cuitProveedor              text                     NVARCHAR(MAX)            YES
+      tipoProducto               text                     NVARCHAR(MAX)            YES
+      netoGravado                numeric                  DECIMAL(65, 30)          YES
+      exento                     numeric                  DECIMAL(65, 30)          YES
+      importeImpuestos           numeric                  DECIMAL(65, 30)          YES
+      importeTotal               numeric                  DECIMAL(65, 30)          YES
+      moneda                     text                     NVARCHAR(MAX)            YES
+      codigoDimension            text                     NVARCHAR(MAX)            YES
+      subcuenta                  text                     NVARCHAR(MAX)            YES
+      observaciones              text                     NVARCHAR(MAX)            YES
+      cuentaContable             text                     NVARCHAR(MAX)            YES
+      cargaManual                boolean                  BIT                      NO
+      rechazo                    boolean                  BIT                      NO
+      motivoRechazo              text                     NVARCHAR(MAX)            YES
+      patente                    text                     NVARCHAR(MAX)            YES
+      km                         text                     NVARCHAR(MAX)            YES
+      tipoOrdenCompra            text                     NVARCHAR(MAX)            YES
+      ordenCompra                text                     NVARCHAR(MAX)            YES
+      tenantId                   text                     NVARCHAR(MAX)            NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+      codigoProducto             text                     NVARCHAR(MAX)            YES
+      sinComprobante             boolean                  BIT                      NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "rendicionCabeceraId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "resumenTarjetaId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "tipoComprobante",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "numeroComprobante",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "fechaComprobante",
+         "type": "DATETIME2",
+         "nullable": true
+       },
+       {
+         "name": "proveedorId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "cuitProveedor",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "tipoProducto",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "netoGravado",
+         "type": "DECIMAL(65, 30)",
+         "nullable": true
+       },
+       {
+         "name": "exento",
+         "type": "DECIMAL(65, 30)",
+         "nullable": true
+       },
+       {
+         "name": "importeImpuestos",
+         "type": "DECIMAL(65, 30)",
+         "nullable": true
+       },
+       {
+         "name": "importeTotal",
+         "type": "DECIMAL(65, 30)",
+         "nullable": true
+       },
+       {
+         "name": "moneda",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "codigoDimension",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "subcuenta",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "observaciones",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "cuentaContable",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "cargaManual",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "rechazo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "motivoRechazo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "patente",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "km",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "tipoOrdenCompra",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "ordenCompra",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "tenantId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "codigoProducto",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "sinComprobante",
+         "type": "BIT",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: resumen_tarjeta
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 47
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      codigoTarjeta              text                     NVARCHAR(MAX)            NO
+      tarjetaId                  text                     NVARCHAR(MAX)            YES
+      loteId                     text                     NVARCHAR(MAX)            NO
+      codigoBanco                text                     NVARCHAR(MAX)            YES
+      codigoEmpresa              text                     NVARCHAR(MAX)            YES
+      codigoPlanta               text                     NVARCHAR(MAX)            YES
+      codigoArea                 text                     NVARCHAR(MAX)            YES
+      codigoSector               text                     NVARCHAR(MAX)            YES
+      periodo                    text                     NVARCHAR(MAX)            NO
+      cartera                    text                     NVARCHAR(MAX)            YES
+      tipoTransaccion            text                     NVARCHAR(MAX)            YES
+      codigoSucursal             text                     NVARCHAR(MAX)            YES
+      grupoAfinidad              text                     NVARCHAR(MAX)            YES
+      numeroCuenta               text                     NVARCHAR(MAX)            YES
+      codigoGeograficoUsuario    text                     NVARCHAR(MAX)            YES
+      numeroTarjeta              text                     NVARCHAR(MAX)            YES
+      apellidoNombreUsuario      text                     NVARCHAR(MAX)            YES
+      fechaTransaccion           text                     NVARCHAR(MAX)            YES
+      descripcionCupon           text                     NVARCHAR(MAX)            YES
+      restoMensaje               text                     NVARCHAR(MAX)            YES
+      numeroCupon                text                     NVARCHAR(MAX)            YES
+      moneda                     text                     NVARCHAR(MAX)            YES
+      importeTransaccion         numeric                  DECIMAL(65, 30)          YES
+      tipoConsumo                text                     NVARCHAR(MAX)            YES
+      localidad                  text                     NVARCHAR(MAX)            YES
+      debitoAutomatico           text                     NVARCHAR(MAX)            YES
+      movimientoCajero           text                     NVARCHAR(MAX)            YES
+      grupoRubro                 text                     NVARCHAR(MAX)            YES
+      descripcionRubro           text                     NVARCHAR(MAX)            YES
+      codigoGeograficoEstablecimientotext                     NVARCHAR(MAX)            YES
+      limiteCompraExcepcion      numeric                  DECIMAL(65, 30)          YES
+      limiteCuotasExcepcion      numeric                  DECIMAL(65, 30)          YES
+      limiteAdelantoExcepcion    numeric                  DECIMAL(65, 30)          YES
+      fechaVigenciaCompra        text                     NVARCHAR(MAX)            YES
+      fechaVigenciaAdelanto      text                     NVARCHAR(MAX)            YES
+      xxx1                       text                     NVARCHAR(MAX)            YES
+      xxx2                       text                     NVARCHAR(MAX)            YES
+      cuit                       text                     NVARCHAR(MAX)            YES
+      rubroVisa                  text                     NVARCHAR(MAX)            YES
+      monedaOrigenDescripcion    text                     NVARCHAR(MAX)            YES
+      importeOrigen              numeric                  DECIMAL(65, 30)          YES
+      campoVacio                 text                     NVARCHAR(MAX)            YES
+      fechaImportacion           timestamp without time zoneDATETIME2                NO
+      usuarioImportacion         text                     NVARCHAR(MAX)            YES
+      estado                     text                     NVARCHAR(MAX)            NO
+      tenantId                   text                     NVARCHAR(MAX)            NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "codigoTarjeta",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "tarjetaId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "loteId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "codigoBanco",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "codigoEmpresa",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "codigoPlanta",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "codigoArea",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "codigoSector",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "periodo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "cartera",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "tipoTransaccion",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "codigoSucursal",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "grupoAfinidad",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "numeroCuenta",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "codigoGeograficoUsuario",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "numeroTarjeta",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "apellidoNombreUsuario",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "fechaTransaccion",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "descripcionCupon",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "restoMensaje",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "numeroCupon",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "moneda",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "importeTransaccion",
+         "type": "DECIMAL(65, 30)",
+         "nullable": true
+       },
+       {
+         "name": "tipoConsumo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "localidad",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "debitoAutomatico",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "movimientoCajero",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "grupoRubro",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "descripcionRubro",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "codigoGeograficoEstablecimiento",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "limiteCompraExcepcion",
+         "type": "DECIMAL(65, 30)",
+         "nullable": true
+       },
+       {
+         "name": "limiteCuotasExcepcion",
+         "type": "DECIMAL(65, 30)",
+         "nullable": true
+       },
+       {
+         "name": "limiteAdelantoExcepcion",
+         "type": "DECIMAL(65, 30)",
+         "nullable": true
+       },
+       {
+         "name": "fechaVigenciaCompra",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "fechaVigenciaAdelanto",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "xxx1",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "xxx2",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "cuit",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "rubroVisa",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "monedaOrigenDescripcion",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "importeOrigen",
+         "type": "DECIMAL(65, 30)",
+         "nullable": true
+       },
+       {
+         "name": "campoVacio",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "fechaImportacion",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "usuarioImportacion",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "estado",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "tenantId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: resumen_tarjeta_concepto
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 9
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      resumenId                  text                     NVARCHAR(MAX)            YES
+      concepto                   text                     NVARCHAR(MAX)            NO
+      descripcion                text                     NVARCHAR(MAX)            YES
+      importe                    numeric                  DECIMAL(65, 30)          NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+      tenantId                   text                     NVARCHAR(MAX)            NO
+      loteId                     text                     NVARCHAR(MAX)            NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "resumenId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "concepto",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "descripcion",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "importe",
+         "type": "DECIMAL(65, 30)",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "tenantId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "loteId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: saldos_cajas
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 9
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      cajaId                     text                     NVARCHAR(MAX)            NO
+      fecha                      timestamp without time zoneDATETIME2                NO
+      saldoAnterior              numeric                  DECIMAL(65, 30)          NO
+      movimiento                 numeric                  DECIMAL(65, 30)          NO
+      saldoNuevo                 numeric                  DECIMAL(65, 30)          NO
+      movimientoId               text                     NVARCHAR(MAX)            NO
+      tenantId                   text                     NVARCHAR(MAX)            NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "cajaId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "fecha",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "saldoAnterior",
+         "type": "DECIMAL(65, 30)",
+         "nullable": false
+       },
+       {
+         "name": "movimiento",
+         "type": "DECIMAL(65, 30)",
+         "nullable": false
+       },
+       {
+         "name": "saldoNuevo",
+         "type": "DECIMAL(65, 30)",
+         "nullable": false
+       },
+       {
+         "name": "movimientoId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "tenantId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: sync_api_keys
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 14
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      tenantId                   text                     NVARCHAR(MAX)            NO
+      nombre                     text                     NVARCHAR(MAX)            NO
+      key                        text                     NVARCHAR(MAX)            NO
+      keyPreview                 text                     NVARCHAR(MAX)            NO
+      permisos                   jsonb                    NVARCHAR(MAX)            NO
+      activo                     boolean                  BIT                      NO
+      ultimoUso                  timestamp without time zoneDATETIME2                YES
+      ultimoUsoIp                text                     NVARCHAR(MAX)            YES
+      vecesUtilizada             integer                  INT                      NO
+      expiraEn                   timestamp without time zoneDATETIME2                YES
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+      createdBy                  text                     NVARCHAR(MAX)            YES
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "tenantId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "nombre",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "key",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "keyPreview",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "permisos",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "activo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "ultimoUso",
+         "type": "DATETIME2",
+         "nullable": true
+       },
+       {
+         "name": "ultimoUsoIp",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "vecesUtilizada",
+         "type": "INT",
+         "nullable": false
+       },
+       {
+         "name": "expiraEn",
+         "type": "DATETIME2",
+         "nullable": true
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "createdBy",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: sync_configurations
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 13
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      tenantId                   text                     NVARCHAR(MAX)            NO
+      sqlServerHost              text                     NVARCHAR(MAX)            NO
+      sqlServerPort              integer                  INT                      NO
+      sqlServerDatabase          text                     NVARCHAR(MAX)            NO
+      sqlServerUser              text                     NVARCHAR(MAX)            NO
+      sqlServerPassword          text                     NVARCHAR(MAX)            NO
+      configuracionTablas        jsonb                    NVARCHAR(MAX)            NO
+      version                    integer                  INT                      NO
+      ultimaModificacion         timestamp without time zoneDATETIME2                NO
+      activo                     boolean                  BIT                      NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "tenantId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "sqlServerHost",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "sqlServerPort",
+         "type": "INT",
+         "nullable": false
+       },
+       {
+         "name": "sqlServerDatabase",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "sqlServerUser",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "sqlServerPassword",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "configuracionTablas",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "version",
+         "type": "INT",
+         "nullable": false
+       },
+       {
+         "name": "ultimaModificacion",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "activo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: sync_logs
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 16
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      tenantId                   text                     NVARCHAR(MAX)            NO
+      configId                   text                     NVARCHAR(MAX)            YES
+      direccion                  text                     NVARCHAR(MAX)            NO
+      tabla                      text                     NVARCHAR(MAX)            NO
+      fase                       text                     NVARCHAR(MAX)            YES
+      ejecutadoEn                text                     NVARCHAR(MAX)            YES
+      estado                     text                     NVARCHAR(MAX)            NO
+      registrosAfectados         integer                  INT                      YES
+      mensaje                    text                     NVARCHAR(MAX)            YES
+      errorDetalle               text                     NVARCHAR(MAX)            YES
+      duracionMs                 integer                  INT                      YES
+      metadatos                  jsonb                    NVARCHAR(MAX)            YES
+      fechaInicio                timestamp without time zoneDATETIME2                NO
+      fechaFin                   timestamp without time zoneDATETIME2                YES
+      createdAt                  timestamp without time zoneDATETIME2                NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "tenantId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "configId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "direccion",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "tabla",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "fase",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "ejecutadoEn",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "estado",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "registrosAfectados",
+         "type": "INT",
+         "nullable": true
+       },
+       {
+         "name": "mensaje",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "errorDetalle",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "duracionMs",
+         "type": "INT",
+         "nullable": true
+       },
+       {
+         "name": "metadatos",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "fechaInicio",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "fechaFin",
+         "type": "DATETIME2",
+         "nullable": true
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: tarjetas
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 7
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      codigo                     text                     NVARCHAR(MAX)            NO
+      descripcion                text                     NVARCHAR(MAX)            NO
+      activo                     boolean                  BIT                      NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+      tenantId                   text                     NVARCHAR(MAX)            NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "codigo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "descripcion",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "activo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "tenantId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: tenants
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 17
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      slug                       text                     NVARCHAR(MAX)            NO
+      nombre                     text                     NVARCHAR(MAX)            NO
+      cuit                       text                     NVARCHAR(MAX)            NO
+      razonSocial                text                     NVARCHAR(MAX)            YES
+      direccion                  text                     NVARCHAR(MAX)            YES
+      telefono                   text                     NVARCHAR(MAX)            YES
+      email                      text                     NVARCHAR(MAX)            YES
+      plan                       text                     NVARCHAR(MAX)            NO
+      activo                     boolean                  BIT                      NO
+      esDefault                  boolean                  BIT                      NO
+      fechaCreacion              timestamp without time zoneDATETIME2                NO
+      fechaVencimiento           timestamp without time zoneDATETIME2                YES
+      configuracion              jsonb                    NVARCHAR(MAX)            NO
+      limites                    jsonb                    NVARCHAR(MAX)            NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "slug",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "nombre",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "cuit",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "razonSocial",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "direccion",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "telefono",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "email",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "plan",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "activo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "esDefault",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "fechaCreacion",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "fechaVencimiento",
+         "type": "DATETIME2",
+         "nullable": true
+       },
+       {
+         "name": "configuracion",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "limites",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: tipos_tarjeta
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 8
+
+   🔑 Primary Key: id, tenantId
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      codigo                     text                     NVARCHAR(MAX)            NO
+      descripcion                text                     NVARCHAR(MAX)            NO
+      tarjetaId                  text                     NVARCHAR(MAX)            NO
+      activo                     boolean                  BIT                      NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+   🔑 tenantId                   text                     NVARCHAR(MAX)            NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "codigo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "descripcion",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "tarjetaId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "activo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "tenantId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       }
+     ],
+     "primaryKey": [
+       "id",
+       "tenantId"
+     ]
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: user_atributos
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 6
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      userId                     text                     NVARCHAR(MAX)            NO
+      valorAtributoId            text                     NVARCHAR(MAX)            NO
+      activo                     boolean                  BIT                      NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "userId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "valorAtributoId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "activo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: user_cajas
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 6
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      userId                     text                     NVARCHAR(MAX)            NO
+      cajaId                     text                     NVARCHAR(MAX)            NO
+      activo                     boolean                  BIT                      NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "userId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "cajaId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "activo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: user_tarjetas_credito
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 10
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      userId                     text                     NVARCHAR(MAX)            NO
+      numeroTarjeta              text                     NVARCHAR(MAX)            NO
+      marcaTarjeta               text                     NVARCHAR(MAX)            NO
+      activo                     boolean                  BIT                      NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+      autorizanteId              text                     NVARCHAR(MAX)            YES
+      codigoExterno              character varying        NVARCHAR(50)             YES
+      tenantId                   text                     NVARCHAR(MAX)            NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "userId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "numeroTarjeta",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "marcaTarjeta",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "activo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "autorizanteId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "codigoExterno",
+         "type": "NVARCHAR(50)",
+         "nullable": true
+       },
+       {
+         "name": "tenantId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: users
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 17
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      email                      text                     NVARCHAR(MAX)            NO
+      password                   text                     NVARCHAR(MAX)            YES
+      nombre                     text                     NVARCHAR(MAX)            NO
+      apellido                   text                     NVARCHAR(MAX)            NO
+      activo                     boolean                  BIT                      NO
+      profileId                  text                     NVARCHAR(MAX)            YES
+      tenantId                   text                     NVARCHAR(MAX)            YES
+      superuser                  boolean                  BIT                      NO
+      emailVerified              boolean                  BIT                      NO
+      verificationToken          text                     NVARCHAR(MAX)            YES
+      verificationExpires        timestamp without time zoneDATETIME2                YES
+      recibeNotificacionesEmail  boolean                  BIT                      NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+      esUsuarioTesoreria         boolean                  BIT                      NO
+      googleId                   text                     NVARCHAR(MAX)            YES
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "email",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "password",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "nombre",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "apellido",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "activo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "profileId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "tenantId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "superuser",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "emailVerified",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "verificationToken",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       },
+       {
+         "name": "verificationExpires",
+         "type": "DATETIME2",
+         "nullable": true
+       },
+       {
+         "name": "recibeNotificacionesEmail",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "esUsuarioTesoreria",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "googleId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": true
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: usuario_autorizantes
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 6
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      usuarioId                  text                     NVARCHAR(MAX)            NO
+      autorizanteId              text                     NVARCHAR(MAX)            NO
+      activo                     boolean                  BIT                      NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "usuarioId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "autorizanteId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "activo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+📋 TABLA: valores_atributo
+────────────────────────────────────────────────────────────────────────────────────────────────────
+   Columnas: 7
+
+   🔑 Primary Key: id
+
+   COLUMNAS:
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Nombre                        Tipo PostgreSQL          Tipo SQL Server          NULL
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   🔑 id                         text                     NVARCHAR(MAX)            NO
+      codigo                     text                     NVARCHAR(MAX)            NO
+      descripcion                text                     NVARCHAR(MAX)            NO
+      atributoId                 text                     NVARCHAR(MAX)            NO
+      activo                     boolean                  BIT                      NO
+      createdAt                  timestamp without time zoneDATETIME2                NO
+      updatedAt                  timestamp without time zoneDATETIME2                NO
+
+   📝 CONFIGURACIÓN PARA SYNC (JSON):
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   {
+     "columns": [
+       {
+         "name": "id",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "codigo",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "descripcion",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "atributoId",
+         "type": "NVARCHAR(MAX)",
+         "nullable": false
+       },
+       {
+         "name": "activo",
+         "type": "BIT",
+         "nullable": false
+       },
+       {
+         "name": "createdAt",
+         "type": "DATETIME2",
+         "nullable": false
+       },
+       {
+         "name": "updatedAt",
+         "type": "DATETIME2",
+         "nullable": false
+       }
+     ],
+     "primaryKey": "id"
+   }
+
+
+====================================================================================================
+✓ Listado completado
+
+📦 TABLAS POR CATEGORÍA:
+
+   Configuración/Maestros:
+     • parametros_maestros
+     • parametros_relaciones
+
+   Rendiciones:
+     • rendicion_tarjeta_cabecera
+     • rendicion_tarjeta_detalle
+     • rendicion_tarjeta_items
+
+   Documentos:
+     • documentos_asociados
+     • documentos_procesados
+
+   Cajas:
+     • cajas
+     • saldos_cajas
+     • user_cajas
+
+   Sincronización:
+     • sync_api_keys
+     • sync_configurations
+     • sync_logs
+
+   Sistema:
+     • tenants
+     • user_atributos
+     • user_tarjetas_credito
+     • users
+
+   Otros:
+     • atributos
+     • banco_tipo_tarjeta
+     • bancos
+     • delegacion_tarjetas
+     • detalle_movimientos_tesoreria
+     • estados
+     • monedas
+     • movimientos_tesoreria
+     • processing_jobs
+     • profiles
+     • reglas_ejecuciones
+     • reglas_negocio
+     • resumen_tarjeta
+     • resumen_tarjeta_concepto
+     • tarjetas
+     • tipos_tarjeta
+     • usuario_autorizantes
+     • valores_atributo
+

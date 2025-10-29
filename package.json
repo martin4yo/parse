@@ -1,0 +1,36 @@
+{
+  "name": "parse-app",
+  "version": "1.0.0",
+  "description": "Parse - Sistema de Extracción y Transformación de Comprobantes",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build:backend": "cd backend && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "start:backend": "cd backend && npm start",
+    "start:frontend": "cd frontend && npm start",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/parse.git"
+  },
+  "keywords": [
+    "parse",
+    "document-extraction",
+    "ocr",
+    "ai",
+    "invoices",
+    "argentina"
+  ],
+  "author": "",
+  "license": "MIT"
+}
