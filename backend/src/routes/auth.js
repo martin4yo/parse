@@ -427,13 +427,13 @@ router.post('/login', [
         id: defaultTenant.id,
         nombre: defaultTenant.nombre,
         slug: defaultTenant.slug,
-        plan: defaultTenant.plan,
+        planId: defaultTenant.planId,
         configuracion: defaultTenant.configuracion
       } : (user.tenant ? {
         id: user.tenant.id,
         nombre: user.tenant.nombre,
         slug: user.tenant.slug,
-        plan: user.tenant.plan,
+        planId: user.tenant.planId,
         configuracion: user.tenant.configuracion
       } : null),
       superuser: user.superuser,
@@ -444,7 +444,7 @@ router.post('/login', [
           id: true,
           slug: true,
           nombre: true,
-          plan: true
+          planId: true
         }
       }) : null
     });
