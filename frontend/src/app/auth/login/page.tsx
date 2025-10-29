@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast, { Toaster } from 'react-hot-toast';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, ScanText } from 'lucide-react';
 import Image from 'next/image';
 import axiomaLogo from '@/assets/axioma_logo_300x500.png';
 
@@ -118,9 +118,12 @@ export default function LoginPage() {
                     priority
                   />
                 </div>
-                <h2 className="text-2xl font-bold text-palette-dark">
-                  Rendiciones
-                </h2>
+                <div className="flex items-center justify-center gap-2">
+                  <ScanText className="w-6 h-6 text-palette-purple" />
+                  <h2 className="text-2xl font-bold text-palette-dark">
+                    Parse
+                  </h2>
+                </div>
               </div>
             </div>
 
