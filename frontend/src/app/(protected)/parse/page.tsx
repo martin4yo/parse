@@ -626,7 +626,7 @@ export default function ComprobantesPage() {
 
       if (pendingDocuments.length === 0) {
         toast('No hay documentos pendientes para aplicar reglas', {
-          icon: '📋',
+          icon: <Info className="h-5 w-5" />,
           duration: 3000
         });
         return;
@@ -647,7 +647,7 @@ export default function ComprobantesPage() {
           toast(
             `Se procesaron ${procesados} documentos. No se aplicaron transformaciones.`,
             {
-              icon: '📋',
+              icon: <AlertCircle className="h-5 w-5 text-amber-500" />,
               duration: 4000
             }
           );

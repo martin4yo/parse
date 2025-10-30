@@ -49,11 +49,18 @@ router.get('/providers', authWithTenant, async (req, res) => {
       {
         id: 'anthropic',
         nombre: 'Anthropic Claude',
-        descripcion: 'Claude 3 - Haiku, Sonnet y Opus',
+        descripcion: 'Claude 3.7, 4.5 y 4.1 - Con capacidades de visión',
         modelosDisponibles: [
-          { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku (más rápido)' },
-          { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (equilibrado)' },
-          { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus (más capaz)' }
+          // Modelos actuales (recomendados)
+          { value: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5 (más reciente)' },
+          { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 (rápido)' },
+          { value: 'claude-opus-4-1-20250805', label: 'Claude Opus 4.1 (más capaz)' },
+          { value: 'claude-3-7-sonnet-20250219', label: 'Claude 3.7 Sonnet (con visión)' },
+
+          // Modelos legacy
+          { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku (legacy)' },
+          { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku (legacy)' },
+          { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus (legacy)' }
         ],
         requiresApiKey: true
       },

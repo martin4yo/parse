@@ -4,6 +4,7 @@ const pdfParse = require('pdf-parse');
 const { createWorker } = require('tesseract.js');
 const sharp = require('sharp');
 const promptManager = require('../services/promptManager');
+const documentAIProcessor = require('../services/documentAIProcessor');
 
 class DocumentProcessor {
   constructor() {
@@ -201,17 +202,68 @@ class DocumentProcessor {
     }
   }
 
-  async extractDataWithAI(text, tenantId = null) {
+  async extractDataWithAI(text, tenantId = null, filePath = null) {
     try {
-      // Opción 1: Google Gemini (PRIORIDAD - usar primero)
+      // Opción 0: Google Document AI (PRIORIDAD MÁXIMA - si está configurado y tenemos el archivo)
+      if (filePath && documentAIProcessor.isConfigured() && process.env.USE_DOCUMENT_AI === 'true') {
+        try {
+          console.log('🎯 Intentando extracción con Google Document AI...');
+          const result = await documentAIProcessor.processInvoice(filePath);
+
+          if (result.success && result.data) {
+            console.log(`✅ Extracción exitosa con Document AI (confianza: ${result.confidence.toFixed(1)}%)`);
+
+            // Validar y corregir valores usando la fórmula
+            this.validateAndCorrectAmounts(result.data);
+
+            // Post-procesar datos
+            const processedData = this.postProcessExtractedData(result.data, text);
+
+            return {
+              data: processedData,
+              modelUsed: 'Document AI',
+              confidence: result.confidence,
+              processingTime: result.processingTime
+            };
+          } else {
+            console.warn(`⚠️  Document AI no devolvió datos válidos: ${result.error || 'Unknown error'}`);
+          }
+        } catch (error) {
+          console.error('❌ Error con Document AI, continuando con fallback:', error.message);
+          // Continuar con Gemini como fallback
+        }
+      } else if (filePath && !documentAIProcessor.isConfigured()) {
+        console.log('ℹ️  Document AI no configurado, usando alternativas...');
+      } else if (!filePath) {
+        console.log('ℹ️  No hay filePath disponible, Document AI requiere archivo original');
+      }
+
+      // Opción 1 (PRIORIDAD): Claude Vision si tenemos archivo PDF (lee texto E imágenes)
+      if (filePath && process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY !== 'tu-api-key-aqui' && process.env.USE_CLAUDE_VISION === 'true') {
+        try {
+          console.log('🎯 Intentando extracción con Claude Vision (PRIORIDAD - lee imágenes embebidas)...');
+          const data = await this.extractWithClaudeVision(filePath, tenantId);
+          if (data) {
+            console.log('✅ Extracción exitosa con Claude Vision');
+            // Validar y corregir valores
+            this.validateAndCorrectAmounts(data);
+            const processedData = this.postProcessExtractedData(data, text);
+            return { data: processedData, modelUsed: 'Claude Vision' };
+          }
+        } catch (error) {
+          console.error('⚠️  Error con Claude Vision, probando fallback:', error.message);
+        }
+      }
+
+      // Opción 2: Google Gemini (solo texto - segunda opción)
       if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'tu-api-key-aqui') {
         try {
-          console.log('Intentando extracción con Gemini...');
+          console.log('Intentando extracción con Gemini (solo texto)...');
           // Reducir delay para evitar timeouts - solo 1 segundo
           await new Promise(resolve => setTimeout(resolve, 1000));
           const data = await this.extractWithGemini(text, tenantId, 0); // Sin reintentos para evitar timeout
           if (data) {
-            console.log('Extracción exitosa con Gemini');
+            console.log('✅ Extracción exitosa con Gemini');
             // Validar y corregir valores usando la fórmula
             this.validateAndCorrectAmounts(data);
             // Post-procesar datos para mejorar número de comprobante si es necesario
@@ -224,11 +276,11 @@ class DocumentProcessor {
       } else {
         console.log('API Key de Gemini no disponible o inválido');
       }
-      
-      // Opción 2: Anthropic Claude (segundo - fallback si Gemini falla)
+
+      // Opción 3: Anthropic Claude (texto solamente - fallback)
       if (process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY !== 'tu-api-key-aqui') {
         try {
-          console.log('Intentando extracción con Anthropic Claude (fallback)...');
+          console.log('Intentando extracción con Anthropic Claude (texto)...');
           const data = await this.extractWithClaude(text, tenantId);
           if (data) {
             console.log('Extracción exitosa con Anthropic');
@@ -314,9 +366,14 @@ class DocumentProcessor {
 
   async extractWithClaude(text, tenantId = null) {
     try {
+      const aiConfigService = require('../services/aiConfigService');
+
+      // Obtener configuración del proveedor (incluye API key y modelo)
+      const config = await aiConfigService.getProviderConfig('anthropic', tenantId);
+
       const Anthropic = require('@anthropic-ai/sdk');
       const anthropic = new Anthropic({
-        apiKey: process.env.ANTHROPIC_API_KEY,
+        apiKey: config.apiKey,
       });
 
       // Obtener prompt desde PromptManager
@@ -332,8 +389,9 @@ class DocumentProcessor {
         return null;
       }
 
+      console.log(`🤖 Usando modelo Claude: ${config.modelo}`);
       const response = await anthropic.messages.create({
-        model: 'claude-3-haiku-20240307', // Modelo más económico
+        model: config.modelo, // Modelo configurado por el tenant o default
         max_tokens: 3000, // Aumentado para permitir line items e impuestos detallados
         messages: [{ role: 'user', content: prompt }],
       });
@@ -359,6 +417,102 @@ class DocumentProcessor {
       return result;
     } catch (error) {
       console.error('Error with Claude extraction:', error);
+      await promptManager.registrarResultado('EXTRACCION_FACTURA_CLAUDE', false, tenantId, 'anthropic').catch(() => {});
+      return null;
+    }
+  }
+
+  /**
+   * Extraer datos con Claude (con visión)
+   * Lee PDFs directamente, incluyendo imágenes embebidas
+   */
+  async extractWithClaudeVision(pdfPath, tenantId = null) {
+    try {
+      console.log('🎯 Intentando extracción con Claude Vision...');
+
+      const aiConfigService = require('../services/aiConfigService');
+
+      // Obtener configuración del proveedor (incluye API key y modelo)
+      const config = await aiConfigService.getProviderConfig('anthropic', tenantId);
+
+      const Anthropic = require('@anthropic-ai/sdk');
+      const anthropic = new Anthropic({
+        apiKey: config.apiKey,
+      });
+
+      // Leer PDF directamente
+      console.log('📄 Leyendo PDF...');
+      const pdfBuffer = fs.readFileSync(pdfPath);
+      const pdfSizeKB = (pdfBuffer.length / 1024).toFixed(2);
+      console.log(`   Tamaño del PDF: ${pdfSizeKB} KB`);
+
+      const base64PDF = pdfBuffer.toString('base64');
+
+      // Verificar si el PDF es muy grande (> 10MB puede causar timeout)
+      if (pdfBuffer.length > 10 * 1024 * 1024) {
+        console.warn(`⚠️  PDF grande (${pdfSizeKB} KB). Puede tardar más de lo normal.`);
+      }
+
+      // Obtener prompt
+      const promptTemplate = await promptManager.getPromptText(
+        'EXTRACCION_FACTURA_CLAUDE',
+        {},
+        tenantId,
+        'anthropic'
+      );
+
+      if (!promptTemplate) {
+        console.error('❌ Prompt EXTRACCION_FACTURA_CLAUDE no encontrado');
+        return null;
+      }
+
+      // Llamar a Claude con PDF (lee texto e imágenes)
+      console.log(`🤖 Llamando a Claude (${config.modelo}) con PDF...`);
+      const startTime = Date.now();
+
+      const response = await anthropic.messages.create({
+        model: config.modelo, // Modelo configurado por el tenant o default
+        max_tokens: 4096, // Tokens suficientes para respuesta completa
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'document',
+              source: {
+                type: 'base64',
+                media_type: 'application/pdf',
+                data: base64PDF
+              }
+            },
+            {
+              type: 'text',
+              text: promptTemplate
+            }
+          ]
+        }]
+      });
+
+      let jsonText = response.content[0].text;
+
+      // Limpiar respuesta
+      console.log('Raw Claude Vision response:', jsonText.substring(0, 200) + '...');
+
+      jsonText = jsonText
+        .replace(/```json\n?/g, '')
+        .replace(/\n?```/g, '')
+        .replace(/^[^{]*{/, '{')
+        .replace(/}[^}]*$/, '}')
+        .trim();
+
+      const result = JSON.parse(jsonText);
+
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`✅ Claude Vision extracción exitosa en ${duration}s`);
+      await promptManager.registrarResultado('EXTRACCION_FACTURA_CLAUDE', true, tenantId, 'anthropic');
+
+      return result;
+    } catch (error) {
+      console.error('❌ Error con Claude Vision:', error.message);
       await promptManager.registrarResultado('EXTRACCION_FACTURA_CLAUDE', false, tenantId, 'anthropic').catch(() => {});
       return null;
     }
@@ -442,7 +596,7 @@ ${text}`;
       try {
         const { GoogleGenerativeAI } = require('@google/generative-ai');
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
 
         // Obtener prompt desde PromptManager
         const prompt = await promptManager.getPromptText(
@@ -1757,7 +1911,7 @@ Responde solo el JSON:`,
           console.log('🤖 [RESUMEN TARJETA] Intentando con Gemini...');
           const { GoogleGenerativeAI } = require('@google/generative-ai');
           const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-          const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+          const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
 
           const result = await model.generateContent(prompt);
           let jsonText = result.response.text();

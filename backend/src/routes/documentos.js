@@ -2131,9 +2131,10 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo) {
   try {
     let processingResult;
 
-    // Agregar timeout de 120 segundos (2 minutos) para todo el procesamiento
+    // Agregar timeout de 180 segundos (3 minutos) para todo el procesamiento
+    // Aumentado para Claude Vision que puede tardar más con PDFs grandes
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Timeout: El procesamiento del documento excedió el tiempo límite de 2 minutos')), 120000);
+      setTimeout(() => reject(new Error('Timeout: El procesamiento del documento excedió el tiempo límite de 3 minutos')), 180000);
     });
 
     const processingPromise = async () => {
@@ -2181,7 +2182,8 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo) {
     const resultadoOrquestador = await orchestrator.extractData(
       processingResult.text,
       documento.tenantId,
-      documento.usuarioId
+      documento.usuarioId,
+      filePath  // Pasar filePath para Document AI
     );
 
     const datosExtraidos = resultadoOrquestador.datos;
