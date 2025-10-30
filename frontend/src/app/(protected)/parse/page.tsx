@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Upload, Link2, FileText, CheckCircle, Clock, AlertCircle, Zap, ExternalLink, LinkIcon, Trash2, FileIcon, Image as ImageIcon, XCircle, Info, Receipt, Edit2, Edit, Unlink, Save, X, Calendar, MessageSquare } from 'lucide-react';
+import { Upload, Link2, FileText, CheckCircle, Clock, AlertCircle, Zap, ExternalLink, LinkIcon, Trash2, FileIcon, Image as ImageIcon, XCircle, Info, Receipt, Edit2, Edit, Unlink, Save, X, Calendar, MessageSquare, ScanText, Plus, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { DocumentUploadModal } from '@/components/shared/DocumentUploadModal';
@@ -83,24 +83,25 @@ export default function ComprobantesPage() {
   const [selectedDocumentForEdit, setSelectedDocumentForEdit] = useState<DocumentoProcessado | null>(null);
   const [editFormData, setEditFormData] = useState<any>({});
   const [savingEdit, setSavingEdit] = useState(false);
-  
-  // Estados para el modal de asociación manual
-  const [showManualAssociationModal, setShowManualAssociationModal] = useState(false);
-  const [selectedDocumentForAssociation, setSelectedDocumentForAssociation] = useState<DocumentoProcessado | null>(null);
-  const [selectedUserId, setSelectedUserId] = useState<string>('');
-  const [manualAssociationData, setManualAssociationData] = useState<any>({
-    usuario: null,
-    delegadores: [],
-    items: []
-  });
-  const [manualAssociationFilters, setManualAssociationFilters] = useState({
-    fechaDesde: '',
-    fechaHasta: '',
-    search: ''
-  });
-  const [loadingManualAssociationData, setLoadingManualAssociationData] = useState(false);
-  const [savingManualAssociation, setSavingManualAssociation] = useState(false);
-  const [searchDebounceTimer, setSearchDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+
+  // Estados para tabs del modal de edición
+  const [activeTab, setActiveTab] = useState<'encabezado' | 'items' | 'impuestos'>('encabezado');
+  const [documentoLineas, setDocumentoLineas] = useState<any[]>([]);
+  const [documentoImpuestos, setDocumentoImpuestos] = useState<any[]>([]);
+  const [loadingLineas, setLoadingLineas] = useState(false);
+  const [loadingImpuestos, setLoadingImpuestos] = useState(false);
+
+  // Estados para modal de edición de item
+  const [showItemModal, setShowItemModal] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [itemFormData, setItemFormData] = useState<any>({});
+  const [savingItem, setSavingItem] = useState(false);
+
+  // Estados para modal de edición de impuesto
+  const [showImpuestoModal, setShowImpuestoModal] = useState(false);
+  const [selectedImpuesto, setSelectedImpuesto] = useState<any>(null);
+  const [impuestoFormData, setImpuestoFormData] = useState<any>({});
+  const [savingImpuesto, setSavingImpuesto] = useState(false);
 
   // Función para abrir el archivo
   const handleViewDocument = (documentId: string) => {
@@ -161,7 +162,7 @@ export default function ComprobantesPage() {
   };
 
   // Función para abrir modal de edición
-  const handleOpenEditModal = (doc: DocumentoProcessado) => {
+  const handleOpenEditModal = async (doc: DocumentoProcessado) => {
     setSelectedDocumentForEdit(doc);
     setEditFormData({
       fechaExtraida: doc.fechaExtraida ? new Date(doc.fechaExtraida).toISOString().split('T')[0] : '',
@@ -175,7 +176,12 @@ export default function ComprobantesPage() {
       exentoExtraido: doc.exentoExtraido ? Number(doc.exentoExtraido).toFixed(2) : '',
       impuestosExtraido: doc.impuestosExtraido ? Number(doc.impuestosExtraido).toFixed(2) : ''
     });
+    setActiveTab('encabezado');
     setShowEditModal(true);
+
+    // Cargar líneas e impuestos
+    await loadDocumentoLineas(doc.id);
+    await loadDocumentoImpuestos(doc.id);
   };
 
   // Función para guardar cambios de edición
@@ -244,6 +250,210 @@ export default function ComprobantesPage() {
     }
   };
 
+  // ========== FUNCIONES PARA LÍNEAS (ITEMS) ==========
+
+  const loadDocumentoLineas = async (documentoId: string) => {
+    try {
+      setLoadingLineas(true);
+      const response = await api.get(`/documentos/${documentoId}/lineas`);
+      setDocumentoLineas(response.data.lineas || []);
+    } catch (error) {
+      console.error('Error loading lineas:', error);
+      toast.error('Error al cargar items del documento');
+      setDocumentoLineas([]);
+    } finally {
+      setLoadingLineas(false);
+    }
+  };
+
+  const handleOpenItemModal = (item: any = null) => {
+    setSelectedItem(item);
+    if (item) {
+      // Edición
+      setItemFormData({
+        numero: item.numero,
+        descripcion: item.descripcion || '',
+        codigoProducto: item.codigoProducto || '',
+        cantidad: item.cantidad ? Number(item.cantidad).toString() : '',
+        unidad: item.unidad || '',
+        precioUnitario: item.precioUnitario ? Number(item.precioUnitario).toString() : '',
+        subtotal: item.subtotal ? Number(item.subtotal).toString() : '',
+        alicuotaIva: item.alicuotaIva ? Number(item.alicuotaIva).toString() : '',
+        importeIva: item.importeIva ? Number(item.importeIva).toString() : '',
+        totalLinea: item.totalLinea ? Number(item.totalLinea).toString() : ''
+      });
+    } else {
+      // Nuevo item
+      const nextNumero = documentoLineas.length > 0
+        ? Math.max(...documentoLineas.map(l => l.numero)) + 1
+        : 1;
+      setItemFormData({
+        numero: nextNumero,
+        descripcion: '',
+        codigoProducto: '',
+        cantidad: '',
+        unidad: 'un',
+        precioUnitario: '',
+        subtotal: '',
+        alicuotaIva: '21',
+        importeIva: '',
+        totalLinea: ''
+      });
+    }
+    setShowItemModal(true);
+  };
+
+  const handleSaveItem = async () => {
+    if (!selectedDocumentForEdit) return;
+
+    try {
+      setSavingItem(true);
+
+      const dataToSend = {
+        numero: parseInt(itemFormData.numero),
+        descripcion: itemFormData.descripcion,
+        codigoProducto: itemFormData.codigoProducto || null,
+        cantidad: parseFloat(itemFormData.cantidad) || 0,
+        unidad: itemFormData.unidad || null,
+        precioUnitario: parseFloat(itemFormData.precioUnitario) || 0,
+        subtotal: parseFloat(itemFormData.subtotal) || 0,
+        alicuotaIva: itemFormData.alicuotaIva ? parseFloat(itemFormData.alicuotaIva) : null,
+        importeIva: itemFormData.importeIva ? parseFloat(itemFormData.importeIva) : null,
+        totalLinea: parseFloat(itemFormData.totalLinea) || 0
+      };
+
+      if (selectedItem) {
+        // Actualizar
+        await api.put(`/documentos/lineas/${selectedItem.id}`, dataToSend);
+        toast.success('Item actualizado correctamente');
+      } else {
+        // Crear
+        await api.post(`/documentos/${selectedDocumentForEdit.id}/lineas`, dataToSend);
+        toast.success('Item agregado correctamente');
+      }
+
+      // Recargar líneas
+      await loadDocumentoLineas(selectedDocumentForEdit.id);
+      setShowItemModal(false);
+      setSelectedItem(null);
+      setItemFormData({});
+    } catch (error) {
+      console.error('Error saving item:', error);
+      toast.error('Error al guardar el item');
+    } finally {
+      setSavingItem(false);
+    }
+  };
+
+  const handleDeleteItem = async (itemId: string) => {
+    if (!selectedDocumentForEdit) return;
+
+    const confirmed = await confirmDelete('este item');
+    if (!confirmed) return;
+
+    try {
+      await api.delete(`/documentos/lineas/${itemId}`);
+      toast.success('Item eliminado correctamente');
+      await loadDocumentoLineas(selectedDocumentForEdit.id);
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      toast.error('Error al eliminar el item');
+    }
+  };
+
+  // ========== FUNCIONES PARA IMPUESTOS ==========
+
+  const loadDocumentoImpuestos = async (documentoId: string) => {
+    try {
+      setLoadingImpuestos(true);
+      const response = await api.get(`/documentos/${documentoId}/impuestos`);
+      setDocumentoImpuestos(response.data.impuestos || []);
+    } catch (error) {
+      console.error('Error loading impuestos:', error);
+      toast.error('Error al cargar impuestos del documento');
+      setDocumentoImpuestos([]);
+    } finally {
+      setLoadingImpuestos(false);
+    }
+  };
+
+  const handleOpenImpuestoModal = (impuesto: any = null) => {
+    setSelectedImpuesto(impuesto);
+    if (impuesto) {
+      // Edición
+      setImpuestoFormData({
+        tipo: impuesto.tipo || '',
+        descripcion: impuesto.descripcion || '',
+        alicuota: impuesto.alicuota ? Number(impuesto.alicuota).toString() : '',
+        baseImponible: impuesto.baseImponible ? Number(impuesto.baseImponible).toString() : '',
+        importe: impuesto.importe ? Number(impuesto.importe).toString() : ''
+      });
+    } else {
+      // Nuevo impuesto
+      setImpuestoFormData({
+        tipo: 'IVA',
+        descripcion: '',
+        alicuota: '21',
+        baseImponible: '',
+        importe: ''
+      });
+    }
+    setShowImpuestoModal(true);
+  };
+
+  const handleSaveImpuesto = async () => {
+    if (!selectedDocumentForEdit) return;
+
+    try {
+      setSavingImpuesto(true);
+
+      const dataToSend = {
+        tipo: impuestoFormData.tipo,
+        descripcion: impuestoFormData.descripcion,
+        alicuota: impuestoFormData.alicuota ? parseFloat(impuestoFormData.alicuota) : null,
+        baseImponible: impuestoFormData.baseImponible ? parseFloat(impuestoFormData.baseImponible) : null,
+        importe: parseFloat(impuestoFormData.importe) || 0
+      };
+
+      if (selectedImpuesto) {
+        // Actualizar
+        await api.put(`/documentos/impuestos/${selectedImpuesto.id}`, dataToSend);
+        toast.success('Impuesto actualizado correctamente');
+      } else {
+        // Crear
+        await api.post(`/documentos/${selectedDocumentForEdit.id}/impuestos`, dataToSend);
+        toast.success('Impuesto agregado correctamente');
+      }
+
+      // Recargar impuestos
+      await loadDocumentoImpuestos(selectedDocumentForEdit.id);
+      setShowImpuestoModal(false);
+      setSelectedImpuesto(null);
+      setImpuestoFormData({});
+    } catch (error) {
+      console.error('Error saving impuesto:', error);
+      toast.error('Error al guardar el impuesto');
+    } finally {
+      setSavingImpuesto(false);
+    }
+  };
+
+  const handleDeleteImpuesto = async (impuestoId: string) => {
+    if (!selectedDocumentForEdit) return;
+
+    const confirmed = await confirmDelete('este impuesto');
+    if (!confirmed) return;
+
+    try {
+      await api.delete(`/documentos/impuestos/${impuestoId}`);
+      toast.success('Impuesto eliminado correctamente');
+      await loadDocumentoImpuestos(selectedDocumentForEdit.id);
+    } catch (error) {
+      console.error('Error deleting impuesto:', error);
+      toast.error('Error al eliminar el impuesto');
+    }
+  };
+
   // Función para desasociar comprobante
   const handleDisassociateDocument = async (doc: DocumentoProcessado) => {
     const confirmed = await confirmDelete(
@@ -275,97 +485,6 @@ export default function ComprobantesPage() {
     }
   };
 
-  // Función para abrir modal de asociación manual
-  const handleOpenManualAssociationModal = async (doc: DocumentoProcessado) => {
-    setSelectedDocumentForAssociation(doc);
-    setShowManualAssociationModal(true);
-    setSelectedUserId(''); // Resetear a usuario logueado
-    
-    // Limpiar todos los filtros incluyendo search
-    setManualAssociationFilters({
-      fechaDesde: '',
-      fechaHasta: '',
-      search: ''
-    });
-    
-    // Limpiar también el timer de search si existe
-    if (searchDebounceTimer) {
-      clearTimeout(searchDebounceTimer);
-      setSearchDebounceTimer(null);
-    }
-    
-    // Cargar items pendientes una sola vez
-    await loadManualAssociationItems();
-  };
-
-  // useEffect para seleccionar automáticamente el primer usuario cuando se carga la data
-  useEffect(() => {
-    if (manualAssociationData.usuario && !selectedUserId) {
-      setSelectedUserId(manualAssociationData.usuario.id);
-      loadManualAssociationItems(manualAssociationData.usuario.id);
-    }
-  }, [manualAssociationData.usuario]);
-
-  // Limpiar timer cuando se cierre el modal
-  useEffect(() => {
-    return () => {
-      if (searchDebounceTimer) {
-        clearTimeout(searchDebounceTimer);
-      }
-    };
-  }, [searchDebounceTimer]);
-
-  // Función para cargar items de asociación manual
-  const loadManualAssociationItems = async (userId?: string) => {
-    try {
-      setLoadingManualAssociationData(true);
-      
-      const params = new URLSearchParams();
-      if (userId) params.append('targetUserId', userId);
-      if (manualAssociationFilters.fechaDesde) params.append('fechaDesde', manualAssociationFilters.fechaDesde);
-      if (manualAssociationFilters.fechaHasta) params.append('fechaHasta', manualAssociationFilters.fechaHasta);
-      if (manualAssociationFilters.search) params.append('search', manualAssociationFilters.search);
-      
-      const response = await api.get(`/rendiciones/items-pendientes-asociacion?${params.toString()}`);
-      
-      setManualAssociationData(response.data);
-      
-      // Si no hay usuario seleccionado, seleccionar el usuario logueado por defecto
-      if (!selectedUserId && response.data.usuario) {
-        setSelectedUserId(response.data.usuario.id);
-      }
-    } catch (error) {
-      console.error('Error loading manual association items:', error);
-      toast.error('Error al cargar items de rendición');
-    } finally {
-      setLoadingManualAssociationData(false);
-    }
-  };
-
-  // Función para asociar manualmente
-  const handleManualAssociation = async (itemId: string, resumenTarjetaId: string) => {
-    if (!selectedDocumentForAssociation) return;
-    
-    try {
-      setSavingManualAssociation(true);
-      
-      await api.post(`/documentos/${selectedDocumentForAssociation.id}/asociar-manual`, {
-        rendicionItemId: itemId,
-        resumenTarjetaId: resumenTarjetaId
-      });
-      
-      toast.success('Documento asociado correctamente');
-      setShowManualAssociationModal(false);
-      
-      // Recargar documentos para obtener datos actualizados
-      await loadDocumentos();
-    } catch (error) {
-      console.error('Error in manual association:', error);
-      toast.error('Error al asociar documento');
-    } finally {
-      setSavingManualAssociation(false);
-    }
-  };
 
   // Cargar datos reales de la API
   const loadDocumentos = async () => {
@@ -660,11 +779,11 @@ export default function ComprobantesPage() {
       <div className="flex items-center justify-between p-6 border-b border-border bg-white">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-            <Receipt className="w-6 h-6 text-palette-dark" />
+            <ScanText className="w-6 h-6 text-palette-dark" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-text-primary">
-              Extracción de Datos
+              Comprobantes
             </h1>
             <p className="text-text-secondary">
               Procesamiento y extracción de información de comprobantes
@@ -868,9 +987,6 @@ export default function ComprobantesPage() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Razón Social
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  CUIT Emisor
-                </th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Gravado
                 </th>
@@ -884,9 +1000,6 @@ export default function ComprobantesPage() {
                   Total
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Cupón
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   CAE
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -897,7 +1010,7 @@ export default function ComprobantesPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {paginatedDocumentos.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={9} className="px-6 py-4 text-center text-gray-500">
                     {documentos.length === 0 ? 
                       'No hay documentos procesados. ¡Sube tu primer comprobante!' : 
                       'No se encontraron documentos que coincidan con los filtros.'}
@@ -1017,13 +1130,13 @@ export default function ComprobantesPage() {
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-4 py-4 text-sm text-gray-900">
                       <div className="font-medium">
                         {doc.razonSocialExtraida || '-'}
                       </div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {doc.cuitExtraido || '-'}
+                      <div className="text-xs text-gray-500 mt-1">
+                        {doc.cuitExtraido || '-'}
+                      </div>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
                       {gravado ? formatCurrency(gravado) : '-'}
@@ -1037,127 +1150,21 @@ export default function ComprobantesPage() {
                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
                       {total ? formatCurrency(total) : '-'}
                     </td>
-                    <td 
-                      className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 relative"
-                    >
-                      {doc.documentosAsociados && doc.documentosAsociados.length > 0 && doc.documentosAsociados[0].resumen_tarjeta ? (
-                        <div
-                          className="cursor-help text-blue-600 font-medium border-b border-dotted border-blue-400 inline-block"
-                          onMouseEnter={(e) => {
-                            setHoveredCupon(doc.id);
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            setCuponTooltipPosition({ 
-                              x: rect.left + rect.width / 2, 
-                              y: rect.top 
-                            });
-                          }}
-                          onMouseLeave={() => setHoveredCupon(null)}
-                        >
-                          {doc.documentosAsociados[0].resumen_tarjeta.numeroCupon || '-'}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400">{doc.cuponExtraido || '-'}</span>
-                      )}
-                      
-                      {/* Tooltip del cupón con datos del resumen */}
-                      {hoveredCupon === doc.id && doc.documentosAsociados && doc.documentosAsociados.length > 0 && doc.documentosAsociados[0].resumen_tarjeta && (
-                        <div 
-                          className="fixed z-50 pointer-events-none"
-                          style={{
-                            left: `${cuponTooltipPosition.x}px`,
-                            top: `${cuponTooltipPosition.y - 10}px`,
-                            transform: 'translate(-50%, -100%)'
-                          }}
-                        >
-                          <div className="bg-blue-900 text-palette-dark p-4 rounded-lg shadow-xl max-w-sm">
-                            <div className="text-xs font-semibold mb-2 text-blue-300">Datos del Resumen</div>
-                            
-                            <div className="space-y-2 text-xs">
-                              <div className="flex justify-between">
-                                <span className="text-blue-400">Cupón:</span>
-                                <span className="font-medium ml-2 text-white">{doc.documentosAsociados[0].resumen_tarjeta.numeroCupon}</span>
-                              </div>
-                              
-                              <div className="flex justify-between">
-                                <span className="text-blue-400">Fecha:</span>
-                                <span className="font-medium ml-2 text-white">
-                                  {doc.documentosAsociados[0].resumen_tarjeta.fechaTransaccion}
-                                </span>
-                              </div>
-                              
-                              <div className="flex justify-between">
-                                <span className="text-blue-400">Importe:</span>
-                                <span className="font-medium ml-2 text-white">
-                                  {formatCurrency(doc.documentosAsociados[0].resumen_tarjeta.importeTransaccion)}
-                                </span>
-                              </div>
-                              
-                              <div className="flex justify-between">
-                                <span className="text-blue-400">Tarjeta:</span>
-                                <span className="font-medium ml-2 text-white">
-                                  {doc.documentosAsociados[0].resumen_tarjeta.numeroTarjeta}
-                                </span>
-                              </div>
-                              
-                              {doc.documentosAsociados[0].resumen_tarjeta.titular && (
-                                <div className="flex justify-between">
-                                  <span className="text-blue-400">Titular:</span>
-                                  <span className="font-medium ml-2 text-white">
-                                    {doc.documentosAsociados[0].resumen_tarjeta.titular.nombre} {doc.documentosAsociados[0].resumen_tarjeta.titular.apellido}
-                                  </span>
-                                </div>
-                              )}
-
-                              {doc.documentosAsociados[0].resumen_tarjeta.monedaOrigenDescripcion && (
-                                <div className="flex justify-between">
-                                  <span className="text-blue-400">Moneda:</span>
-                                  <span className="font-medium ml-2 text-white">
-                                    {doc.documentosAsociados[0].resumen_tarjeta.monedaOrigenDescripcion}
-                                  </span>
-                                </div>
-                              )}
-
-                              {doc.documentosAsociados[0].resumen_tarjeta.descripcionCupon && (
-                                <div className="pt-2 border-t border-blue-700">
-                                  <span className="text-blue-300">Descripción:</span>
-                                  <div className="mt-1 text-blue-200">{doc.documentosAsociados[0].resumen_tarjeta.descripcionCupon}</div>
-                                </div>
-                              )}
-                            </div>
-                            
-                            {/* Flecha del tooltip */}
-                            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
-                              <div className="w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[8px] border-t-blue-900"></div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </td>
                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                       {doc.caeExtraido || '-'}
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
                       <div className="flex items-center justify-center space-x-2">
-                        {/* Botón de asociar/desasociar - ocupan la misma posición */}
+                        {/* Botón de desasociar */}
                         <div className="w-6 flex justify-center">
-                          {doc.documentosAsociados.length > 0 ? (
-                            <button 
+                          {doc.documentosAsociados.length > 0 && (
+                            <button
                               className="text-orange-500 hover:text-orange-700 p-1"
                               title="Desasociar comprobante"
                               onClick={() => handleDisassociateDocument(doc)}
                             >
                               <Unlink className="w-4 h-4" />
                             </button>
-                          ) : doc.estadoProcesamiento === 'completado' ? (
-                            <button
-                              className="text-blue-500 hover:text-blue-700 p-1"
-                              title="Asociar comprobante"
-                              onClick={() => handleOpenManualAssociationModal(doc)}
-                            >
-                              <LinkIcon className="w-4 h-4" />
-                            </button>
-                          ) : (
-                            <div className="w-6 h-6"></div> // Espacio reservado invisible
                           )}
                         </div>
                         
@@ -1309,9 +1316,9 @@ export default function ComprobantesPage() {
       {/* Modal de Edición de Datos Extraídos */}
       {showEditModal && selectedDocumentForEdit && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto animate-in fade-in-0 zoom-in-95">
+          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full mx-4 max-h-[90vh] flex flex-col animate-in fade-in-0 zoom-in-95">
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-border sticky top-0 bg-white">
+            <div className="flex items-center justify-between p-6 border-b border-border bg-white flex-shrink-0">
               <div className="flex items-center space-x-3">
                 <Edit className="w-6 h-6 text-green-600" />
                 <h2 className="text-lg font-semibold text-text-primary">
@@ -1326,17 +1333,55 @@ export default function ComprobantesPage() {
               </button>
             </div>
 
-            {/* Content */}
-            <div className="p-6">
-              <div className="mb-4">
-                <div className="text-sm text-text-secondary mb-2">Documento:</div>
-                <div className="text-sm font-medium text-text-primary bg-gray-50 p-2 rounded">
-                  {selectedDocumentForEdit.nombreArchivo}
-                </div>
+            {/* Información del Documento */}
+            <div className="px-6 pt-4 pb-2 flex-shrink-0">
+              <div className="text-sm text-text-secondary mb-1">Documento:</div>
+              <div className="text-sm font-medium text-text-primary bg-gray-50 p-2 rounded">
+                {selectedDocumentForEdit.nombreArchivo}
               </div>
+            </div>
 
-              {/* Formulario de edición */}
-              <div className="grid grid-cols-2 gap-4">
+            {/* Tabs */}
+            <div className="border-b border-gray-200 flex-shrink-0">
+              <nav className="flex px-6" aria-label="Tabs">
+                <button
+                  onClick={() => setActiveTab('encabezado')}
+                  className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'encabezado'
+                      ? 'border-green-600 text-green-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Encabezado
+                </button>
+                <button
+                  onClick={() => setActiveTab('items')}
+                  className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'items'
+                      ? 'border-green-600 text-green-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Items {documentoLineas.length > 0 && `(${documentoLineas.length})`}
+                </button>
+                <button
+                  onClick={() => setActiveTab('impuestos')}
+                  className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'impuestos'
+                      ? 'border-green-600 text-green-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Impuestos {documentoImpuestos.length > 0 && `(${documentoImpuestos.length})`}
+                </button>
+              </nav>
+            </div>
+
+            {/* Tab Content - Área de scroll fija */}
+            <div className="overflow-y-auto p-6" style={{ height: '500px' }}>
+              {/* TAB: ENCABEZADO */}
+              {activeTab === 'encabezado' && (
+                <div className="grid grid-cols-2 gap-4">
                 {/* 1. Fecha */}
                 <div>
                   <label className="block text-sm font-medium text-text-primary mb-2">
@@ -1490,10 +1535,194 @@ export default function ComprobantesPage() {
                   />
                 </div>
               </div>
+              )}
+
+              {/* TAB: ITEMS */}
+              {activeTab === 'items' && (
+                <div>
+                  {/* Header con botón de agregar */}
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-md font-semibold text-gray-800">Line Items</h3>
+                    <Button
+                      onClick={() => handleOpenItemModal()}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                      size="sm"
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Agregar Item
+                    </Button>
+                  </div>
+
+                  {/* Grilla de items */}
+                  {loadingLineas ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
+                      <p className="mt-2">Cargando items...</p>
+                    </div>
+                  ) : documentoLineas.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
+                      <FileText className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                      <p>No hay items cargados</p>
+                      <p className="text-sm mt-1">Haz clic en "Agregar Item" para comenzar</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto border rounded-lg">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Descripción</th>
+                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Cant.</th>
+                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">P. Unit.</th>
+                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Subtotal</th>
+                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">IVA</th>
+                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                            <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {documentoLineas.map((linea) => (
+                            <tr key={linea.id} className="hover:bg-gray-50">
+                              <td className="px-3 py-2 text-sm text-gray-900">{linea.numero}</td>
+                              <td className="px-3 py-2 text-sm text-gray-900">
+                                <div className="max-w-xs truncate" title={linea.descripcion}>
+                                  {linea.descripcion}
+                                </div>
+                                {linea.codigoProducto && (
+                                  <div className="text-xs text-gray-500">Cód: {linea.codigoProducto}</div>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-900 text-right">
+                                {Number(linea.cantidad).toFixed(2)} {linea.unidad || ''}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-900 text-right">
+                                ${Number(linea.precioUnitario).toFixed(2)}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-900 text-right">
+                                ${Number(linea.subtotal).toFixed(2)}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-900 text-right">
+                                {linea.alicuotaIva ? `${Number(linea.alicuotaIva)}%` : '-'}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-900 text-right font-medium">
+                                ${Number(linea.totalLinea).toFixed(2)}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-center">
+                                <div className="flex items-center justify-center space-x-2">
+                                  <button
+                                    onClick={() => handleOpenItemModal(linea)}
+                                    className="text-blue-600 hover:text-blue-800"
+                                    title="Editar"
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteItem(linea.id)}
+                                    className="text-red-600 hover:text-red-800"
+                                    title="Eliminar"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB: IMPUESTOS */}
+              {activeTab === 'impuestos' && (
+                <div>
+                  {/* Header con botón de agregar */}
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-md font-semibold text-gray-800">Impuestos</h3>
+                    <Button
+                      onClick={() => handleOpenImpuestoModal()}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                      size="sm"
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Agregar Impuesto
+                    </Button>
+                  </div>
+
+                  {/* Grilla de impuestos */}
+                  {loadingImpuestos ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
+                      <p className="mt-2">Cargando impuestos...</p>
+                    </div>
+                  ) : documentoImpuestos.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
+                      <Receipt className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                      <p>No hay impuestos cargados</p>
+                      <p className="text-sm mt-1">Haz clic en "Agregar Impuesto" para comenzar</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto border rounded-lg">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Descripción</th>
+                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Alícuota</th>
+                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Base Imp.</th>
+                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Importe</th>
+                            <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {documentoImpuestos.map((impuesto) => (
+                            <tr key={impuesto.id} className="hover:bg-gray-50">
+                              <td className="px-3 py-2 text-sm text-gray-900 font-medium">{impuesto.tipo}</td>
+                              <td className="px-3 py-2 text-sm text-gray-900">
+                                <div className="max-w-xs truncate" title={impuesto.descripcion}>
+                                  {impuesto.descripcion}
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-900 text-right">
+                                {impuesto.alicuota ? `${Number(impuesto.alicuota)}%` : '-'}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-900 text-right">
+                                {impuesto.baseImponible ? `$${Number(impuesto.baseImponible).toFixed(2)}` : '-'}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-900 text-right font-medium">
+                                ${Number(impuesto.importe).toFixed(2)}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-center">
+                                <div className="flex items-center justify-center space-x-2">
+                                  <button
+                                    onClick={() => handleOpenImpuestoModal(impuesto)}
+                                    className="text-blue-600 hover:text-blue-800"
+                                    title="Editar"
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteImpuesto(impuesto.id)}
+                                    className="text-red-600 hover:text-red-800"
+                                    title="Eliminar"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* Footer */}
-            <div className="flex items-center justify-end space-x-3 p-6 border-t border-border bg-gray-50">
+            {/* Footer - Visible en todos los tabs */}
+            <div className="flex items-center justify-end space-x-3 p-6 border-t border-border bg-gray-50 flex-shrink-0">
               <Button
                 variant="outline"
                 onClick={() => setShowEditModal(false)}
@@ -1601,266 +1830,370 @@ export default function ComprobantesPage() {
         </div>
       )}
 
+      {/* Modal de Edición/Creación de Item */}
+      {showItemModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-border">
+              <div className="flex items-center space-x-3">
+                <FileText className="w-6 h-6 text-blue-600" />
+                <h2 className="text-lg font-semibold text-text-primary">
+                  {selectedItem ? 'Editar Item' : 'Agregar Item'}
+                </h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowItemModal(false);
+                  setSelectedItem(null);
+                  setItemFormData({});
+                }}
+                className="text-text-secondary hover:text-text-primary transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <div className="grid grid-cols-2 gap-4">
+                {/* Número */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Número de Línea
+                  </label>
+                  <input
+                    type="number"
+                    value={itemFormData.numero || ''}
+                    onChange={(e) => setItemFormData({ ...itemFormData, numero: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="1"
+                  />
+                </div>
+
+                {/* Código Producto */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Código Producto
+                  </label>
+                  <input
+                    type="text"
+                    value={itemFormData.codigoProducto || ''}
+                    onChange={(e) => setItemFormData({ ...itemFormData, codigoProducto: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="COD123"
+                  />
+                </div>
+
+                {/* Descripción */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Descripción *
+                  </label>
+                  <textarea
+                    value={itemFormData.descripcion || ''}
+                    onChange={(e) => setItemFormData({ ...itemFormData, descripcion: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="Descripción del producto o servicio"
+                    rows={2}
+                  />
+                </div>
+
+                {/* Cantidad */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Cantidad *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.001"
+                    value={itemFormData.cantidad || ''}
+                    onChange={(e) => setItemFormData({ ...itemFormData, cantidad: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
+                    placeholder="1.00"
+                  />
+                </div>
+
+                {/* Unidad */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Unidad
+                  </label>
+                  <input
+                    type="text"
+                    value={itemFormData.unidad || ''}
+                    onChange={(e) => setItemFormData({ ...itemFormData, unidad: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="un, kg, m, hs"
+                  />
+                </div>
+
+                {/* Precio Unitario */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Precio Unitario *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.0001"
+                    value={itemFormData.precioUnitario || ''}
+                    onChange={(e) => setItemFormData({ ...itemFormData, precioUnitario: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
+                    placeholder="0.0000"
+                  />
+                </div>
+
+                {/* Subtotal */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Subtotal *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={itemFormData.subtotal || ''}
+                    onChange={(e) => setItemFormData({ ...itemFormData, subtotal: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                {/* Alícuota IVA */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Alícuota IVA (%)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={itemFormData.alicuotaIva || ''}
+                    onChange={(e) => setItemFormData({ ...itemFormData, alicuotaIva: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
+                    placeholder="21.00"
+                  />
+                </div>
+
+                {/* Importe IVA */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Importe IVA
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={itemFormData.importeIva || ''}
+                    onChange={(e) => setItemFormData({ ...itemFormData, importeIva: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                {/* Total Línea */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Total Línea *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={itemFormData.totalLinea || ''}
+                    onChange={(e) => setItemFormData({ ...itemFormData, totalLinea: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end space-x-3 p-6 border-t border-border bg-gray-50">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowItemModal(false);
+                  setSelectedItem(null);
+                  setItemFormData({});
+                }}
+                disabled={savingItem}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleSaveItem}
+                disabled={savingItem}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {savingItem ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    {selectedItem ? 'Actualizar' : 'Crear'} Item
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Edición/Creación de Impuesto */}
+      {showImpuestoModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-border">
+              <div className="flex items-center space-x-3">
+                <Receipt className="w-6 h-6 text-purple-600" />
+                <h2 className="text-lg font-semibold text-text-primary">
+                  {selectedImpuesto ? 'Editar Impuesto' : 'Agregar Impuesto'}
+                </h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowImpuestoModal(false);
+                  setSelectedImpuesto(null);
+                  setImpuestoFormData({});
+                }}
+                className="text-text-secondary hover:text-text-primary transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <div className="grid grid-cols-2 gap-4">
+                {/* Tipo */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Tipo *
+                  </label>
+                  <select
+                    value={impuestoFormData.tipo || ''}
+                    onChange={(e) => setImpuestoFormData({ ...impuestoFormData, tipo: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  >
+                    <option value="">Seleccionar...</option>
+                    <option value="IVA">IVA</option>
+                    <option value="Percepción">Percepción</option>
+                    <option value="Retención">Retención</option>
+                    <option value="Impuesto Interno">Impuesto Interno</option>
+                    <option value="Otro">Otro</option>
+                  </select>
+                </div>
+
+                {/* Alícuota */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Alícuota (%)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={impuestoFormData.alicuota || ''}
+                    onChange={(e) => setImpuestoFormData({ ...impuestoFormData, alicuota: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
+                    placeholder="21.00"
+                  />
+                </div>
+
+                {/* Descripción */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Descripción *
+                  </label>
+                  <input
+                    type="text"
+                    value={impuestoFormData.descripcion || ''}
+                    onChange={(e) => setImpuestoFormData({ ...impuestoFormData, descripcion: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="IVA 21%, Percepción IIBB, etc."
+                  />
+                </div>
+
+                {/* Base Imponible */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Base Imponible
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={impuestoFormData.baseImponible || ''}
+                    onChange={(e) => setImpuestoFormData({ ...impuestoFormData, baseImponible: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                {/* Importe */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Importe *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={impuestoFormData.importe || ''}
+                    onChange={(e) => setImpuestoFormData({ ...impuestoFormData, importe: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end space-x-3 p-6 border-t border-border bg-gray-50">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowImpuestoModal(false);
+                  setSelectedImpuesto(null);
+                  setImpuestoFormData({});
+                }}
+                disabled={savingImpuesto}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleSaveImpuesto}
+                disabled={savingImpuesto}
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                {savingImpuesto ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    {selectedImpuesto ? 'Actualizar' : 'Crear'} Impuesto
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de Subir Comprobante */}
       <DocumentUploadModal
         isOpen={uploadModalOpen}
         onClose={() => setUploadModalOpen(false)}
         onDocumentProcessed={handleDocumentProcessed}
         allowMultiple={true}
-        title="Subir Comprobantes de Tarjeta"
+        title="Subir Comprobantes"
         context="comprobantes"
         tipo="tarjeta"
       />
 
       {/* Modal de Asociación Manual */}
-      {showManualAssociationModal && (
-        <div className="fixed inset-0 z-50">
-          <div className="fixed inset-0 bg-gray-500 opacity-75" aria-hidden="true"></div>
-          
-          <div className="fixed top-[5vh] left-1/2 transform -translate-x-1/2 bg-white rounded-lg shadow-xl w-[95vw] max-w-7xl h-[90vh] overflow-hidden">
-              {/* Header fijo */}
-              <div className="absolute top-0 left-0 right-0 bg-white px-6 py-4 border-b border-gray-200 h-20 flex items-center justify-between">
-                <h3 className="text-lg font-medium text-gray-900">
-                  <LinkIcon className="inline w-5 h-5 mr-2 text-blue-500" />
-                  Asociar Comprobante con Item de Rendición
-                </h3>
-                <button
-                  onClick={() => setShowManualAssociationModal(false)}
-                  className="text-gray-400 hover:text-gray-500"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-              
-              {/* Controles de filtro */}
-              <div className="absolute top-20 left-0 right-0 px-6 py-4 h-66 overflow-y-auto bg-white">
-                {/* Layout en dos columnas */}
-                <div className="grid grid-cols-2 gap-6 mb-4">
-                  {/* Columna izquierda - Controles */}
-                  <div className="space-y-4">
-                    {/* Selector de Usuario */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Usuario
-                      </label>
-                      <select
-                        value={selectedUserId}
-                        onChange={(e) => {
-                          setSelectedUserId(e.target.value);
-                          loadManualAssociationItems(e.target.value);
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        {manualAssociationData.usuario && (
-                          <option value={manualAssociationData.usuario.id}>
-                            {manualAssociationData.usuario.apellido}, {manualAssociationData.usuario.nombre} (Yo)
-                          </option>
-                        )}
-                        {manualAssociationData.delegadores?.map((delegador: any) => (
-                          <option key={delegador.id} value={delegador.id}>
-                            {delegador.apellido}, {delegador.nombre}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Filtros de fechas */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Fecha Desde
-                        </label>
-                        <input
-                          type="date"
-                          value={manualAssociationFilters.fechaDesde}
-                          onChange={(e) => {
-                            setManualAssociationFilters(prev => ({ ...prev, fechaDesde: e.target.value }));
-                            setTimeout(() => loadManualAssociationItems(selectedUserId), 100);
-                          }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Fecha Hasta
-                        </label>
-                        <input
-                          type="date"
-                          value={manualAssociationFilters.fechaHasta}
-                          onChange={(e) => {
-                            setManualAssociationFilters(prev => ({ ...prev, fechaHasta: e.target.value }));
-                            setTimeout(() => loadManualAssociationItems(selectedUserId), 100);
-                          }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Columna derecha - Información del documento */}
-                  <div>
-                    <div className="p-3 bg-blue-50 rounded-lg h-full">
-                      <div className="space-y-2 text-sm text-gray-700">
-                        <div><strong>Archivo:</strong> {selectedDocumentForAssociation?.nombreArchivo}</div>
-                        {selectedDocumentForAssociation?.razonSocialExtraida && (
-                          <div><strong>Razón Social:</strong> {selectedDocumentForAssociation.razonSocialExtraida}</div>
-                        )}
-                        {selectedDocumentForAssociation?.numeroComprobanteExtraido && (
-                          <div><strong>Nro. Comprobante:</strong> {selectedDocumentForAssociation.numeroComprobanteExtraido}</div>
-                        )}
-                        {selectedDocumentForAssociation?.fechaExtraida && (
-                          <div><strong>Fecha:</strong> {new Date(selectedDocumentForAssociation.fechaExtraida).toLocaleDateString('es-AR')}</div>
-                        )}
-                        {selectedDocumentForAssociation?.importeExtraido && (
-                          <div><strong>Importe:</strong> ${Number(selectedDocumentForAssociation.importeExtraido).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Búsqueda */}
-                <div className="mb-4">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Buscar por cupón, descripción, proveedor, producto..."
-                      value={manualAssociationFilters.search}
-                      onChange={(e) => {
-                        const searchValue = e.target.value;
-                        setManualAssociationFilters(prev => ({ ...prev, search: searchValue }));
-                        
-                        // Limpiar timer anterior
-                        if (searchDebounceTimer) {
-                          clearTimeout(searchDebounceTimer);
-                        }
-                        
-                        // Crear nuevo timer para debounce (800ms después de dejar de escribir)
-                        const newTimer = setTimeout(() => {
-                          loadManualAssociationItems(selectedUserId);
-                        }, 800);
-                        
-                        setSearchDebounceTimer(newTimer);
-                      }}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <Button
-                      onClick={() => loadManualAssociationItems(selectedUserId)}
-                      disabled={loadingManualAssociationData}
-                    >
-                      Buscar
-                    </Button>
-                  </div>
-                </div>
-
-                </div>
-                
-                {/* Grilla de items */}
-                <div className="absolute top-[310px] left-0 right-0 bottom-16 px-6 py-4">
-                  <div className="h-full border rounded-lg overflow-y-auto">
-                  {loadingManualAssociationData ? (
-                    <div className="p-8 text-center">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                      <p className="mt-2 text-gray-500">Cargando items...</p>
-                    </div>
-                  ) : manualAssociationData.items?.length > 0 ? (
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50 sticky top-0">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Fecha
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Cupón
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Descripción
-                          </th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Importe
-                          </th>
-                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Moneda
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Tipo Producto
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Código Producto
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Proveedor
-                          </th>
-                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Acción
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {manualAssociationData.items.map((item: any) => (
-                          <tr key={item.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {parseDDMMYY(item.fecha)}
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {item.cupon || '-'}
-                            </td>
-                            <td className="px-4 py-4 text-sm text-gray-900">
-                              <div className="max-w-xs truncate" title={item.descripcion}>
-                                {item.descripcion || '-'}
-                              </div>
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                              ${formatNumber(item.importe)}
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                              {item.moneda || '-'}
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {item.tipoProducto || '-'}
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {item.codigoProducto || '-'}
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {item.proveedor || '-'}
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-center">
-                              <button
-                                onClick={() => handleManualAssociation(item.id, item.resumenTarjetaId)}
-                                disabled={savingManualAssociation}
-                                className="text-blue-600 hover:text-blue-900 disabled:opacity-50"
-                                title="Asociar con este item"
-                              >
-                                <LinkIcon className="w-5 h-5" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : (
-                    <div className="p-8 text-center text-gray-500">
-                      No se encontraron items de rendición pendientes
-                    </div>
-                  )}
-                  </div>
-                </div>
-              
-              {/* Footer fijo */}
-              <div className="absolute bottom-0 left-0 right-0 bg-gray-50 px-6 py-3 border-t border-gray-200 h-16 flex items-center justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowManualAssociationModal(false)}
-                  disabled={savingManualAssociation}
-                >
-                  Cancelar
-                </Button>
-              </div>
-          </div>
-        </div>
-      )}
-
       {/* Modal de visualización de documentos */}
       <DocumentViewerProvider documentViewer={documentViewer} />
 

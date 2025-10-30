@@ -5,6 +5,17 @@ import { Sparkles, Plus, Pencil, Trash2, RefreshCw, TestTube, Database } from 'l
 import { promptsApi, AIPrompt } from '@/lib/api';
 import { toast } from 'react-hot-toast';
 
+interface MotorIA {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  requiresConfig: boolean;
+  isGlobal: boolean;
+  isConfigured: boolean;
+  hasCustomConfig?: boolean;
+  modelo?: string;
+}
+
 export default function PromptsIAPage() {
   const [prompts, setPrompts] = useState<AIPrompt[]>([]);
   const [loading, setLoading] = useState(true);
@@ -15,6 +26,7 @@ export default function PromptsIAPage() {
   const [testingPrompt, setTestingPrompt] = useState<AIPrompt | null>(null);
   const [deletingPromptId, setDeletingPromptId] = useState<string | null>(null);
   const [cacheStats, setCacheStats] = useState<{ size: number; entries: any[] } | null>(null);
+  const [motoresDisponibles, setMotoresDisponibles] = useState<MotorIA[]>([]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -33,6 +45,7 @@ export default function PromptsIAPage() {
 
   useEffect(() => {
     loadPrompts();
+    loadMotoresDisponibles();
   }, []);
 
   const loadPrompts = async () => {
@@ -44,6 +57,17 @@ export default function PromptsIAPage() {
       toast.error('Error al cargar prompts: ' + (error.response?.data?.error || error.message));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMotoresDisponibles = async () => {
+    try {
+      const data = await promptsApi.getMotoresDisponibles();
+      setMotoresDisponibles(data.motores || []);
+    } catch (error: any) {
+      console.error('Error al cargar motores:', error);
+      // No mostrar error al usuario, usar lista por defecto si falla
+      setMotoresDisponibles([]);
     }
   };
 
@@ -421,10 +445,13 @@ export default function PromptsIAPage() {
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     <option value="">Sin motor específico</option>
-                    <option value="openai">OpenAI</option>
-                    <option value="anthropic">Anthropic (Claude)</option>
-                    <option value="gemini">Google Gemini</option>
-                    <option value="ollama">Ollama (Local)</option>
+                    {(motoresDisponibles || []).map((motor) => (
+                      <option key={motor.id} value={motor.id}>
+                        {motor.nombre}
+                        {motor.isConfigured ? ' ✓' : ''}
+                        {motor.requiresConfig && !motor.isConfigured ? ' (requiere configuración)' : ''}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>

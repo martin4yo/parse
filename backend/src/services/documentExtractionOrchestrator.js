@@ -65,12 +65,19 @@ class DocumentExtractionOrchestrator {
 
     try {
       // PASO 1: Clasificar documento
-      console.log('🔍 PASO 1: Clasificando documento...');
+      console.log('\n┌─────────────────────────────────────────┐');
+      console.log('│  PASO 1: CLASIFICACIÓN DE DOCUMENTO    │');
+      console.log('└─────────────────────────────────────────┘');
       const clasificacion = await classifierService.classify(documentText, tenantId);
-      console.log(`📋 Tipo detectado: ${clasificacion.tipoDocumento} (confianza: ${(clasificacion.confianza * 100).toFixed(1)}%)`);
+      console.log(`📋 Tipo detectado: ${clasificacion.tipoDocumento}`);
+      console.log(`📊 Confianza: ${(clasificacion.confianza * 100).toFixed(1)}%`);
+      console.log(`🤖 Motor usado: ${clasificacion.motorUsado || 'N/A'}`);
+      console.log(`✅ Clasificación completada\n`);
 
       // PASO 2: Extraer con prompt especializado
-      console.log('\n🔍 PASO 2: Extrayendo con prompt especializado...');
+      console.log('┌─────────────────────────────────────────┐');
+      console.log('│  PASO 2: EXTRACCIÓN DE DATOS           │');
+      console.log('└─────────────────────────────────────────┘');
       const promptKey = this.getPromptKeyForType(clasificacion.tipoDocumento);
       console.log(`📝 Prompt seleccionado: ${promptKey}`);
 
@@ -143,13 +150,18 @@ class DocumentExtractionOrchestrator {
         throw new Error(`Prompt no encontrado: ${promptKey}`);
       }
 
-      console.log(`🤖 Usando motor: ${prompt.motor}`);
+      console.log(`🤖 Motor de IA: ${prompt.motor}`);
 
       // Obtener configuración de IA
       const config = await aiConfigService.getProviderConfig(prompt.motor, tenantId);
+      console.log(`📦 Modelo: ${config.modelo}`);
+      console.log(`🔑 API Key: ${config.apiKey ? '✓ Configurada' : '✗ No configurada'}`);
 
       // Reemplazar variables en el prompt
       const fullPrompt = prompt.prompt.replace('{{DOCUMENT_TEXT}}', documentText);
+      console.log(`📝 Prompt construido (${fullPrompt.length} caracteres)`);
+
+      console.log(`\n⏳ Llamando a ${prompt.motor}...`);
 
       // Extraer según el motor
       let response;
@@ -166,6 +178,15 @@ class DocumentExtractionOrchestrator {
 
       console.log('✅ Extracción completada');
       console.log(`📊 Campos extraídos: ${Object.keys(datos).length}`);
+
+      // Mostrar resumen de datos extraídos
+      if (datos.importe) console.log(`   💰 Importe: $${datos.importe}`);
+      if (datos.fecha) console.log(`   📅 Fecha: ${datos.fecha}`);
+      if (datos.numeroComprobante) console.log(`   🔢 Comprobante: ${datos.numeroComprobante}`);
+      if (datos.cuit) console.log(`   🏢 CUIT: ${datos.cuit}`);
+      if (datos.lineItems && datos.lineItems.length > 0) {
+        console.log(`   📋 Items: ${datos.lineItems.length}`);
+      }
 
       return datos;
 

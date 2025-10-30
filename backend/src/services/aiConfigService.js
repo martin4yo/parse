@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const crypto = require('crypto');
+const { v4: uuidv4 } = require('uuid');
 const featureService = require('./featureService');
 
 const prisma = new PrismaClient();
@@ -123,13 +124,16 @@ class AIConfigService {
           tenantId_provider: { tenantId, provider }
         },
         create: {
+          id: uuidv4(),
           tenantId,
           provider,
           apiKeyEncrypted: encrypted,
           modelo: config.modelo,
           maxRequestsPerDay: config.maxRequestsPerDay,
           config: config.additionalConfig || {},
-          activo: true
+          activo: true,
+          createdAt: new Date(),
+          updatedAt: new Date()
         },
         update: {
           apiKeyEncrypted: encrypted,
@@ -293,7 +297,7 @@ class AIConfigService {
   getDefaultModel(provider) {
     const defaults = {
       'gemini': 'gemini-1.5-flash-latest',
-      'anthropic': 'claude-3-5-sonnet-20241022',
+      'anthropic': 'claude-3-haiku-20240307',
       'openai': 'gpt-4o'
     };
 

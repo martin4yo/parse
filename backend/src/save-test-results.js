@@ -117,7 +117,7 @@ async function saveTestResults() {
           exentoExtraido: datos.exento ? parseFloat(datos.exento) : null,
           impuestosExtraido: datos.impuestos ? parseFloat(datos.impuestos) : null,
           cuponExtraido: datos.cupon || null,
-          modeloIA: 'claude-3-5-sonnet-20241022',
+          modeloIA: 'claude-3-haiku-20240307',
 
           observaciones: `Pipeline Test - Clasificación: ${clasificacion.tipo} (${(clasificacion.confianza * 100).toFixed(1)}%) - Duración: ${(result.duracion / 1000).toFixed(2)}s`,
 

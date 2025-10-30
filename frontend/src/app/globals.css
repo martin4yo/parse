@@ -82,7 +82,17 @@
       clip-path: circle(100% at 50% 50%);
     }
   }
-  
+
+  /* Fade in animation for splash screen */
+  @keyframes fadeIn {
+    0% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
   /* Scrollbar styling */
   .scrollbar-thin {
     scrollbar-width: thin;

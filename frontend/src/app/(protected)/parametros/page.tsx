@@ -1,17 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Settings, Link, Database, Tags, CheckSquare, Workflow, DollarSign, Wallet } from 'lucide-react';
+import { Settings, Link, Database, Tags, Workflow } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { RelacionesParametros } from '@/components/parametros/RelacionesParametros';
 import { ParametrosMaestros } from '@/components/parametros/ParametrosMaestros';
 import AtributosTab from '@/components/parametros/AtributosTab';
-import EstadosTab from '@/components/parametros/EstadosTab';
 import ReglasNegocioTab from '@/components/parametros/ReglasNegocioTab';
-import { MonedasTab } from '@/components/parametros/MonedasTab';
-import { CajasTab } from '@/components/parametros/CajasTab';
 
-type TabType = 'relaciones' | 'parametros' | 'atributos' | 'estados' | 'reglas' | 'monedas' | 'cajas';
+type TabType = 'relaciones' | 'parametros' | 'atributos' | 'reglas';
 
 export default function ParametrosPage() {
   const [activeTab, setActiveTab] = useState<TabType>('relaciones');
@@ -85,21 +82,6 @@ export default function ParametrosPage() {
               </div>
             </button>
             <button
-              onClick={() => setActiveTab('estados')}
-              className={`
-                py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200
-                ${activeTab === 'estados'
-                  ? 'border-palette-purple text-palette-purple'
-                  : 'border-transparent text-text-secondary hover:text-palette-dark hover:border-palette-purple/30'
-                }
-              `}
-            >
-              <div className="flex items-center space-x-2">
-                <CheckSquare className="w-4 h-4" />
-                <span>Estados</span>
-              </div>
-            </button>
-            <button
               onClick={() => setActiveTab('reglas')}
               className={`
                 py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200
@@ -112,36 +94,6 @@ export default function ParametrosPage() {
               <div className="flex items-center space-x-2">
                 <Workflow className="w-4 h-4" />
                 <span>Reglas de Negocio</span>
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('monedas')}
-              className={`
-                py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200
-                ${activeTab === 'monedas'
-                  ? 'border-palette-purple text-palette-purple'
-                  : 'border-transparent text-text-secondary hover:text-palette-dark hover:border-palette-purple/30'
-                }
-              `}
-            >
-              <div className="flex items-center space-x-2">
-                <DollarSign className="w-4 h-4" />
-                <span>Monedas</span>
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('cajas')}
-              className={`
-                py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200
-                ${activeTab === 'cajas'
-                  ? 'border-palette-purple text-palette-purple'
-                  : 'border-transparent text-text-secondary hover:text-palette-dark hover:border-palette-purple/30'
-                }
-              `}
-            >
-              <div className="flex items-center space-x-2">
-                <Wallet className="w-4 h-4" />
-                <span>Cajas</span>
               </div>
             </button>
           </nav>
@@ -158,21 +110,9 @@ export default function ParametrosPage() {
           <div className="p-6">
             <AtributosTab />
           </div>
-        ) : activeTab === 'estados' ? (
-          <div className="p-6">
-            <EstadosTab />
-          </div>
-        ) : activeTab === 'reglas' ? (
-          <div className="p-6">
-            <ReglasNegocioTab />
-          </div>
-        ) : activeTab === 'monedas' ? (
-          <div className="p-6">
-            <MonedasTab />
-          </div>
         ) : (
           <div className="p-6">
-            <CajasTab />
+            <ReglasNegocioTab />
           </div>
         )}
       </div>

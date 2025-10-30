@@ -28,22 +28,68 @@ TIPOS POSIBLES:
 - COMPROBANTE_IMPORTACION: Comprobante de importación
 - TICKET: Ticket fiscal / comprobante de consumidor final
 
-INSTRUCCIONES:
-1. Lee el documento y busca indicadores clave:
-   - Para facturas: tipo en recuadro superior (A, B, C)
-   - Para despachos: palabras "DESPACHO", "ADUANA", "IMPORTACION"
-   - Para tickets: "TICKET", "CONSUMIDOR FINAL", sin discriminación de IVA
+INSTRUCCIONES DE CLASIFICACIÓN:
 
-2. Asigna un nivel de confianza (0.0 a 1.0):
-   - 0.9-1.0: Muy seguro (tipo explícito visible)
-   - 0.7-0.8: Seguro (varios indicadores coinciden)
-   - 0.5-0.6: Probable (pocos indicadores)
-   - <0.5: Incierto
+1. INDICADORES PRINCIPALES (orden de prioridad):
 
-3. Identifica subtipos si aplica (ejemplo: ["SERVICIOS"], ["PRODUCTOS"], ["IMPORTACION"])
+   a) Letra en recuadro superior del documento: A, B o C
+
+   b) FACTURA A - Busca TODOS estos indicadores:
+      ✓ IVA DISCRIMINADO (separado del subtotal)
+      ✓ Frases: "IVA 21%", "Subtotal", "Neto Gravado", "Impuesto Liquidado"
+      ✓ Tabla de IVA con alícuotas (21%, 10.5%, 27%)
+      ✓ Estructura: Subtotal + IVA = Total
+      ✓ Destinatario: "RESPONSABLE INSCRIPTO", "CUIT"
+      ✓ Puede tener percepciones/retenciones
+
+   c) FACTURA B - Busca TODOS estos indicadores:
+      ✓ IVA INCLUIDO (NO discriminado)
+      ✓ Frases: "IVA INCLUIDO", "Precio Final", "Total con IVA"
+      ✓ NO hay tabla de IVA separada
+      ✓ Estructura: Solo muestra Total (sin desglose de IVA)
+      ✓ Destinatario: "MONOTRIBUTISTA", "RESPONSABLE INSCRIPTO"
+      ✓ Puede decir "IVA incluido en el precio"
+      ✓ **REGLA CRÍTICA**: Si contiene "LEY 27743" → ES FACTURA B (confianza 0.99)
+
+   d) FACTURA C - Busca estos indicadores:
+      ✓ IVA INCLUIDO (nunca discriminado)
+      ✓ Frases: "CONSUMIDOR FINAL", "CF", "IVA Incluido"
+      ✓ NO discrimina IVA
+      ✓ NO tiene tabla de impuestos
+      ✓ Destinatario: sin CUIT, "Consumidor Final"
+
+   e) Para DESPACHOS ADUANA:
+      ✓ Palabras: "DESPACHO", "ADUANA", "IMPORTACION", "DI", "SIM"
+      ✓ Términos: "FOB", "CIF", "Arancel", "Posición Arancelaria"
+
+   f) Para TICKETS:
+      ✓ Palabras: "TICKET", "TIQUE", "CF"
+      ✓ Sin CUIT del cliente
+      ✓ Sin discriminación de IVA
+
+2. DIFERENCIACIÓN CRÍTICA ENTRE A y B:
+   - **PRIORIDAD 1**: Si contiene "LEY 27743" → FACTURA_B (confianza 0.99)
+   - Si ves una TABLA con "IVA 21%" y montos separados → FACTURA_A
+   - Si solo dice "Total: $X (IVA incluido)" → FACTURA_B
+   - Si hay columnas "Neto", "IVA", "Total" → FACTURA_A
+   - Si solo hay columna "Total" → FACTURA_B
+
+3. Asigna nivel de confianza (0.0 a 1.0):
+   - 0.95-1.0: Letra visible + 3+ indicadores coinciden
+   - 0.85-0.94: Letra visible + 2 indicadores
+   - 0.75-0.84: Solo indicadores (sin letra visible)
+   - 0.60-0.74: Pocos indicadores
+   - <0.60: Dudoso
+
+4. Identifica subtipos si aplica: ["SERVICIOS"], ["PRODUCTOS"], ["IMPORTACION"]
 
 Texto del documento:
 {{DOCUMENT_TEXT}}
+
+IMPORTANTE - REGLAS DE ORO:
+1. **Si contiene "LEY 27743" → ES FACTURA B** (confianza 0.99) - REGLA ABSOLUTA
+2. Si encuentras palabras como "IVA DISCRIMINADO" o una tabla de IVA → es FACTURA_A
+3. Si dice "IVA INCLUIDO" sin tabla → es FACTURA_B
 
 Responde ÚNICAMENTE con un objeto JSON válido en este formato exacto:
 {
@@ -116,25 +162,49 @@ CONTEXTO DE FACTURA A:
 
 CAMPOS A EXTRAER:
 - fecha (YYYY-MM-DD)
-- importe (total con IVA)
-- cuit (del emisor - primer CUIT que aparezca)
-- numeroComprobante (formato XXXXX-XXXXXXXX)
-- cae (14 dígitos numéricos - buscar "CAE" o "C.A.E.")
-- tipoComprobante ("FACTURA A")
-- razonSocial (empresa emisora - en el encabezado)
-- netoGravado (subtotal antes de IVA)
-- exento (si existe concepto exento)
-- impuestos (suma de IVA + percepciones + retenciones)
-- cupon (si es pago con tarjeta)
-- lineItems (array de items - EXTRAER TODOS los items de la tabla de detalle)
-- impuestosDetalle (array con cada impuesto separado)
+- importe (total con IVA) - NÚMERO
+- cuit (del emisor - primer CUIT que aparezca) - STRING
+- numeroComprobante (formato XXXXX-XXXXXXXX) - STRING
+- cae (14 dígitos numéricos - buscar "CAE" o "C.A.E.") - STRING
+- tipoComprobante ("FACTURA A") - STRING
+- razonSocial (empresa emisora - en el encabezado) - STRING
+- netoGravado (subtotal antes de IVA) - NÚMERO
+- exento (si existe concepto exento) - NÚMERO
+- impuestos (NÚMERO: suma total de IVA + percepciones + retenciones) - NO es un objeto, es UN SOLO NÚMERO
+- cupon (si es pago con tarjeta) - STRING
+- lineItems (array de items - EXTRAER TODOS los items de la tabla de detalle) - ARRAY
+- impuestosDetalle (array con cada impuesto separado - aquí va el desglose) - ARRAY
+
+**IMPORTANTE SOBRE IMPUESTOS:**
+- El campo "impuestos" debe ser UN NÚMERO (la suma total): 9423.22
+- El desglose de impuestos va en "impuestosDetalle" (array de objetos)
+- NO pongas un objeto en "impuestos", solo el número total
+
+FORMATO TÍPICO DE LA TABLA DE ITEMS EN FACTURAS ARGENTINAS:
+Las tablas de items generalmente tienen columnas en este ORDEN:
+1. CANTIDAD (primera columna - izquierda) - Números como 1, 2.5, 10
+2. UNIDAD (un, kg, m, hs, etc.)
+3. CÓDIGO o CÓDIGO PRODUCTO (opcional)
+4. DESCRIPCIÓN o DETALLE (texto descriptivo)
+5. PRECIO UNITARIO o P. UNIT
+6. SUBTOTAL o IMPORTE
+7. IVA % o ALÍCUOTA (21%, 10.5%, etc.)
+8. IMPORTE IVA
+9. TOTAL o IMPORTE TOTAL
+
+**CRÍTICO PARA CANTIDAD:**
+- La CANTIDAD siempre está al INICIO de cada línea de item (primera columna)
+- Busca números al PRINCIPIO de cada fila de la tabla de items
+- La CANTIDAD aparece ANTES de la descripción del producto
+- Ejemplo de línea: "2.00 | un | Servicio de consultoría | 1000.00 | 2000.00"
+  → CANTIDAD = 2.00 (primer número de la línea)
 
 ESTRUCTURA DE lineItems:
 [{
   "numero": 1,
   "codigoProducto": "COD-123",
   "descripcion": "Descripción del producto/servicio",
-  "cantidad": 2.00,
+  "cantidad": 2.00,  // ← PRIMER NÚMERO de la línea del item
   "unidad": "un",
   "precioUnitario": 1000.00,
   "subtotal": 2000.00,
@@ -160,9 +230,11 @@ ESTRUCTURA DE impuestosDetalle:
 
 IMPORTANTE:
 - Extrae TODOS los line items de la tabla (no calcules, extrae lo que dice)
+- **La CANTIDAD es la PRIMERA COLUMNA** - busca el primer número de cada fila
 - Separa CADA impuesto (no sumes IVA 21% + IVA 10.5%)
 - Si un campo no existe, usa null
 - Sé preciso con decimales
+- NO confundas CANTIDAD con precio unitario o subtotal
 
 Texto de la factura:
 {{DOCUMENT_TEXT}}
@@ -203,13 +275,40 @@ CAMPOS A EXTRAER:
 - exento (si existe)
 - impuestos (IVA implícito + percepciones)
 - cupon
-- lineItems (array de items)
+- lineItems (array de items - EXTRAER TODOS)
 - impuestosDetalle (puede estar vacío si IVA no discriminado)
+
+FORMATO DE LA TABLA DE ITEMS:
+Las columnas típicamente aparecen en este ORDEN:
+1. CANTIDAD (primera columna - números como 1, 2.5, 10)
+2. UNIDAD (un, kg, m, etc.)
+3. CÓDIGO (opcional)
+4. DESCRIPCIÓN
+5. PRECIO UNITARIO (YA incluye IVA en Factura B)
+6. TOTAL LÍNEA (YA incluye IVA)
+
+**CRÍTICO:** La CANTIDAD es la PRIMERA COLUMNA, busca el primer número de cada fila.
+Ejemplo: "2.00 | un | Servicio | 1210.00 | 2420.00"
+→ CANTIDAD = 2.00 (primer número)
+
+ESTRUCTURA DE lineItems:
+[{
+  "numero": 1,
+  "codigoProducto": "COD-123",
+  "descripcion": "Descripción del producto/servicio",
+  "cantidad": 2.00,  // ← PRIMER NÚMERO de la línea del item
+  "unidad": "un",
+  "precioUnitario": 1210.00,  // YA incluye IVA
+  "subtotal": 2420.00,  // YA incluye IVA
+  "totalLinea": 2420.00
+}]
 
 IMPORTANTE PARA FACTURA B:
 - Los precios YA INCLUYEN IVA
+- La CANTIDAD es la PRIMERA COLUMNA - busca el primer número de cada fila
 - Si no hay tabla de IVA separada, el campo impuestosDetalle puede ir vacío
 - El netoGravado se calcula dividiendo el total por 1.21 (o la alícuota correspondiente)
+- NO confundas CANTIDAD con precio o total
 
 Texto de la factura:
 {{DOCUMENT_TEXT}}

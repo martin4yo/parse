@@ -36,7 +36,7 @@ router.get('/', authWithTenant, async (req, res) => {
     const menuItems = await prisma.menu_items.findMany({
       where,
       include: {
-        children: {
+        other_menu_items: {
           where: {
             isActive: true,
             ...(isSuperuser ? {} : { superuserOnly: false })
@@ -53,7 +53,14 @@ router.get('/', authWithTenant, async (req, res) => {
 
     console.log(`✅ [MENU] Encontrados ${menuItems.length} items de nivel 1`);
 
-    res.json(menuItems);
+    // Transformar para compatibilidad con el frontend (renombrar other_menu_items a children)
+    const transformedItems = menuItems.map(item => ({
+      ...item,
+      children: item.other_menu_items,
+      other_menu_items: undefined
+    }));
+
+    res.json(transformedItems);
   } catch (error) {
     console.error('❌ [MENU] Error al obtener menú:', error);
     res.status(500).json({
@@ -74,11 +81,11 @@ router.get('/:id', authWithTenant, async (req, res) => {
     const menuItem = await prisma.menu_items.findUnique({
       where: { id },
       include: {
-        children: {
+        other_menu_items: {
           where: { isActive: true },
           orderBy: { orderIndex: 'asc' }
         },
-        parent: true
+        menu_items: true
       }
     });
 
@@ -86,7 +93,16 @@ router.get('/:id', authWithTenant, async (req, res) => {
       return res.status(404).json({ error: 'Item de menú no encontrado' });
     }
 
-    res.json(menuItem);
+    // Transformar para compatibilidad con el frontend
+    const transformedItem = {
+      ...menuItem,
+      children: menuItem.other_menu_items,
+      parent: menuItem.menu_items,
+      other_menu_items: undefined,
+      menu_items: undefined
+    };
+
+    res.json(transformedItem);
   } catch (error) {
     console.error('❌ [MENU] Error al obtener item:', error);
     res.status(500).json({
@@ -147,8 +163,8 @@ router.post('/', authWithTenant, async (req, res) => {
         createdBy: req.user.id
       },
       include: {
-        children: true,
-        parent: true
+        other_menu_items: true,
+        menu_items: true
       }
     });
 
@@ -218,8 +234,8 @@ router.put('/:id', authWithTenant, async (req, res) => {
         updatedBy: req.user.id
       },
       include: {
-        children: true,
-        parent: true
+        other_menu_items: true,
+        menu_items: true
       }
     });
 
@@ -257,7 +273,7 @@ router.delete('/:id', authWithTenant, async (req, res) => {
     const existingItem = await prisma.menu_items.findUnique({
       where: { id },
       include: {
-        children: true
+        other_menu_items: true
       }
     });
 
@@ -271,14 +287,14 @@ router.delete('/:id', authWithTenant, async (req, res) => {
     });
 
     console.log(`✅ [MENU] Item eliminado: ${existingItem.title} (${id})`);
-    if (existingItem.children.length > 0) {
-      console.log(`   ⚠️  Se eliminaron también ${existingItem.children.length} items hijos`);
+    if (existingItem.other_menu_items.length > 0) {
+      console.log(`   ⚠️  Se eliminaron también ${existingItem.other_menu_items.length} items hijos`);
     }
 
     res.json({
       success: true,
       message: 'Item de menú eliminado exitosamente',
-      deletedChildren: existingItem.children.length
+      deletedChildren: existingItem.other_menu_items.length
     });
   } catch (error) {
     console.error('❌ [MENU] Error al eliminar item:', error);

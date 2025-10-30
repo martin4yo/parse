@@ -22,9 +22,9 @@ class FeatureService {
       const tenant = await prisma.tenants.findUnique({
         where: { id: tenantId },
         include: {
-          plan_relation: {
+          planes: {
             include: {
-              features: true
+              plan_features: true
             }
           }
         }
@@ -35,16 +35,16 @@ class FeatureService {
         return false;
       }
 
-      if (!tenant.plan_relation) {
+      if (!tenant.planes) {
         console.log(`⚠️  Tenant ${tenantId} no tiene plan asignado`);
         return false;
       }
 
-      const hasFeature = tenant.plan_relation.features.some(
+      const hasFeature = tenant.planes.plan_features.some(
         f => f.feature === featureName
       );
 
-      console.log(`🔍 Tenant ${tenantId} (${tenant.plan_relation.codigo}) - ${featureName}: ${hasFeature ? '✅' : '❌'}`);
+      console.log(`🔍 Tenant ${tenantId} (${tenant.planes.codigo}) - ${featureName}: ${hasFeature ? '✅' : '❌'}`);
 
       return hasFeature;
 
@@ -65,24 +65,24 @@ class FeatureService {
       const tenant = await prisma.tenants.findUnique({
         where: { id: tenantId },
         include: {
-          plan_relation: {
+          planes: {
             include: {
-              features: true
+              plan_features: true
             }
           }
         }
       });
 
-      if (!tenant?.plan_relation) {
+      if (!tenant?.planes) {
         console.log(`⚠️  Tenant ${tenantId} no tiene plan asignado`);
         return [];
       }
 
-      return tenant.plan_relation.features.map(f => ({
+      return tenant.planes.plan_features.map(f => ({
         feature: f.feature,
         config: f.config || {},
-        planNombre: tenant.plan_relation.nombre,
-        planCodigo: tenant.plan_relation.codigo
+        planNombre: tenant.planes.nombre,
+        planCodigo: tenant.planes.codigo
       }));
 
     } catch (error) {
@@ -103,19 +103,19 @@ class FeatureService {
       const tenant = await prisma.tenants.findUnique({
         where: { id: tenantId },
         include: {
-          plan_relation: {
+          planes: {
             include: {
-              features: true
+              plan_features: true
             }
           }
         }
       });
 
-      if (!tenant?.plan_relation) {
+      if (!tenant?.planes) {
         return null;
       }
 
-      const feature = tenant.plan_relation.features.find(
+      const feature = tenant.planes.plan_features.find(
         f => f.feature === featureName
       );
 
@@ -138,19 +138,19 @@ class FeatureService {
       const tenant = await prisma.tenants.findUnique({
         where: { id: tenantId },
         include: {
-          plan_relation: {
+          planes: {
             include: {
-              features: true
+              plan_features: true
             }
           }
         }
       });
 
-      if (!tenant?.plan_relation) {
+      if (!tenant?.planes) {
         return null;
       }
 
-      const plan = tenant.plan_relation;
+      const plan = tenant.planes;
 
       return {
         id: plan.id,
@@ -158,8 +158,8 @@ class FeatureService {
         nombre: plan.nombre,
         descripcion: plan.descripcion,
         precio: plan.precio,
-        featuresCount: plan.features.length,
-        features: plan.features.map(f => f.feature)
+        featuresCount: plan.plan_features.length,
+        features: plan.plan_features.map(f => f.feature)
       };
 
     } catch (error) {
@@ -178,7 +178,7 @@ class FeatureService {
       const planes = await prisma.planes.findMany({
         where: { activo: true },
         include: {
-          features: true
+          plan_features: true
         },
         orderBy: { orden: 'asc' }
       });
@@ -190,7 +190,7 @@ class FeatureService {
         descripcion: plan.descripcion,
         precio: plan.precio,
         orden: plan.orden,
-        features: plan.features.map(f => ({
+        features: plan.plan_features.map(f => ({
           feature: f.feature,
           config: f.config
         }))

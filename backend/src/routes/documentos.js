@@ -198,18 +198,11 @@ router.post('/procesar', authWithTenant, upload.single('documento'), async (req,
       users: {
         connect: { id: userId }
       },
-      tenant: {
+      tenants: {
         connect: { id: req.tenantId || 'default-tenant-id' }
       },
       updatedAt: new Date()
     };
-
-    // Si es documento de efectivo y se proporciona cajaId, agregarlo
-    if (tipo === 'efectivo' && cajaId) {
-      createData.caja = {
-        connect: { id: cajaId }
-      };
-    }
 
     // Si es documento de tarjeta y se proporciona rendicionItemId, agregarlo
     if (rendicionItemId) {
@@ -293,36 +286,13 @@ router.get('/view/:id', authWithTenant, async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
 
-    // Primero buscar por usuario directo
+    // Buscar por usuario directo
     let documento = await prisma.documentos_procesados.findFirst({
       where: {
         id,
         usuarioId: userId
-      },
-      include: {
-        caja: true
       }
     });
-
-    // Si no se encuentra, buscar por acceso a caja (para comprobantes de efectivo)
-    if (!documento) {
-      documento = await prisma.documentos_procesados.findFirst({
-        where: {
-          id,
-          caja: {
-            user_cajas: {
-              some: {
-                userId: userId,
-                activo: true
-              }
-            }
-          }
-        },
-        include: {
-          caja: true
-        }
-      });
-    }
 
     if (!documento) {
       console.log('Documento no encontrado para usuario:', userId, 'documentoId:', id);
@@ -442,9 +412,9 @@ router.get('/:id', authWithTenant, async (req, res) => {
         users: {
           select: { nombre: true, apellido: true }
         },
-        documentos_asociados: {
-          select: { id: true }
-        }
+        tenants: true,
+        documento_lineas: true,
+        documento_impuestos: true
       }
     });
 
@@ -672,6 +642,198 @@ router.put('/impuestos/:id', authWithTenant, async (req, res) => {
   }
 });
 
+// POST /api/documentos/:id/lineas - Crear una nueva línea
+router.post('/:id/lineas', authWithTenant, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const tenantId = req.tenantId;
+    const {
+      numero,
+      descripcion,
+      codigoProducto,
+      cantidad,
+      unidad,
+      precioUnitario,
+      subtotal,
+      alicuotaIva,
+      importeIva,
+      totalLinea
+    } = req.body;
+
+    // Verificar que el documento existe y pertenece al tenant
+    const documento = await prisma.documentos_procesados.findFirst({
+      where: { id, tenantId }
+    });
+
+    if (!documento) {
+      return res.status(404).json({
+        success: false,
+        error: 'Documento no encontrado'
+      });
+    }
+
+    // Crear la nueva línea
+    const { v4: uuidv4 } = require('uuid');
+    const nuevaLinea = await prisma.documento_lineas.create({
+      data: {
+        id: uuidv4(),
+        documentoId: id,
+        numero: parseInt(numero),
+        descripcion: descripcion,
+        codigoProducto: codigoProducto || null,
+        cantidad: parseFloat(cantidad),
+        unidad: unidad || null,
+        precioUnitario: parseFloat(precioUnitario),
+        subtotal: parseFloat(subtotal),
+        alicuotaIva: alicuotaIva ? parseFloat(alicuotaIva) : null,
+        importeIva: importeIva ? parseFloat(importeIva) : null,
+        totalLinea: parseFloat(totalLinea),
+        tenantId: tenantId
+      }
+    });
+
+    res.json({
+      success: true,
+      linea: nuevaLinea
+    });
+
+  } catch (error) {
+    console.error('Error creando línea:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// DELETE /api/documentos/lineas/:id - Eliminar una línea
+router.delete('/lineas/:id', authWithTenant, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const tenantId = req.tenantId;
+
+    // Verificar que la línea pertenece al tenant
+    const linea = await prisma.documento_lineas.findFirst({
+      where: { id, tenantId }
+    });
+
+    if (!linea) {
+      return res.status(404).json({
+        success: false,
+        error: 'Línea no encontrada'
+      });
+    }
+
+    // Eliminar la línea
+    await prisma.documento_lineas.delete({
+      where: { id }
+    });
+
+    res.json({
+      success: true,
+      message: 'Línea eliminada correctamente'
+    });
+
+  } catch (error) {
+    console.error('Error eliminando línea:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// POST /api/documentos/:id/impuestos - Crear un nuevo impuesto
+router.post('/:id/impuestos', authWithTenant, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const tenantId = req.tenantId;
+    const {
+      tipo,
+      descripcion,
+      alicuota,
+      baseImponible,
+      importe
+    } = req.body;
+
+    // Verificar que el documento existe y pertenece al tenant
+    const documento = await prisma.documentos_procesados.findFirst({
+      where: { id, tenantId }
+    });
+
+    if (!documento) {
+      return res.status(404).json({
+        success: false,
+        error: 'Documento no encontrado'
+      });
+    }
+
+    // Crear el nuevo impuesto
+    const { v4: uuidv4 } = require('uuid');
+    const nuevoImpuesto = await prisma.documento_impuestos.create({
+      data: {
+        id: uuidv4(),
+        documentoId: id,
+        tipo: tipo,
+        descripcion: descripcion,
+        alicuota: alicuota ? parseFloat(alicuota) : null,
+        baseImponible: baseImponible ? parseFloat(baseImponible) : null,
+        importe: parseFloat(importe),
+        tenantId: tenantId
+      }
+    });
+
+    res.json({
+      success: true,
+      impuesto: nuevoImpuesto
+    });
+
+  } catch (error) {
+    console.error('Error creando impuesto:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// DELETE /api/documentos/impuestos/:id - Eliminar un impuesto
+router.delete('/impuestos/:id', authWithTenant, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const tenantId = req.tenantId;
+
+    // Verificar que el impuesto pertenece al tenant
+    const impuesto = await prisma.documento_impuestos.findFirst({
+      where: { id, tenantId }
+    });
+
+    if (!impuesto) {
+      return res.status(404).json({
+        success: false,
+        error: 'Impuesto no encontrado'
+      });
+    }
+
+    // Eliminar el impuesto
+    await prisma.documento_impuestos.delete({
+      where: { id }
+    });
+
+    res.json({
+      success: true,
+      message: 'Impuesto eliminado correctamente'
+    });
+
+  } catch (error) {
+    console.error('Error eliminando impuesto:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // GET /api/documentos - Obtener documentos del usuario
 router.get('/', authWithTenant, async (req, res) => {
   try {
@@ -697,66 +859,22 @@ router.get('/', authWithTenant, async (req, res) => {
         createdAt: 'desc'
       },
       include: {
-        documentos_asociados: {
-          select: {
-            id: true,
-            resumen_tarjeta: {
-              select: {
-                id: true,
-                numeroCupon: true,
-                fechaTransaccion: true,
-                importeTransaccion: true,
-                numeroTarjeta: true,
-                monedaOrigenDescripcion: true,
-                descripcionCupon: true
-              }
-            }
-          }
-        }
+        documento_lineas: true,
+        documento_impuestos: true
       }
     });
-
-    // Enriquecer documentos con información del titular de la tarjeta
-    for (const documento of documentos) {
-      for (const asociacion of documento.documentos_asociados) {
-        if (asociacion.resumen_tarjeta?.numeroTarjeta) {
-          // Buscar el titular de esta tarjeta
-          const tarjetaConTitular = await prisma.user_tarjetas_credito.findFirst({
-            where: {
-              numeroTarjeta: asociacion.resumen_tarjeta.numeroTarjeta,
-              activo: true
-            },
-            include: {
-              users_user_tarjetas_credito_userIdTousers: {
-                select: {
-                  nombre: true,
-                  apellido: true
-                }
-              }
-            }
-          });
-
-          if (tarjetaConTitular?.users_user_tarjetas_credito_userIdTousers) {
-            asociacion.resumen_tarjeta.titular = {
-              nombre: tarjetaConTitular.users_user_tarjetas_credito_userIdTousers.nombre,
-              apellido: tarjetaConTitular.users_user_tarjetas_credito_userIdTousers.apellido
-            };
-          }
-        }
-      }
-    }
 
     // Si se solicitan métricas, calcularlas
     let metrics = null;
     if (includeMetrics === 'true') {
       const totalSubidos = documentos.length;
-      const totalAsociados = documentos.filter(doc => doc.documentos_asociados.length > 0).length;
       const totalConError = documentos.filter(doc => doc.estadoProcesamiento === 'error').length;
-      const totalPendientes = totalSubidos - totalAsociados - totalConError;
+      const totalCompletados = documentos.filter(doc => doc.estadoProcesamiento === 'completado').length;
+      const totalPendientes = totalSubidos - totalCompletados - totalConError;
 
       metrics = {
         subidos: totalSubidos,
-        asociados: totalAsociados,
+        completados: totalCompletados,
         pendientes: totalPendientes,
         conError: totalConError
       };
@@ -774,69 +892,10 @@ router.get('/', authWithTenant, async (req, res) => {
 });
 
 // PUT /api/documentos/:id/aplicar - Aplicar datos extraídos al item de rendición
-router.put('/:id/aplicar', authWithTenant, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { camposAplicar } = req.body; // Array de campos a aplicar
-
-    const documento = await prisma.documentos_procesados.findUnique({
-      where: { id },
-      include: {
-        documentos_asociados: {
-          include: {
-            rendicion_tarjeta_items: true
-          }
-        }
-      }
-    });
-
-    if (!documento) {
-      return res.status(404).json({ error: 'Documento no encontrado' });
-    }
-
-    if (!documento.documentos_asociados || documento.documentos_asociados.length === 0) {
-      return res.status(400).json({ error: 'Este documento no está asociado a un item de rendición' });
-    }
-
-    if (documento.estadoProcesamiento !== 'completado') {
-      return res.status(400).json({ error: 'El documento aún no ha sido procesado completamente' });
-    }
-
-    // Preparar datos para actualizar
-    const updateData = {};
-    
-    if (camposAplicar.includes('fecha') && documento.fechaExtraida) {
-      updateData.fechaComprobante = documento.fechaExtraida;
-    }
-    
-    if (camposAplicar.includes('importe') && documento.importeExtraido) {
-      updateData.netoGravado = documento.importeExtraido;
-    }
-    
-    if (camposAplicar.includes('cuit') && documento.cuitExtraido) {
-      updateData.cuitProveedor = documento.cuitExtraido;
-    }
-    
-    if (camposAplicar.includes('numeroComprobante') && documento.numeroComprobanteExtraido) {
-      updateData.numeroComprobante = documento.numeroComprobanteExtraido;
-    }
-
-    // Actualizar item de rendición
-    await prisma.rendicionTarjetaItem.update({
-      where: { id: documento.rendicionItemId },
-      data: updateData
-    });
-
-    res.json({
-      success: true,
-      mensaje: 'Datos aplicados correctamente al item de rendición'
-    });
-
-  } catch (error) {
-    console.error('Error aplicando datos:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-});
+// RENDICIONES - Endpoint comentado (no usado en Parse)
+// router.put('/:id/aplicar', authWithTenant, async (req, res) => {
+//   ...
+// });
 
 // POST /api/documentos/asociar-automatico-individual - Asociar un documento individual
 router.post('/asociar-automatico-individual', async (req, res) => {
@@ -1636,31 +1695,12 @@ router.delete('/:id', authWithTenant, async (req, res) => {
 
     console.log('Intentando eliminar documento:', { id, userId });
 
-    // Buscar documento con sus relaciones para verificar estado de rendición
+    // Buscar documento
     const documento = await prisma.documentos_procesados.findFirst({
       where: {
         id,
         usuarioId: userId
-      },
-      include: {
-        rendicion_tarjeta_items: {
-          include: {
-            rendicion_tarjeta_cabecera: {
-              include: {
-                estados: true
-              }
-            }
-          }
-        },
-        documentos_asociados: true
       }
-    });
-
-    console.log('📄 [ELIMINACIÓN] Documento encontrado:', {
-      id: documento?.id,
-      rendicionItemId: documento?.rendicionItemId,
-      tieneRendicionItems: !!documento?.rendicion_tarjeta_items,
-      documentosAsociados: documento?.documentos_asociados?.length || 0
     });
 
     if (!documento) {
@@ -1668,77 +1708,15 @@ router.delete('/:id', authWithTenant, async (req, res) => {
       return res.status(404).json({ error: 'Documento no encontrado' });
     }
 
-    // Verificar si hay rendiciones asociadas y su estado
-    if (documento.rendicion_tarjeta_items) {
-      const rendicion = documento.rendicion_tarjeta_items.rendicion_tarjeta_cabecera;
-      const estadoRendicion = rendicion?.estados?.codigo;
-
-      // Solo permitir eliminación si la rendición está en estado PENDIENTE o ENAUT
-      const estadosPermitidos = ['PENDIENTE', 'ENAUT'];
-
-      if (estadoRendicion && !estadosPermitidos.includes(estadoRendicion)) {
-        return res.status(400).json({
-          error: `No se puede eliminar el comprobante. La rendición está en estado: ${estadoRendicion}. Solo se puede eliminar en estados: PENDIENTE o ENAUT.`
-        });
-      }
-    }
-
-    // Eliminar en una transacción para mantener consistencia
+    // Eliminar en una transacción (Prisma automáticamente elimina líneas e impuestos por CASCADE)
     await prisma.$transaction(async (tx) => {
-      // 1. Recopilar todos los rendicion_tarjeta_items a eliminar
-      const rendicionItemIds = new Set();
-
-      // Agregar desde la relación directa del documento (para tarjetas)
-      if (documento.rendicion_tarjeta_items) {
-        rendicionItemIds.add(documento.rendicion_tarjeta_items.id);
-        console.log('🔍 [ELIMINACIÓN] Item de rendición encontrado via relación directa:', documento.rendicion_tarjeta_items.id);
-      }
-
-      // Agregar desde rendicionItemId del documento
-      if (documento.rendicionItemId) {
-        rendicionItemIds.add(documento.rendicionItemId);
-        console.log('🔍 [ELIMINACIÓN] Item de rendición encontrado via rendicionItemId:', documento.rendicionItemId);
-      }
-
-      // Agregar desde documentos_asociados (para efectivo)
-      if (documento.documentos_asociados.length > 0) {
-        for (const docAsociado of documento.documentos_asociados) {
-          if (docAsociado.rendicionItemId) {
-            rendicionItemIds.add(docAsociado.rendicionItemId);
-            console.log('🔍 [ELIMINACIÓN] Item de rendición encontrado via documentos_asociados:', docAsociado.rendicionItemId);
-          }
-        }
-      }
-
-      // 2. Eliminar documentos_asociados relacionados
-      if (documento.documentos_asociados.length > 0) {
-        await tx.documentos_asociados.deleteMany({
-          where: { documentoProcesadoId: id }
-        });
-        console.log(`🗑️ [ELIMINACIÓN] Eliminados ${documento.documentos_asociados.length} documentos asociados`);
-      }
-
-      // 3. Eliminar todos los rendicion_tarjeta_items identificados
-      for (const rendicionItemId of rendicionItemIds) {
-        try {
-          await tx.rendicion_tarjeta_items.delete({
-            where: { id: rendicionItemId }
-          });
-          console.log('🗑️ [ELIMINACIÓN] Item de rendición eliminado:', rendicionItemId);
-        } catch (error) {
-          console.log('⚠️ [ELIMINACIÓN] Error eliminando item de rendición (posiblemente ya eliminado):', rendicionItemId, error.message);
-        }
-      }
-
-      // 4. Eliminar el documento principal
       await tx.documentos_procesados.delete({
         where: { id }
       });
-
-      console.log('✅ [ELIMINACIÓN] Documento eliminado completamente de la base de datos');
+      console.log('✅ [ELIMINACIÓN] Documento eliminado de la base de datos');
     });
 
-    // 4. Eliminar archivo físico después de la transacción exitosa
+    // Eliminar archivo físico después de la transacción exitosa
     if (documento.rutaArchivo && fs.existsSync(documento.rutaArchivo)) {
       fs.unlinkSync(documento.rutaArchivo);
       console.log('Archivo físico eliminado:', documento.rutaArchivo);
@@ -1751,13 +1729,6 @@ router.delete('/:id', authWithTenant, async (req, res) => {
 
   } catch (error) {
     console.error('Error eliminando documento:', error);
-
-    // Mensajes de error más específicos
-    if (error.code === 'P2003') {
-      return res.status(400).json({
-        error: 'No se puede eliminar el comprobante porque está siendo usado en una rendición que no permite modificaciones.'
-      });
-    }
 
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Documento no encontrado' });
@@ -1892,8 +1863,17 @@ function getUpdateDataFromDatosExtraidos(datosExtraidos, textoExtraido, metodoEx
       return null;
     })(),
     impuestosExtraido: (() => {
-      const impuestos = datosExtraidos?.impuestos;
+      let impuestos = datosExtraidos?.impuestos;
       const tipoComprobante = datosExtraidos?.tipoComprobante;
+
+      // Si impuestos es un objeto, convertirlo a suma total
+      if (impuestos && typeof impuestos === 'object') {
+        const suma = (impuestos.iva21 || 0) +
+                     (impuestos.iva105 || 0) +
+                     (impuestos.percepciones || 0) +
+                     (impuestos.retenciones || 0);
+        impuestos = suma;
+      }
 
       if (tipoComprobante && !(tipoComprobante.includes('FACTURA A') || tipoComprobante.includes('TICKET A'))) {
         return 0;
@@ -2345,8 +2325,19 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo) {
           return null;
         })(),
         impuestosExtraido: (() => {
-          const impuestos = datosExtraidos?.impuestos;
+          let impuestos = datosExtraidos?.impuestos;
           const tipoComprobante = datosExtraidos?.tipoComprobante;
+
+          // Si impuestos es un objeto, convertirlo a suma total
+          if (impuestos && typeof impuestos === 'object') {
+            console.log('⚠️ impuestos viene como objeto, calculando suma total...');
+            const suma = (impuestos.iva21 || 0) +
+                         (impuestos.iva105 || 0) +
+                         (impuestos.percepciones || 0) +
+                         (impuestos.retenciones || 0);
+            console.log(`📊 Suma de impuestos: ${suma}`);
+            impuestos = suma;
+          }
 
           // Para FACTURA B/C, TICKET B/C y otros: impuestos = 0
           if (tipoComprobante && !(tipoComprobante.includes('FACTURA A') || tipoComprobante.includes('TICKET A'))) {
@@ -2392,9 +2383,11 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo) {
         // Insertar line items
         await prisma.documento_lineas.createMany({
           data: lineItems.map((item, idx) => ({
+            id: uuidv4(),
             documentoId: documentoId,
             numero: item.numero || (idx + 1),
             descripcion: item.descripcion || 'Sin descripción',
+            codigoProducto: item.codigoProducto || null,
             cantidad: parseFloat(item.cantidad) || 1,
             unidad: item.unidad || 'un',
             precioUnitario: parseFloat(item.precioUnitario) || 0,
@@ -2402,7 +2395,8 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo) {
             alicuotaIva: item.alicuotaIva ? parseFloat(item.alicuotaIva) : null,
             importeIva: item.importeIva ? parseFloat(item.importeIva) : null,
             totalLinea: parseFloat(item.totalLinea || item.subtotal) || 0,
-            tenantId: documento.tenantId
+            tenantId: documento.tenantId,
+            createdAt: new Date()
           }))
         });
 
@@ -2430,13 +2424,15 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo) {
         // Insertar impuestos
         await prisma.documento_impuestos.createMany({
           data: impuestosDetalle.map(imp => ({
+            id: uuidv4(),
             documentoId: documentoId,
             tipo: imp.tipo || 'IVA',
             descripcion: imp.descripcion || 'Sin descripción',
             alicuota: imp.alicuota ? parseFloat(imp.alicuota) : null,
             baseImponible: imp.baseImponible ? parseFloat(imp.baseImponible) : null,
             importe: parseFloat(imp.importe) || 0,
-            tenantId: documento.tenantId
+            tenantId: documento.tenantId,
+            createdAt: new Date()
           }))
         });
 
@@ -2446,45 +2442,8 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo) {
       }
     }
 
-    // Verificar si es un documento de efectivo ANTES de procesar
-    const documentoParaVerificar = await prisma.documentos_procesados.findUnique({
-      where: { id: documentoId },
-      include: { caja: true, users: true }
-    });
-
-    const esDocumentoEfectivo = documentoParaVerificar?.tipo === 'efectivo' && documentoParaVerificar?.cajaId;
-
-    if (esDocumentoEfectivo) {
-      // Para documentos de efectivo: usar transacción completa
-      console.log('📋 Procesando documento de efectivo con transacción para garantizar consistencia');
-
-      try {
-        await prisma.$transaction(async (tx) => {
-          // Actualizar documento dentro de la transacción
-          await tx.documentos_procesados.update({
-            where: { id: documentoId },
-            data: getUpdateDataFromDatosExtraidos(datosExtraidos, processingResult.text, metodoExtraccion)
-          });
-
-          // Crear rendición dentro de la misma transacción
-          await crearOBuscarRendicionEfectivoEnTransaccion(tx, documentoParaVerificar, datosExtraidos);
-        });
-
-        console.log('✅ Documento de efectivo procesado y asociado correctamente en transacción');
-      } catch (transactionError) {
-        console.error('❌ Error en transacción de efectivo, eliminando documento:', transactionError.message);
-
-        // Si falla la transacción, eliminar el documento completamente
-        await eliminarDocumentoCompletamente(documentoId);
-
-        // Re-lanzar un error claro para el usuario
-        throw new Error(`Error procesando comprobante de efectivo: No se pudo asociar con la rendición correspondiente. Verifica la configuración de la caja.`);
-      }
-    } else {
-      // Para documentos de tarjeta: procesar normalmente SIN asociación automática
-      console.log('💳 Procesando documento de tarjeta (sin asociación automática)');
-      // El documento ya fue actualizado arriba, no hacer nada más
-    }
+    // Documento procesado correctamente
+    console.log('✅ Documento procesado correctamente');
 
   } catch (error) {
     console.error('❌ Error procesando documento:', error.message);
@@ -2919,6 +2878,61 @@ router.get('/download/:id', authWithTenant, async (req, res) => {
   } catch (error) {
     console.error('Error downloading document:', error);
     res.status(500).json({ error: 'Error al descargar el documento' });
+  }
+});
+
+// POST /api/documentos/exportar - Marcar documentos como exportados
+router.post('/exportar', authWithTenant, async (req, res) => {
+  try {
+    const { documentoIds } = req.body;
+    const tenantId = req.tenantId;
+
+    if (!documentoIds || !Array.isArray(documentoIds) || documentoIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Debe proporcionar al menos un ID de documento'
+      });
+    }
+
+    // Verificar que todos los documentos pertenecen al tenant
+    const documentos = await prisma.documentos_procesados.findMany({
+      where: {
+        id: { in: documentoIds },
+        tenantId: tenantId
+      }
+    });
+
+    if (documentos.length !== documentoIds.length) {
+      return res.status(404).json({
+        success: false,
+        error: 'Algunos documentos no fueron encontrados o no pertenecen a su organización'
+      });
+    }
+
+    // Marcar como exportados
+    const resultado = await prisma.documentos_procesados.updateMany({
+      where: {
+        id: { in: documentoIds },
+        tenantId: tenantId
+      },
+      data: {
+        exportado: true,
+        fechaExportacion: new Date()
+      }
+    });
+
+    res.json({
+      success: true,
+      message: `${resultado.count} documento(s) marcado(s) como exportado(s)`,
+      count: resultado.count
+    });
+
+  } catch (error) {
+    console.error('Error marcando documentos como exportados:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 });
 

@@ -18,12 +18,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Plus, Search, Edit, Users, BarChart3, Building2, Eye, Ban, Trash2 } from 'lucide-react';
 
+interface Plan {
+  id: string;
+  codigo: string;
+  nombre: string;
+  precio: number;
+}
+
 interface Tenant {
   id: string;
   nombre: string;
   slug: string;
   cuit: string;
-  plan: string;
+  planId: string | null;
+  planes: Plan | null;
   activo: boolean;
   createdAt: string;
   _count: {
@@ -51,6 +59,7 @@ export default function TenantsPage() {
   }
   const { get, post, put, delete: del } = useApiClient();
   const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [planes, setPlanes] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [pagination, setPagination] = useState({
@@ -66,9 +75,20 @@ export default function TenantsPage() {
     nombre: '',
     slug: '',
     cuit: '',
-    plan: 'Common',
+    plan: '',
     activo: true
   });
+
+  const fetchPlanes = async () => {
+    try {
+      const response = await get('/api/planes');
+      if (response.success) {
+        setPlanes(response.planes);
+      }
+    } catch (error) {
+      console.error('Error cargando planes:', error);
+    }
+  };
 
   const fetchTenants = async () => {
     try {
@@ -93,6 +113,10 @@ export default function TenantsPage() {
   };
 
   useEffect(() => {
+    fetchPlanes();
+  }, []);
+
+  useEffect(() => {
     fetchTenants();
   }, [pagination.page, search]);
 
@@ -101,8 +125,8 @@ export default function TenantsPage() {
     setPagination(prev => ({ ...prev, page: 1 }));
   };
 
-  const getPlanBadgeColor = (plan: string) => {
-    switch (plan) {
+  const getPlanBadgeColor = (planCodigo: string) => {
+    switch (planCodigo) {
       case 'Common': return 'bg-gray-800 text-white';
       case 'Uncommon': return 'bg-gray-400 text-white';
       case 'Rare': return 'bg-yellow-500 text-black';
@@ -122,7 +146,7 @@ export default function TenantsPage() {
         nombre: tenant.nombre,
         slug: tenant.slug,
         cuit: tenant.cuit,
-        plan: tenant.plan,
+        plan: tenant.planId || '',
         activo: tenant.activo
       });
     } else {
@@ -131,7 +155,7 @@ export default function TenantsPage() {
         nombre: '',
         slug: '',
         cuit: '',
-        plan: 'Common',
+        plan: planes.length > 0 ? planes[0].id : '',
         activo: true
       });
     }
@@ -263,7 +287,7 @@ export default function TenantsPage() {
                 <div>
                   <p className="text-sm font-medium text-text-secondary">Plan Mythic</p>
                   <div className="text-2xl font-bold text-text-primary mt-1">
-                    {tenants.filter(t => t.plan === 'Mythic').length}
+                    {tenants.filter(t => t.planes?.codigo === 'Mythic').length}
                   </div>
                 </div>
                 <div className="p-3 rounded-lg bg-purple-50">
@@ -370,9 +394,13 @@ export default function TenantsPage() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <Badge className={getPlanBadgeColor(tenant.plan)}>
-                              {tenant.plan}
-                            </Badge>
+                            {tenant.planes ? (
+                              <Badge className={getPlanBadgeColor(tenant.planes.codigo)}>
+                                {tenant.planes.nombre}
+                              </Badge>
+                            ) : (
+                              <span className="text-sm text-gray-400">Sin plan</span>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-1">
@@ -525,10 +553,12 @@ export default function TenantsPage() {
                     onChange={(e) => setFormData({ ...formData, plan: e.target.value })}
                     className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="Common">Common</option>
-                    <option value="Uncommon">Uncommon</option>
-                    <option value="Rare">Rare</option>
-                    <option value="Mythic">Mythic</option>
+                    <option value="">Sin plan</option>
+                    {planes.map((plan) => (
+                      <option key={plan.id} value={plan.id}>
+                        {plan.nombre} {plan.precio ? `- $${plan.precio}` : ''}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

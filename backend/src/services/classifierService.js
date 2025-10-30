@@ -32,8 +32,20 @@ class ClassifierService {
         return this.defaultClassification(documentText);
       }
 
+      console.log(`📝 Prompt: ${prompt.clave}`);
+      console.log(`🤖 Motor de IA: ${prompt.motor}`);
+
+      // Mostrar el prompt completo que se está usando
+      console.log('\n═══════════════════════════════════════════════════════════');
+      console.log('📋 PROMPT DE CLASIFICACIÓN COMPLETO:');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log(prompt.prompt);
+      console.log('═══════════════════════════════════════════════════════════\n');
+
       // Obtener configuración de IA
       const config = await aiConfigService.getProviderConfig(prompt.motor, tenantId);
+      console.log(`📦 Modelo: ${config.modelo}`);
+      console.log(`⏳ Llamando a ${prompt.motor} para clasificar...`);
 
       // Clasificar según el motor
       let resultado;
@@ -44,6 +56,9 @@ class ClassifierService {
       } else {
         throw new Error(`Motor de IA no soportado: ${prompt.motor}`);
       }
+
+      resultado.motorUsado = prompt.motor;
+      resultado.modeloUsado = config.modelo;
 
       console.log(`✅ Documento clasificado como: ${resultado.tipoDocumento} (${resultado.confianza * 100}%)`);
 
@@ -66,14 +81,40 @@ class ClassifierService {
    */
   async classifyWithGemini(documentText, promptTemplate, config) {
     try {
+      console.log(`🔑 API Key (primeros 10 chars): ${config.apiKey.substring(0, 10)}...`);
+      console.log(`📦 Modelo a usar: ${config.modelo}`);
+
       const genAI = new GoogleGenerativeAI(config.apiKey);
       const model = genAI.getGenerativeModel({ model: config.modelo });
 
-      const fullPrompt = promptTemplate.replace('{{DOCUMENT_TEXT}}', documentText);
+      // Mostrar vista previa del texto del documento
+      console.log('\n───────────────────────────────────────────────────────────');
+      console.log('📄 TEXTO DEL DOCUMENTO (primeros 500 caracteres):');
+      console.log('───────────────────────────────────────────────────────────');
+      console.log(documentText.substring(0, 500) + (documentText.length > 500 ? '...' : ''));
+      console.log('───────────────────────────────────────────────────────────');
 
+      // Verificar si contiene LEY 27743
+      if (documentText.toUpperCase().includes('LEY 27743')) {
+        console.log('⚠️  DETECTADO: Documento contiene "LEY 27743" → Debe ser FACTURA B');
+      }
+      console.log('');
+
+      const fullPrompt = promptTemplate.replace('{{DOCUMENT_TEXT}}', documentText);
+      console.log(`📝 Longitud del prompt completo: ${fullPrompt.length} caracteres`);
+      console.log(`📝 Longitud del texto del documento: ${documentText.length} caracteres`);
+
+      console.log('🌐 Llamando a Gemini API...');
       const result = await model.generateContent(fullPrompt);
       const response = result.response;
       const text = response.text();
+
+      console.log(`📥 Respuesta recibida (${text.length} caracteres)`);
+      console.log('\n───────────────────────────────────────────────────────────');
+      console.log('🤖 RESPUESTA DE GEMINI:');
+      console.log('───────────────────────────────────────────────────────────');
+      console.log(text);
+      console.log('───────────────────────────────────────────────────────────\n');
 
       // Parsear respuesta JSON
       const clasificacion = this.parseClassificationResponse(text);
@@ -85,6 +126,18 @@ class ClassifierService {
 
     } catch (error) {
       console.error('❌ Error en clasificación con Gemini:', error.message);
+      console.error('❌ Error completo:', error);
+
+      // Información adicional para debugging
+      if (error.message.includes('fetch failed')) {
+        console.error('🌐 Posibles causas:');
+        console.error('   1. Sin conexión a Internet');
+        console.error('   2. API Key inválida o expirada');
+        console.error('   3. Firewall bloqueando salida HTTPS');
+        console.error('   4. Gemini no disponible en tu región');
+        console.error('   5. Problema temporal del servicio de Google');
+      }
+
       throw error;
     }
   }
@@ -170,6 +223,11 @@ class ClassifierService {
    */
   defaultClassification(documentText) {
     const textUpper = documentText.toUpperCase();
+
+    // REGLA CRÍTICA: LEY 27743 = FACTURA B
+    if (textUpper.includes('LEY 27743')) {
+      return { tipoDocumento: 'FACTURA_B', confianza: 0.99, subtipos: [], modelo: 'regex-ley27743' };
+    }
 
     // Detectar tipo de factura
     if (textUpper.includes('FACTURA A') || textUpper.includes('TIPO A')) {

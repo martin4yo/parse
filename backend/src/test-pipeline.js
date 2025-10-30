@@ -262,7 +262,7 @@ const anthropic = new Anthropic({
 });
 
 // Modelo de Claude a usar
-const CLAUDE_MODEL = 'claude-3-5-sonnet-20241022';
+const CLAUDE_MODEL = 'claude-3-haiku-20240307';
 
 /**
  * Extrae texto de un PDF

@@ -1154,6 +1154,23 @@ export const promptsApi = {
   clearCache: async (): Promise<{ message: string }> => {
     const response = await api.post('/prompts/cache/clear');
     return response.data;
+  },
+
+  getMotoresDisponibles: async (): Promise<{
+    motores: Array<{
+      id: string;
+      nombre: string;
+      descripcion: string;
+      requiresConfig: boolean;
+      isGlobal: boolean;
+      isConfigured: boolean;
+      hasCustomConfig?: boolean;
+      modelo?: string;
+    }>;
+    tenantId: string | null;
+  }> => {
+    const response = await api.get('/prompts/motores-disponibles');
+    return response.data;
   }
 };
 
@@ -1255,6 +1272,77 @@ export const planesApi = {
     }>;
   }> => {
     const response = await api.get('/planes/features/available');
+    return response.data;
+  }
+};
+
+// Tipos para AI Configs
+export interface AIProviderConfig {
+  id: string;
+  provider: string;
+  modelo: string;
+  maxRequestsPerDay: number;
+  config?: any;
+  activo: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AIProvider {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  modelosDisponibles: Array<{
+    value: string;
+    label: string;
+  }>;
+  requiresApiKey: boolean;
+}
+
+// API para configuración de IA
+export const aiConfigsApi = {
+  getAll: async (): Promise<AIProviderConfig[]> => {
+    const response = await api.get('/ai-configs');
+    return response.data;
+  },
+
+  getById: async (id: string): Promise<AIProviderConfig> => {
+    const response = await api.get(`/ai-configs/${id}`);
+    return response.data;
+  },
+
+  getProviders: async (): Promise<AIProvider[]> => {
+    const response = await api.get('/ai-configs/providers');
+    return response.data;
+  },
+
+  create: async (data: {
+    provider: string;
+    apiKey?: string;
+    modelo?: string;
+    maxRequestsPerDay?: number;
+    activo?: boolean;
+  }): Promise<AIProviderConfig> => {
+    const response = await api.post('/ai-configs', data);
+    return response.data;
+  },
+
+  update: async (id: string, data: {
+    modelo?: string;
+    maxRequestsPerDay?: number;
+    activo?: boolean;
+    apiKey?: string;
+  }): Promise<AIProviderConfig> => {
+    const response = await api.put(`/ai-configs/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/ai-configs/${id}`);
+  },
+
+  test: async (provider: string, apiKey: string): Promise<{ success: boolean; message: string }> => {
+    const response = await api.post('/ai-configs/test', { provider, apiKey });
     return response.data;
   }
 };

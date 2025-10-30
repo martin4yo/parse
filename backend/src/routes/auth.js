@@ -39,7 +39,7 @@ router.post('/verify-token', async (req, res) => {
       where: { id: decoded.userId },
       include: {
         profiles: true,
-        tenant: true
+        tenants: true
       }
     });
 
@@ -47,7 +47,7 @@ router.post('/verify-token', async (req, res) => {
       id: user?.id,
       email: user?.email,
       tenantId: user?.tenantId,
-      hasTenantObject: !!user?.tenant,
+      hasTenantObject: !!user?.tenants,
       superuser: user?.superuser,
       decodedTenantId: decoded.tenantId
     });
@@ -288,7 +288,7 @@ router.post('/register', [
       },
       include: {
         profiles: true,
-        tenant: true
+        tenants: true
       }
     });
 
@@ -337,7 +337,7 @@ router.post('/login', [
       where: { email },
       include: {
         profiles: true,
-        tenant: true
+        tenants: true
       }
     });
 
@@ -360,10 +360,10 @@ router.post('/login', [
 
     // Verificar tenant (solo para usuarios normales, no superusers)
     if (!user.superuser) {
-      if (!user.tenant) {
+      if (!user.tenants) {
         return res.status(403).json({ error: 'Usuario sin empresa asignada' });
       }
-      if (!user.tenant.activo) {
+      if (!user.tenants.activo) {
         return res.status(403).json({ error: 'Empresa inactiva. Contacte al administrador.' });
       }
     }
@@ -429,12 +429,12 @@ router.post('/login', [
         slug: defaultTenant.slug,
         planId: defaultTenant.planId,
         configuracion: defaultTenant.configuracion
-      } : (user.tenant ? {
-        id: user.tenant.id,
-        nombre: user.tenant.nombre,
-        slug: user.tenant.slug,
-        planId: user.tenant.planId,
-        configuracion: user.tenant.configuracion
+      } : (user.tenants ? {
+        id: user.tenants.id,
+        nombre: user.tenants.nombre,
+        slug: user.tenants.slug,
+        planId: user.tenants.planId,
+        configuracion: user.tenants.configuracion
       } : null),
       superuser: user.superuser,
       // Para superusers, incluir lista de tenants disponibles
@@ -502,7 +502,7 @@ router.get('/context', async (req, res) => {
       where: { id: decoded.userId },
       include: {
         profiles: true,
-        tenant: true
+        tenants: true
       }
     });
 
@@ -516,8 +516,8 @@ router.get('/context', async (req, res) => {
       currentTenant = await prisma.tenants.findUnique({
         where: { id: decoded.tenantId }
       });
-    } else if (user.tenant) {
-      currentTenant = user.tenant;
+    } else if (user.tenants) {
+      currentTenant = user.tenants;
     }
 
     res.json({
@@ -575,7 +575,10 @@ router.post('/switch-tenant', async (req, res) => {
 
     // Verificar que el tenant existe y está activo
     const tenant = await prisma.tenants.findUnique({
-      where: { id: tenantId }
+      where: { id: tenantId },
+      include: {
+        planes: true
+      }
     });
 
     if (!tenant) {
@@ -597,7 +600,8 @@ router.post('/switch-tenant', async (req, res) => {
         id: tenant.id,
         nombre: tenant.nombre,
         slug: tenant.slug,
-        plan: tenant.plan,
+        planId: tenant.planId,
+        plan: tenant.planes, // Objeto completo del plan
         configuracion: tenant.configuracion
       }
     });
@@ -639,7 +643,7 @@ router.get('/available-tenants', async (req, res) => {
         id: true,
         slug: true,
         nombre: true,
-        plan: true,
+        planId: true,
         cuit: true,
         fechaCreacion: true,
         _count: {
@@ -699,7 +703,7 @@ router.put('/assign-tenant', [
     const userToUpdate = await prisma.users.findUnique({
       where: { id: userId },
       include: {
-        tenant: true,
+        tenants: true,
         profiles: true
       }
     });
@@ -727,7 +731,7 @@ router.put('/assign-tenant', [
       where: { id: userId },
       data: { tenantId: tenantId },
       include: {
-        tenant: true,
+        tenants: true,
         profiles: true
       }
     });

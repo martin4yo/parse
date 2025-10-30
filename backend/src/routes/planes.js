@@ -11,7 +11,7 @@ router.get('/', async (req, res) => {
   try {
     const planes = await prisma.planes.findMany({
       include: {
-        features: {
+        plan_features: {
           orderBy: { feature: 'asc' }
         },
         tenants: {
@@ -24,8 +24,10 @@ router.get('/', async (req, res) => {
     // Formatear respuesta con contadores
     const planesFormateados = planes.map(plan => ({
       ...plan,
-      cantidadFeatures: plan.features.length,
-      cantidadTenants: plan.tenants.length
+      features: plan.plan_features, // Para compatibilidad con frontend
+      cantidadFeatures: plan.plan_features.length,
+      cantidadTenants: plan.tenants.length,
+      plan_features: undefined // Remover para limpiar respuesta
     }));
 
     res.json({
@@ -52,7 +54,7 @@ router.get('/:id', async (req, res) => {
     const plan = await prisma.planes.findUnique({
       where: { id },
       include: {
-        features: {
+        plan_features: {
           orderBy: { feature: 'asc' }
         },
         tenants: {
@@ -70,9 +72,16 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Plan no encontrado' });
     }
 
+    // Transformar para compatibilidad con frontend
+    const planFormateado = {
+      ...plan,
+      features: plan.plan_features,
+      plan_features: undefined
+    };
+
     res.json({
       success: true,
-      plan
+      plan: planFormateado
     });
   } catch (error) {
     console.error('Error obteniendo plan:', error);
@@ -119,13 +128,20 @@ router.post('/', async (req, res) => {
         orden: orden || 0
       },
       include: {
-        features: true
+        plan_features: true
       }
     });
 
+    // Transformar para compatibilidad con frontend
+    const planFormateado = {
+      ...plan,
+      features: plan.plan_features,
+      plan_features: undefined
+    };
+
     res.status(201).json({
       success: true,
-      plan,
+      plan: planFormateado,
       message: 'Plan creado correctamente'
     });
   } catch (error) {
@@ -166,16 +182,23 @@ router.put('/:id', async (req, res) => {
         updatedAt: new Date()
       },
       include: {
-        features: true,
+        plan_features: true,
         tenants: {
           select: { id: true, nombre: true }
         }
       }
     });
 
+    // Transformar para compatibilidad con frontend
+    const planFormateado = {
+      ...plan,
+      features: plan.plan_features,
+      plan_features: undefined
+    };
+
     res.json({
       success: true,
-      plan,
+      plan: planFormateado,
       message: 'Plan actualizado correctamente'
     });
   } catch (error) {
@@ -413,7 +436,7 @@ router.put('/tenants/:tenantId/assign', async (req, res) => {
       include: {
         plan_relation: {
           include: {
-            features: true
+            plan_features: true
           }
         }
       }

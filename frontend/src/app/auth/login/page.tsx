@@ -32,6 +32,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
   const [isEntering, setIsEntering] = useState(false);
+  const [showSplash, setShowSplash] = useState(false);
+  const [progress, setProgress] = useState(0);
   const router = useRouter();
   const { login, isLoading } = useAuth();
 
@@ -57,13 +59,24 @@ export default function LoginPage() {
       await login(data.email, data.password);
       toast.success('¡Bienvenido!');
 
-      // Iniciar animación de salida
-      setIsExiting(true);
+      // Mostrar splash screen
+      setShowSplash(true);
 
-      // Esperar a que termine la animación antes de navegar
+      // Animar barra de progreso
+      const interval = setInterval(() => {
+        setProgress((prev) => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            return 100;
+          }
+          return prev + 2;
+        });
+      }, 30);
+
+      // Navegar después de que termine la animación
       setTimeout(() => {
-        router.push('/app-launcher');
-      }, 1500);
+        router.push('/parse');
+      }, 2000);
     } catch (error: any) {
       const errorMessage = error.message || 'Error al iniciar sesión';
 
@@ -89,6 +102,44 @@ export default function LoginPage() {
     >
       {/* @ts-ignore */}
       <Toaster position="top-right" />
+
+      {/* Splash Screen con Logo y Progreso */}
+      {showSplash && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{
+            background: `linear-gradient(135deg, #FCE5B7 0%, #FCE5B7 25%, #F1ABB5 50%, #8E6AAA 75%, #352151 100%)`,
+            animation: 'fadeIn 0.5s ease-in-out',
+          }}
+        >
+          <div className="flex flex-col items-center justify-center gap-8">
+            {/* Logo de Axioma */}
+            <div className="relative w-96 h-96 animate-pulse">
+              <Image
+                src={axiomaLogo}
+                alt="Axioma Logo"
+                fill
+                sizes="384px"
+                className="object-contain"
+                priority
+              />
+            </div>
+
+            {/* Barra de Progreso */}
+            <div className="w-96">
+              <div className="h-2 bg-white/30 rounded-full overflow-hidden backdrop-blur-sm">
+                <div
+                  className="h-full bg-gradient-to-r from-palette-purple to-palette-pink transition-all duration-300 ease-out"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <p className="text-white text-center mt-4 text-lg font-medium">
+                Cargando...
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Card contenedor principal */}
       <Card
@@ -118,9 +169,9 @@ export default function LoginPage() {
                     priority
                   />
                 </div>
-                <div className="flex items-center justify-center gap-2">
-                  <ScanText className="w-6 h-6 text-palette-purple" />
-                  <h2 className="text-2xl font-bold text-palette-dark">
+                <div className="flex items-center justify-center gap-4">
+                  <ScanText className="w-12 h-12 text-palette-purple" />
+                  <h2 className="text-4xl font-bold text-palette-dark">
                     Parse
                   </h2>
                 </div>

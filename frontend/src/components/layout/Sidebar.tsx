@@ -38,7 +38,8 @@ import {
   Key,
   Sparkles,
   ScanText,
-  Package
+  Package,
+  Brain
 } from 'lucide-react';
 import Image from 'next/image';
 import axiomaLogo from '@/assets/axioma_logo_300x500_invertido.png';
@@ -88,7 +89,8 @@ const IconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Key,
   Sparkles,
   ScanText,
-  Package
+  Package,
+  Brain
 };
 
 // Helper para obtener el componente de ícono desde el nombre
@@ -246,7 +248,7 @@ export function Sidebar({ children }: SidebarProps) {
           )}
         >
           <div className="w-8 h-8 bg-palette-yellow rounded-lg flex items-center justify-center">
-            <FileText className="w-5 h-5 text-palette-dark" />
+            <ScanText className="w-5 h-5 text-palette-dark" />
           </div>
           <h1 className="text-text-white font-semibold text-lg">Parse</h1>
         </div>
@@ -481,9 +483,9 @@ export function Sidebar({ children }: SidebarProps) {
       )}>
         {/* Logo Section - Outside of SidebarContent to prevent re-renders */}
         <button
-          onClick={() => router.push('/app-launcher')}
+          onClick={() => router.push('/parse')}
           className="bg-sidebar py-0 hover:opacity-80 transition-opacity cursor-pointer w-full"
-          title="Volver a Aplicaciones"
+          title="Ir a Parse"
         >
           <div className="relative h-16">
             <Image
@@ -513,11 +515,11 @@ export function Sidebar({ children }: SidebarProps) {
             {/* Logo Section for mobile */}
             <button
               onClick={() => {
-                router.push('/app-launcher');
+                router.push('/parse');
                 setIsMobileOpen(false);
               }}
               className="bg-sidebar py-2 hover:opacity-80 transition-opacity cursor-pointer w-full"
-              title="Volver a Aplicaciones"
+              title="Ir a Parse"
             >
               <div className="relative h-12">
                 <Image
@@ -546,12 +548,12 @@ export function Sidebar({ children }: SidebarProps) {
         {/* Mobile Header */}
         <div className="lg:hidden flex items-center justify-between p-4 border-b border-border bg-white">
           <button
-            onClick={() => router.push('/app-launcher')}
+            onClick={() => router.push('/parse')}
             className="flex items-center space-x-3 hover:opacity-80"
-            title="Volver a Aplicaciones"
+            title="Ir a Parse"
           >
             <div className="w-8 h-8 bg-palette-yellow rounded-lg flex items-center justify-center">
-              <FileText className="w-5 h-5 text-palette-dark" />
+              <ScanText className="w-5 h-5 text-palette-dark" />
             </div>
             <h1 className="text-text-primary font-semibold text-lg">Parse</h1>
           </button>

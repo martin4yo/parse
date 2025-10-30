@@ -57,7 +57,7 @@ const authWithTenant = async (req, res, next) => {
     const user = await prisma.users.findUnique({
       where: { id: decoded.userId },
       include: {
-        tenant: true,
+        tenants: true,
         profiles: true
       }
     });
@@ -78,14 +78,14 @@ const authWithTenant = async (req, res, next) => {
 
     // 4. Verificar tenant (no requerido para superusers)
     if (!user.superuser) {
-      if (!user.tenant) {
+      if (!user.tenants) {
         return res.status(403).json({
           success: false,
           error: 'Usuario sin empresa asignada'
         });
       }
 
-      if (!user.tenant.activo) {
+      if (!user.tenants.activo) {
         return res.status(403).json({
           success: false,
           error: 'Empresa inactiva. Contacte al administrador.'
@@ -123,7 +123,7 @@ const authWithTenant = async (req, res, next) => {
       });
     } else {
       // Para usuarios normales, el tenant es obligatorio
-      currentTenant = user.tenant;
+      currentTenant = user.tenants;
     }
 
     // 5. Verificar vencimiento del plan (si aplica)

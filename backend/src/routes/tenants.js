@@ -37,17 +37,15 @@ router.get('/', async (req, res) => {
     // Obtener tenants con paginación
     const tenants = await prisma.tenants.findMany({
       where,
-      select: {
-        id: true,
-        slug: true,
-        nombre: true,
-        cuit: true,
-        razonSocial: true,
-        email: true,
-        plan: true,
-        activo: true,
-        esDefault: true,
-        createdAt: true,
+      include: {
+        planes: {
+          select: {
+            id: true,
+            codigo: true,
+            nombre: true,
+            precio: true
+          }
+        },
         _count: {
           select: {
             users: true,
@@ -90,23 +88,9 @@ router.get('/:id', async (req, res) => {
 
     const tenant = await prisma.tenants.findUnique({
       where: { id },
-      select: {
-        id: true,
-        slug: true,
-        nombre: true,
-        cuit: true,
-        razonSocial: true,
-        direccion: true,
-        telefono: true,
-        email: true,
-        plan: true,
-        activo: true,
-        esDefault: true,
-        fechaCreacion: true,
-        fechaVencimiento: true,
-        configuracion: true,
-        limites: true,
-      },
+      include: {
+        planes: true
+      }
     });
 
     if (!tenant) {
@@ -157,12 +141,41 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // Convertir código de plan a ID si es necesario
+    let planId = null;
+    if (plan) {
+      // Verificar si el valor es un ID (UUID con guiones o CUID sin guiones) o un código
+      // UUID: 8-4-4-4-12 caracteres hexadecimales con guiones
+      // CUID: 25 caracteres alfanuméricos sin guiones (ejemplo: cmgwu8nlb000tr8hons6m0nxw)
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(plan);
+      const isCUID = /^c[a-z0-9]{24}$/i.test(plan);
+
+      if (isUUID || isCUID) {
+        // Es un ID, usarlo directamente
+        planId = plan;
+      } else {
+        // Es un código (Common, Uncommon, etc.), buscar el plan por código
+        const planRecord = await prisma.planes.findUnique({
+          where: { codigo: plan }
+        });
+
+        if (!planRecord) {
+          return res.status(400).json({
+            success: false,
+            error: `Plan con código "${plan}" no encontrado`
+          });
+        }
+
+        planId = planRecord.id;
+      }
+    }
+
     const tenant = await prisma.tenants.create({
       data: {
         nombre,
         slug,
         cuit,
-        plan,
+        planId,
         activo,
       },
     });
@@ -219,12 +232,54 @@ router.put('/:id', async (req, res) => {
     if (nombre !== undefined) updateData.nombre = nombre;
     if (slug !== undefined) updateData.slug = slug;
     if (cuit !== undefined) updateData.cuit = cuit;
-    if (plan !== undefined) updateData.plan = plan;
+
+    // Convertir código de plan a ID si es necesario
+    if (plan !== undefined) {
+      if (plan === null || plan === '') {
+        updateData.planId = null;
+      } else {
+        // Verificar si el valor es un ID (UUID con guiones o CUID sin guiones) o un código
+        // UUID: 8-4-4-4-12 caracteres hexadecimales con guiones
+        // CUID: 25 caracteres alfanuméricos sin guiones (ejemplo: cmgwu8nlb000tr8hons6m0nxw)
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(plan);
+        const isCUID = /^c[a-z0-9]{24}$/i.test(plan);
+
+        if (isUUID || isCUID) {
+          // Es un ID, usarlo directamente
+          updateData.planId = plan;
+        } else {
+          // Es un código (Common, Uncommon, etc.), buscar el plan por código
+          const planRecord = await prisma.planes.findUnique({
+            where: { codigo: plan }
+          });
+
+          if (!planRecord) {
+            return res.status(400).json({
+              success: false,
+              error: `Plan con código "${plan}" no encontrado`
+            });
+          }
+
+          updateData.planId = planRecord.id;
+        }
+      }
+    }
+
     if (activo !== undefined) updateData.activo = activo;
 
     const tenant = await prisma.tenants.update({
       where: { id },
       data: updateData,
+      include: {
+        planes: {
+          select: {
+            id: true,
+            codigo: true,
+            nombre: true,
+            precio: true
+          }
+        }
+      }
     });
 
     res.json({

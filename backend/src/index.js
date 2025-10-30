@@ -18,6 +18,8 @@ const documentosRoutes = require('./routes/documentos');
 const promptsRoutes = require('./routes/prompts');
 const reglasRoutes = require('./routes/reglas');
 const parametrosRoutes = require('./routes/parametros');
+const atributosRoutes = require('./routes/atributos');
+const aiConfigsRoutes = require('./routes/ai-configs');
 const syncRoutes = require('./routes/sync');
 const { router: syncApiKeysRoutes } = require('./routes/syncApiKeys');
 const jobsRoutes = require('./routes/jobs');
@@ -123,6 +125,10 @@ app.use('/api/documentos', documentosRoutes);
 app.use('/api/prompts', promptsRoutes);
 app.use('/api/reglas', reglasRoutes);
 app.use('/api/parametros', parametrosRoutes);
+app.use('/api/atributos', atributosRoutes);
+app.use('/api/valores-atributo', atributosRoutes);
+app.use('/api/user-atributos', atributosRoutes);
+app.use('/api/ai-configs', aiConfigsRoutes);
 
 // Sincronización SQL
 app.use('/api/sync', syncRoutes);
