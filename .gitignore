@@ -77,6 +77,16 @@ backend/backups/
 *.dump
 *.backup
 
+# API Credentials - NO SUBIR A GIT
+backend/credentials/
+**/credentials/
+*.pem
+*.key
+*-credentials.json
+!package.json
+!package-lock.json
+!tsconfig.json
+
 # PDF files - Documentos y comprobantes
 *.pdf
 *.PDF
