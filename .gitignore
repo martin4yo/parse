@@ -80,3 +80,5 @@ backend/backups/
 # PDF files - Documentos y comprobantes
 *.pdf
 *.PDF
+backend/nul
+nul

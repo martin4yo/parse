@@ -214,7 +214,8 @@ router.post('/', authWithTenant, async (req, res) => {
       valor_padre: valor_padre?.trim() || null,
       orden: parseInt(orden) || 1,
       activo,
-      parametros_json
+      parametros_json,
+      updatedAt: new Date() // Temporal: hasta que se regenere Prisma con @updatedAt
     };
 
     // Solo agregar tenantId si existe (para superusers sin tenant será null)
