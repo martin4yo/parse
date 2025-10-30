@@ -116,11 +116,11 @@ Responde ÚNICAMENTE con un objeto JSON válido en este formato exacto:
 CAMPOS A EXTRAER:
 - fecha: fecha del comprobante (YYYY-MM-DD)
 - importe: monto total (número sin símbolos)
-- cuit: CUIT del emisor (XX-XXXXXXXX-X)
+- cuit: CUIT del EMISOR/PROVEEDOR (XX-XXXXXXXX-X) - ⚠️ IGNORAR "30-51596921-3" (es del cliente). Buscar el CUIT en el ENCABEZADO superior del documento
 - numeroComprobante: número de comprobante
 - cae: CAE si está disponible (14 dígitos)
 - tipoComprobante: FACTURA A/B/C, NOTA DE CREDITO, TICKET, etc.
-- razonSocial: nombre de la empresa que emite
+- razonSocial: nombre de la empresa EMISORA - ⚠️ IGNORAR "Industrias Quimicas y Mineras Timbó S.A.", "IND. QUIMICA Y MINERA TIMBO S.A." o "INDUSTRIAS QUIMICAS Y MINERAS TIMBO" (son del cliente). Buscar la empresa que EMITE en el ENCABEZADO
 - netoGravado: importe neto gravado
 - exento: importe exento (si no aparece: TOTAL - GRAVADO - IMPUESTOS)
 - impuestos: suma total de impuestos (IVA + percepciones + retenciones)
@@ -163,11 +163,11 @@ CONTEXTO DE FACTURA A:
 CAMPOS A EXTRAER:
 - fecha (YYYY-MM-DD)
 - importe (total con IVA) - NÚMERO
-- cuit (del emisor - primer CUIT que aparezca) - STRING
+- cuit (del EMISOR/PROVEEDOR - STRING) - ⚠️ CRÍTICO: IGNORAR el CUIT "30-51596921-3" (es del cliente/receptor). Buscar el CUIT que aparece en el ENCABEZADO superior junto al nombre del EMISOR. NO tomar CUITs que aparezcan en secciones "Datos del Cliente", "Receptor" o "Señor/es"
 - numeroComprobante (formato XXXXX-XXXXXXXX) - STRING
 - cae (14 dígitos numéricos - buscar "CAE" o "C.A.E.") - STRING
 - tipoComprobante ("FACTURA A") - STRING
-- razonSocial (empresa emisora - en el encabezado) - STRING
+- razonSocial (empresa EMISORA - STRING) - ⚠️ CRÍTICO: IGNORAR "Industrias Quimicas y Mineras Timbó S.A.", "IND. QUIMICA Y MINERA TIMBO S.A." o "INDUSTRIAS QUIMICAS Y MINERAS TIMBO" (son del cliente/receptor). Buscar la razón social que aparece en el ENCABEZADO superior junto al CUIT del EMISOR. NO tomar razones sociales en secciones "Datos del Cliente", "Receptor" o "Señor/es"
 - netoGravado (subtotal antes de IVA) - NÚMERO
 - exento (si existe concepto exento) - NÚMERO
 - impuestos (NÚMERO: suma total de IVA + percepciones + retenciones) - NO es un objeto, es UN SOLO NÚMERO
@@ -266,11 +266,11 @@ CONTEXTO DE FACTURA B:
 CAMPOS A EXTRAER:
 - fecha (YYYY-MM-DD)
 - importe (total INCLUYE IVA)
-- cuit (del emisor)
+- cuit (del EMISOR/PROVEEDOR) - ⚠️ CRÍTICO: IGNORAR el CUIT "30-51596921-3" (es del cliente/receptor). Buscar el CUIT que aparece en el ENCABEZADO superior junto al nombre del EMISOR
 - numeroComprobante
 - cae (14 dígitos)
 - tipoComprobante ("FACTURA B")
-- razonSocial
+- razonSocial (empresa EMISORA) - ⚠️ CRÍTICO: IGNORAR "Industrias Quimicas y Mineras Timbó S.A.", "IND. QUIMICA Y MINERA TIMBO S.A." o "INDUSTRIAS QUIMICAS Y MINERAS TIMBO" (son del cliente/receptor). Buscar la razón social del EMISOR en el ENCABEZADO superior
 - netoGravado (calcular: total / 1.21 si aplica IVA 21%)
 - exento (si existe)
 - impuestos (IVA implícito + percepciones)
@@ -340,11 +340,11 @@ CONTEXTO DE FACTURA C:
 CAMPOS A EXTRAER:
 - fecha (YYYY-MM-DD)
 - importe (total con IVA incluido)
-- cuit (del emisor)
+- cuit (del EMISOR/PROVEEDOR) - ⚠️ CRÍTICO: IGNORAR el CUIT "30-51596921-3" (es del cliente/receptor). Buscar el CUIT que aparece en el ENCABEZADO superior junto al nombre del EMISOR
 - numeroComprobante
 - cae (si existe)
 - tipoComprobante ("FACTURA C")
-- razonSocial
+- razonSocial (empresa EMISORA) - ⚠️ CRÍTICO: IGNORAR "Industrias Quimicas y Mineras Timbó S.A.", "IND. QUIMICA Y MINERA TIMBO S.A." o "INDUSTRIAS QUIMICAS Y MINERAS TIMBO" (son del cliente/receptor). Buscar la razón social del EMISOR en el ENCABEZADO superior
 - netoGravado (0 o null - no aplica)
 - exento (generalmente 0)
 - impuestos (0 - IVA incluido no discriminado)

@@ -20,11 +20,11 @@ async function seedPrompts() {
 Información a extraer:
 - fecha: fecha del comprobante (formato YYYY-MM-DD)
 - importe: monto total (número sin símbolos) - IMPORTANTE: Si ves "145,000.00" extraer como 145000, NO como 145
-- cuit: CUIT del emisor (formato XX-XXXXXXXX-X) - tomar el PRIMER CUIT que encuentres cerca de "Ingresos Brutos" o "Inicio de Actividades". NO tomar CUITs que aparezcan después
+- cuit: CUIT del EMISOR/PROVEEDOR (formato XX-XXXXXXXX-X) - ⚠️ IMPORTANTE: IGNORAR el CUIT "30-51596921-3" (es del cliente). Buscar el CUIT que aparece en el ENCABEZADO junto al nombre de la empresa EMISORA. NO tomar CUITs que aparezcan en la sección "Datos del Cliente" o "Receptor"
 - numeroComprobante: número de comprobante (formato XXXXX-XXXXXXXX o similar)
 - cae: CAE (Código de Autorización Electrónico) - 14 dígitos numéricos
 - tipoComprobante: tipo de comprobante (FACTURA A, FACTURA B, FACTURA C, NOTA DE CREDITO A, NOTA DE DEBITO B, etc.) - buscar la letra exacta (A, B, C) en un recuadro en el CENTRO SUPERIOR de la hoja. NO asumir tipo A si no está claro
-- razonSocial: Tomar la PRIMERA razón social que encuentres al leer de arriba hacia abajo. NO la segunda, tercera, etc. Solo la primera
+- razonSocial: Razón social del EMISOR/PROVEEDOR que aparece en el ENCABEZADO de la factura - ⚠️ IMPORTANTE: IGNORAR "Industrias Quimicas y Mineras Timbó S.A.", "IND. QUIMICA Y MINERA TIMBO S.A." o "INDUSTRIAS QUIMICAS Y MINERAS TIMBO" (son del cliente). Buscar la razón social que aparece ARRIBA junto al CUIT del emisor. NO tomar razones sociales en secciones "Datos del Cliente", "Receptor" o "Señor/es"
 - netoGravado: importe neto gravado o subtotal (número sin símbolos) - IMPORTANTE: "Subtotal" generalmente representa el neto gravado
 - exento: importe exento (número sin símbolos) - IMPORTANTE: Si no aparece explícito, usar EXENTO = TOTAL - GRAVADO - IMPUESTOS
 - impuestos: suma total de TODOS los impuestos (IVA 21%, IVA 10.5%, IVA 27%, impuestos internos, retenciones, percepciones, etc.) - número sin símbolos
@@ -90,11 +90,11 @@ Responde SOLO con un objeto JSON válido, sin texto adicional:`,
       prompt: `Analiza este texto de factura argentina y extrae en JSON:
 - fecha (YYYY-MM-DD)
 - importe (número)
-- cuit (XX-XXXXXXXX-X)
+- cuit (XX-XXXXXXXX-X del EMISOR/PROVEEDOR) - ⚠️ IGNORAR "30-51596921-3" (es del cliente). Buscar CUIT en ENCABEZADO junto al nombre del emisor
 - numeroComprobante (XXXXX-XXXXXXXX)
 - cae (14 dígitos numéricos)
 - tipoComprobante (FACTURA A/B/C, NOTA DE CREDITO A/B/C, NOTA DE DEBITO A/B/C - buscar en recuadro superior central)
-- razonSocial (nombre de la empresa QUE EMITE/FACTURA - está en el ENCABEZADO, NO tomar "Razón Social:" que es del cliente)
+- razonSocial (nombre de la empresa EMISORA en el ENCABEZADO) - ⚠️ IGNORAR "Industrias Quimicas y Mineras Timbó S.A.", "IND. QUIMICA Y MINERA TIMBO S.A." o "INDUSTRIAS QUIMICAS Y MINERAS TIMBO" (son del cliente). Buscar la empresa que EMITE la factura, NO la que la recibe
 - netoGravado (importe neto gravado o subtotal - número) - IMPORTANTE: "Subtotal" generalmente representa el neto gravado
 - exento (importe exento - número) - IMPORTANTE: Si no aparece explícito, usar EXENTO = TOTAL - GRAVADO - IMPUESTOS
 - impuestos (suma total de TODOS los impuestos: IVA 21%, IVA 10.5%, IVA 27%, impuestos internos, retenciones, percepciones, etc. - número)
@@ -156,11 +156,11 @@ JSON:`,
 {
   "fecha": "YYYY-MM-DD",
   "importe": número,
-  "cuit": "XX-XXXXXXXX-X",
+  "cuit": "XX-XXXXXXXX-X del EMISOR (⚠️ IGNORAR 30-51596921-3 que es del cliente)",
   "numeroComprobante": "XXXXX-XXXXXXXX",
   "cae": "14 dígitos numéricos",
   "tipoComprobante": "FACTURA A/B/C o NOTA DE CREDITO A/B/C o NOTA DE DEBITO A/B/C",
-  "razonSocial": "razón social del emisor",
+  "razonSocial": "razón social del EMISOR en ENCABEZADO (⚠️ IGNORAR Industrias Quimicas y Mineras Timbó S.A. o IND. QUIMICA Y MINERA TIMBO S.A. que son del cliente)",
   "netoGravado": número,
   "exento": número,
   "impuestos": número,
