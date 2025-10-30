@@ -9,6 +9,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { Plus, Key, Trash2, RefreshCw, Copy, Check, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { Select } from '@/components/ui/Select';
+import { useConfirmDialog } from '@/hooks/useConfirm';
 
 interface Tenant {
   id: string;
@@ -32,13 +33,14 @@ interface ApiKey {
   expiraEn: string | null;
   createdAt: string;
   tenantId: string;
-  tenant: {
+  tenants: {
     nombre: string;
     slug: string;
   };
 }
 
 export default function ApiKeysPage() {
+  const { confirm } = useConfirmDialog();
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -142,7 +144,13 @@ export default function ApiKeysPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Está seguro de eliminar esta API key?')) {
+    const confirmed = await confirm(
+      '¿Está seguro de eliminar esta API key? Esta acción no se puede deshacer.',
+      'Confirmar eliminación',
+      'danger'
+    );
+
+    if (!confirmed) {
       return;
     }
 
@@ -194,7 +202,13 @@ export default function ApiKeysPage() {
   };
 
   const handleRegenerate = async (id: string) => {
-    if (!confirm('¿Está seguro de regenerar esta API key? La clave actual dejará de funcionar.')) {
+    const confirmed = await confirm(
+      '¿Está seguro de regenerar esta API key? La clave actual dejará de funcionar inmediatamente.',
+      'Regenerar API Key',
+      'warning'
+    );
+
+    if (!confirmed) {
       return;
     }
 
@@ -444,8 +458,8 @@ export default function ApiKeysPage() {
                     <TableCell className="font-medium">{apiKey.nombre}</TableCell>
                     <TableCell>
                       <div>
-                        <div className="font-medium">{apiKey.tenant.nombre}</div>
-                        <div className="text-xs text-gray-500">{apiKey.tenant.slug}</div>
+                        <div className="font-medium">{apiKey.tenants.nombre}</div>
+                        <div className="text-xs text-gray-500">{apiKey.tenants.slug}</div>
                       </div>
                     </TableCell>
                     <TableCell>

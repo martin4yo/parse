@@ -3,6 +3,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const featureService = require('./featureService');
 const aiConfigService = require('./aiConfigService');
 const classifierService = require('./classifierService');
+const promptManager = require('./promptManager');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
@@ -188,10 +189,17 @@ class DocumentExtractionOrchestrator {
         console.log(`   📋 Items: ${datos.lineItems.length}`);
       }
 
+      // Registrar uso exitoso del prompt
+      await promptManager.registrarResultado(promptKey, true, tenantId);
+
       return datos;
 
     } catch (error) {
       console.error(`❌ Error extrayendo con ${promptKey}:`, error.message);
+
+      // Registrar uso fallido del prompt
+      await promptManager.registrarResultado(promptKey, false, tenantId).catch(() => {});
+
       throw error;
     }
   }

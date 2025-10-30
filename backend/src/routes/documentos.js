@@ -179,11 +179,8 @@ router.post('/procesar', authWithTenant, upload.single('documento'), async (req,
         fs.unlinkSync(req.file.path);
       }
 
-      const tipoExistente = documentoDuplicado.tipo === 'efectivo' ? 'comprobantes de efectivo' : 'comprobantes de tarjeta';
-      const tipoActual = tipo === 'efectivo' ? 'comprobantes de efectivo' : 'comprobantes de tarjeta';
-
       return res.status(400).json({
-        error: `El archivo "${req.file.originalname}" ya existe en ${tipoExistente}. No se puede subir a ${tipoActual}.`
+        error: `El archivo "${req.file.originalname}" ya existe en comprobantes. No se puede subir nuevamente.`
       });
     }
     

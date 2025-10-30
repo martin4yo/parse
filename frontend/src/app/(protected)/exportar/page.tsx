@@ -103,12 +103,15 @@ export default function ExportarPage() {
 
   const handleSelectAll = () => {
     const filtered = getFilteredDocuments();
-    if (selectedDocuments.size === filtered.length) {
+    // Filtrar solo los documentos no exportados (que se pueden seleccionar)
+    const selectable = filtered.filter(doc => !doc.exportado);
+
+    if (selectedDocuments.size === selectable.length && selectable.length > 0) {
       // Deseleccionar todos
       setSelectedDocuments(new Set());
     } else {
-      // Seleccionar todos los filtrados
-      setSelectedDocuments(new Set(filtered.map(doc => doc.id)));
+      // Seleccionar todos los filtrados que no están exportados
+      setSelectedDocuments(new Set(selectable.map(doc => doc.id)));
     }
   };
 
@@ -410,16 +413,20 @@ export default function ExportarPage() {
                     return (
                       <tr key={doc.id} className={`hover:bg-gray-50 ${doc.exportado ? 'bg-green-50' : ''}`}>
                         <td className="px-4 py-4 whitespace-nowrap text-center">
-                          <button
-                            onClick={() => handleSelectDocument(doc.id)}
-                            className="text-gray-600 hover:text-green-600"
-                          >
-                            {selectedDocuments.has(doc.id) ? (
-                              <CheckSquare className="w-5 h-5 text-green-600" />
-                            ) : (
-                              <Square className="w-5 h-5" />
-                            )}
-                          </button>
+                          {!doc.exportado ? (
+                            <button
+                              onClick={() => handleSelectDocument(doc.id)}
+                              className="text-gray-600 hover:text-green-600"
+                            >
+                              {selectedDocuments.has(doc.id) ? (
+                                <CheckSquare className="w-5 h-5 text-green-600" />
+                              ) : (
+                                <Square className="w-5 h-5" />
+                              )}
+                            </button>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                           {doc.fechaExtraida ? formatDate(doc.fechaExtraida) : '-'}

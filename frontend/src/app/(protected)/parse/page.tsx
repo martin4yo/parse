@@ -13,8 +13,8 @@ import { useConfirmDialog } from '@/hooks/useConfirm';
 
 interface DashboardMetrics {
   subidos: number;
-  asociados: number;
   pendientes: number;
+  exportados: number;
   conError: number;
 }
 
@@ -46,8 +46,8 @@ export default function ComprobantesPage() {
   const { confirmDelete } = useConfirmDialog();
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     subidos: 0,
-    asociados: 0,
     pendientes: 0,
+    exportados: 0,
     conError: 0
   });
   const [documentos, setDocumentos] = useState<DocumentoProcessado[]>([]);
@@ -55,7 +55,7 @@ export default function ComprobantesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('todos');
+  const [filterStatus, setFilterStatus] = useState('pendientes');
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [processingAssociation, setProcessingAssociation] = useState(false);
   const [processingDocuments, setProcessingDocuments] = useState<Set<string>>(new Set());
@@ -490,7 +490,7 @@ export default function ComprobantesPage() {
   const loadDocumentos = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/documentos?includeMetrics=true&tipo=tarjeta');
+      const response = await api.get('/documentos?includeMetrics=true');
       
       if (response.data) {
         // Normalizar los datos para usar camelCase
@@ -499,7 +499,19 @@ export default function ComprobantesPage() {
           documentosAsociados: doc.documentosAsociados || doc.documentos_asociados || []
         }));
         setDocumentos(normalizedDocumentos);
-        setMetrics(response.data.metrics || { subidos: 0, asociados: 0, pendientes: 0, conError: 0 });
+
+        // Calcular métricas basadas en el campo exportado
+        const totalSubidos = normalizedDocumentos.length;
+        const totalExportados = normalizedDocumentos.filter((doc: any) => doc.exportado).length;
+        const totalPendientes = normalizedDocumentos.filter((doc: any) => !doc.exportado).length;
+        const totalConError = normalizedDocumentos.filter((doc: any) => doc.estadoProcesamiento === 'error').length;
+
+        setMetrics({
+          subidos: totalSubidos,
+          pendientes: totalPendientes,
+          exportados: totalExportados,
+          conError: totalConError
+        });
       }
     } catch (error) {
       console.error('Error cargando documentos:', error);
@@ -737,11 +749,11 @@ export default function ComprobantesPage() {
     let statusMatch = true;
     if (filterStatus !== 'todos') {
       switch (filterStatus) {
-        case 'asociados':
-          statusMatch = doc.documentosAsociados && doc.documentosAsociados.length > 0;
-          break;
         case 'pendientes':
-          statusMatch = doc.estadoProcesamiento === 'completado' && (!doc.documentosAsociados || doc.documentosAsociados.length === 0);
+          statusMatch = !doc.exportado;
+          break;
+        case 'exportados':
+          statusMatch = doc.exportado === true;
           break;
         case 'error':
           statusMatch = doc.estadoProcesamiento === 'error';
@@ -833,14 +845,14 @@ export default function ComprobantesPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-text-secondary">
-                  Documentos Asociados
+                  Pendientes
                 </p>
                 <div className="text-2xl font-bold text-text-primary mt-1">
-                  {metrics.asociados}
+                  {metrics.pendientes}
                 </div>
               </div>
-              <div className="p-3 rounded-lg bg-green-50">
-                <CheckCircle className="h-6 w-6 text-green-600" />
+              <div className="p-3 rounded-lg bg-orange-50">
+                <Clock className="h-6 w-6 text-orange-600" />
               </div>
             </div>
           </CardContent>
@@ -851,14 +863,14 @@ export default function ComprobantesPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-text-secondary">
-                  Pendientes de Asociar
+                  Exportados
                 </p>
                 <div className="text-2xl font-bold text-text-primary mt-1">
-                  {metrics.pendientes}
+                  {metrics.exportados}
                 </div>
               </div>
-              <div className="p-3 rounded-lg bg-orange-50">
-                <Clock className="h-6 w-6 text-orange-600" />
+              <div className="p-3 rounded-lg bg-green-50">
+                <CheckCircle className="h-6 w-6 text-green-600" />
               </div>
             </div>
           </CardContent>
@@ -929,10 +941,9 @@ export default function ComprobantesPage() {
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
             >
-              <option value="todos">Todos</option>
-              <option value="asociados">Asociados</option>
+              <option value="todos">Mostrar Todos</option>
               <option value="pendientes">Pendientes</option>
-              <option value="error">Con Error</option>
+              <option value="exportados">Exportados</option>
             </select>
           </div>
         </div>
