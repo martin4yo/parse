@@ -73,7 +73,7 @@ router.post('/',
   [
     body('codigo').notEmpty().withMessage('Código es requerido'),
     body('nombre').notEmpty().withMessage('Nombre es requerido'),
-    body('tipo').isIn(['IMPORTACION_DKT', 'VALIDACION', 'TRANSFORMACION', 'GRID_AUTOCOMPLETE']).withMessage('Tipo inválido'),
+    body('tipo').isIn(['IMPORTACION_DKT', 'VALIDACION', 'TRANSFORMACION', 'TRANSFORMACION_DOCUMENTO', 'GRID_AUTOCOMPLETE']).withMessage('Tipo inválido'),
     body('configuracion').isObject().withMessage('Configuración debe ser un objeto válido'),
     body('prioridad').optional().isInt({ min: 1 }).withMessage('Prioridad debe ser un número entero positivo')
   ],
@@ -138,7 +138,7 @@ router.put('/:id',
     param('id').isLength({ min: 1 }).withMessage('ID inválido'),
     body('codigo').optional().notEmpty().withMessage('Código no puede estar vacío'),
     body('nombre').optional().notEmpty().withMessage('Nombre no puede estar vacío'),
-    body('tipo').optional().isIn(['IMPORTACION_DKT', 'VALIDACION', 'TRANSFORMACION', 'GRID_AUTOCOMPLETE']).withMessage('Tipo inválido'),
+    body('tipo').optional().isIn(['IMPORTACION_DKT', 'VALIDACION', 'TRANSFORMACION', 'TRANSFORMACION_DOCUMENTO', 'GRID_AUTOCOMPLETE']).withMessage('Tipo inválido'),
     body('configuracion').optional().isObject().withMessage('Configuración debe ser un objeto válido'),
     body('prioridad').optional().isInt({ min: 1 }).withMessage('Prioridad debe ser un número entero positivo')
   ],
@@ -315,6 +315,7 @@ router.get('/meta/tipos', authWithTenant, async (req, res) => {
     { codigo: 'IMPORTACION_DKT', nombre: 'Importación de DKT', descripcion: 'Reglas aplicadas durante la importación de archivos DKT' },
     { codigo: 'VALIDACION', nombre: 'Validación', descripcion: 'Reglas de validación de datos' },
     { codigo: 'TRANSFORMACION', nombre: 'Transformación', descripcion: 'Reglas de transformación de datos' },
+    { codigo: 'TRANSFORMACION_DOCUMENTO', nombre: 'Transformación Pre-Exportación', descripcion: 'Reglas aplicadas a documentos antes de exportarlos' },
     { codigo: 'GRID_AUTOCOMPLETE', nombre: 'Auto-completado de Grilla', descripcion: 'Reglas de auto-completado para campos de grillas' }
   ]);
 });

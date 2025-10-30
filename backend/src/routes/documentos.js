@@ -8,6 +8,7 @@ const { v4: uuidv4 } = require('uuid');
 const DocumentProcessor = require('../lib/documentProcessor');
 const { authWithTenant } = require('../middleware/authWithTenant');
 const orchestrator = require('../services/documentExtractionOrchestrator');
+const BusinessRulesEngine = require('../services/businessRulesEngine');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -2909,6 +2910,45 @@ router.post('/exportar', authWithTenant, async (req, res) => {
       });
     }
 
+    // Inicializar motor de reglas de negocio para transformaciones pre-exportación
+    const rulesEngine = new BusinessRulesEngine();
+    await rulesEngine.loadRules('TRANSFORMACION_DOCUMENTO', false, prisma);
+
+    let documentosTransformados = 0;
+
+    // Aplicar reglas de negocio a cada documento antes de exportar
+    for (const documento of documentos) {
+      try {
+        // Aplicar reglas de transformación
+        const ruleResult = await rulesEngine.applyRules(
+          documento,
+          {},
+          {
+            tipo: 'TRANSFORMACION_DOCUMENTO',
+            contexto: 'PRE_EXPORT',
+            logExecution: true
+          }
+        );
+
+        // Si se aplicaron reglas y hay datos transformados, actualizar el documento
+        if (ruleResult.rulesApplied > 0) {
+          await prisma.documentos_procesados.update({
+            where: { id: documento.id },
+            data: {
+              razonSocialExtraida: ruleResult.data.razonSocialExtraida,
+              cuitExtraido: ruleResult.data.cuitExtraido,
+              // Agregar otros campos que puedan ser transformados
+            }
+          });
+          documentosTransformados++;
+          console.log(`✅ Documento ${documento.id}: ${ruleResult.rulesApplied} regla(s) aplicada(s)`);
+        }
+      } catch (ruleError) {
+        console.error(`Error aplicando reglas al documento ${documento.id}:`, ruleError);
+        // Continuar con el siguiente documento aunque falle la regla
+      }
+    }
+
     // Marcar como exportados
     const resultado = await prisma.documentos_procesados.updateMany({
       where: {
@@ -2924,7 +2964,8 @@ router.post('/exportar', authWithTenant, async (req, res) => {
     res.json({
       success: true,
       message: `${resultado.count} documento(s) marcado(s) como exportado(s)`,
-      count: resultado.count
+      count: resultado.count,
+      transformados: documentosTransformados
     });
 
   } catch (error) {
