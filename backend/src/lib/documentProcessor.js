@@ -299,14 +299,14 @@ class DocumentProcessor {
       const result = JSON.parse(jsonResponse);
 
       // Registrar resultado exitoso
-      await promptManager.registrarResultado('EXTRACCION_FACTURA_OPENAI', true, tenantId);
+      await promptManager.registrarResultado('EXTRACCION_FACTURA_OPENAI', true, tenantId, 'openai');
 
       return result;
     } catch (error) {
       console.error('Error with OpenAI extraction:', error);
 
       // Registrar resultado fallido
-      await promptManager.registrarResultado('EXTRACCION_FACTURA_OPENAI', false, tenantId).catch(() => {});
+      await promptManager.registrarResultado('EXTRACCION_FACTURA_OPENAI', false, tenantId, 'openai').catch(() => {});
 
       return null;
     }
@@ -355,11 +355,11 @@ class DocumentProcessor {
 
       const result = JSON.parse(jsonText);
       // Registrar éxito
-      await promptManager.registrarResultado('EXTRACCION_FACTURA_CLAUDE', true, tenantId);
+      await promptManager.registrarResultado('EXTRACCION_FACTURA_CLAUDE', true, tenantId, 'anthropic');
       return result;
     } catch (error) {
       console.error('Error with Claude extraction:', error);
-      await promptManager.registrarResultado('EXTRACCION_FACTURA_CLAUDE', false, tenantId).catch(() => {});
+      await promptManager.registrarResultado('EXTRACCION_FACTURA_CLAUDE', false, tenantId, 'anthropic').catch(() => {});
       return null;
     }
   }
@@ -479,7 +479,7 @@ ${text}`;
         try {
           const data = JSON.parse(jsonText);
           // Registrar éxito
-          await promptManager.registrarResultado('EXTRACCION_FACTURA_GEMINI', true, tenantId);
+          await promptManager.registrarResultado('EXTRACCION_FACTURA_GEMINI', true, tenantId, 'gemini');
           return data;
         } catch (parseError) {
           console.error('JSON parse error:', parseError.message);
@@ -497,7 +497,7 @@ ${text}`;
             console.log('Re-cleaned JSON:', cleanedJson);
             const data = JSON.parse(cleanedJson);
             // Registrar éxito
-            await promptManager.registrarResultado('EXTRACCION_FACTURA_GEMINI', true, tenantId);
+            await promptManager.registrarResultado('EXTRACCION_FACTURA_GEMINI', true, tenantId, 'gemini');
             return data;
           } catch (secondParseError) {
             console.error('Second JSON parse also failed:', secondParseError.message);
@@ -518,12 +518,12 @@ ${text}`;
 
         // Si no quedan intentos o es otro tipo de error
         if (attempt === retries) {
-          await promptManager.registrarResultado('EXTRACCION_FACTURA_GEMINI', false, tenantId).catch(() => {});
+          await promptManager.registrarResultado('EXTRACCION_FACTURA_GEMINI', false, tenantId, 'gemini').catch(() => {});
           return null;
         }
       }
     }
-    await promptManager.registrarResultado('EXTRACCION_FACTURA_GEMINI', false, tenantId).catch(() => {});
+    await promptManager.registrarResultado('EXTRACCION_FACTURA_GEMINI', false, tenantId, 'gemini').catch(() => {});
     return null;
   }
 
@@ -1776,7 +1776,7 @@ Responde solo el JSON:`,
 
           // Validar estructura
           if (data.metadata && data.transacciones && Array.isArray(data.transacciones)) {
-            await promptManager.registrarResultado('EXTRACCION_RESUMEN_TARJETA', true, tenantId);
+            await promptManager.registrarResultado('EXTRACCION_RESUMEN_TARJETA', true, tenantId, 'gemini');
             return data;
           }
         } catch (error) {
@@ -1813,7 +1813,7 @@ Responde solo el JSON:`,
 
           // Validar estructura
           if (data.metadata && data.transacciones && Array.isArray(data.transacciones)) {
-            await promptManager.registrarResultado('EXTRACCION_RESUMEN_TARJETA', true, tenantId);
+            await promptManager.registrarResultado('EXTRACCION_RESUMEN_TARJETA', true, tenantId, 'anthropic');
             return data;
           }
         } catch (error) {
@@ -1821,10 +1821,12 @@ Responde solo el JSON:`,
         }
       }
 
+      // Falló con ambos motores - dejar motor=null
       await promptManager.registrarResultado('EXTRACCION_RESUMEN_TARJETA', false, tenantId);
       return null;
     } catch (error) {
       console.error('❌ [RESUMEN TARJETA] Error en extracción con IA:', error);
+      // Error general - dejar motor=null
       await promptManager.registrarResultado('EXTRACCION_RESUMEN_TARJETA', false, tenantId).catch(() => {});
       return null;
     }

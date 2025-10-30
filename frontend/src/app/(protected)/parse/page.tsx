@@ -34,6 +34,9 @@ interface DocumentoProcessado {
   netoGravadoExtraido?: number;
   exentoExtraido?: number;
   impuestosExtraido?: number;
+  descuentoGlobalExtraido?: number;
+  descuentoGlobalTipo?: string;
+  monedaExtraida?: string;
   cuponExtraido?: string;
   caeExtraido?: string;
   tipoComprobanteExtraido?: string;
@@ -174,7 +177,9 @@ export default function ComprobantesPage() {
       tipoComprobanteExtraido: doc.tipoComprobanteExtraido || '',
       netoGravadoExtraido: doc.netoGravadoExtraido ? Number(doc.netoGravadoExtraido).toFixed(2) : '',
       exentoExtraido: doc.exentoExtraido ? Number(doc.exentoExtraido).toFixed(2) : '',
-      impuestosExtraido: doc.impuestosExtraido ? Number(doc.impuestosExtraido).toFixed(2) : ''
+      impuestosExtraido: doc.impuestosExtraido ? Number(doc.impuestosExtraido).toFixed(2) : '',
+      descuentoGlobalExtraido: doc.descuentoGlobalExtraido ? Number(doc.descuentoGlobalExtraido).toFixed(2) : '',
+      descuentoGlobalTipo: doc.descuentoGlobalTipo || ''
     });
     setActiveTab('encabezado');
     setShowEditModal(true);
@@ -210,13 +215,16 @@ export default function ComprobantesPage() {
       }
       
       // Preparar datos para enviar
+      const descuentoGlobal = editFormData.descuentoGlobalExtraido ? parseFloat(editFormData.descuentoGlobalExtraido) : null;
       const dataToSend = {
         ...editFormData,
         fechaExtraida: editFormData.fechaExtraida || null,
         importeExtraido: importeTotal || null,
         netoGravadoExtraido: netoGravado || null,
         exentoExtraido: exento || null,
-        impuestosExtraido: impuestos || null
+        impuestosExtraido: impuestos || null,
+        descuentoGlobalExtraido: descuentoGlobal,
+        descuentoGlobalTipo: editFormData.descuentoGlobalTipo || null
       };
       
       await api.put(`/documentos/${selectedDocumentForEdit.id}/datos-extraidos`, dataToSend);
@@ -609,130 +617,57 @@ export default function ComprobantesPage() {
   const handleAutoAssociation = async () => {
     try {
       setProcessingAssociation(true);
-      
-      // Obtener documentos pendientes de asociar
-      const pendingDocuments = documentos.filter(doc => 
-        doc.estadoProcesamiento === 'completado' && 
-        doc.documentosAsociados.length === 0
+
+      // Obtener documentos pendientes (completados y no exportados)
+      const pendingDocuments = documentos.filter(doc =>
+        doc.estadoProcesamiento === 'completado' &&
+        !doc.exportado
       );
 
       if (pendingDocuments.length === 0) {
-        toast('No hay documentos pendientes de asociar', { 
+        toast('No hay documentos pendientes para aplicar reglas', {
           icon: '📋',
           duration: 3000
         });
         return;
       }
 
-      toast.loading('Iniciando asociación automática...', { duration: 2000 });
+      toast.loading('Aplicando reglas de completado...', { duration: 2000 });
 
-      // Inicializar progreso
-      setAssociationProgress({
-        current: 0,
-        total: pendingDocuments.length,
-        currentDocumentName: '',
-        currentCupon: ''
-      });
+      const response = await api.post('/documentos/aplicar-reglas');
 
-      let totalAsociados = 0;
-      let totalErrores = 0;
-      let totalSinCoincidencia = 0;
+      if (response.data.success) {
+        const { total, procesados, transformados } = response.data;
 
-      // Procesar documentos uno a uno
-      for (let i = 0; i < pendingDocuments.length; i++) {
-        const documento = pendingDocuments[i];
-        
-        // Actualizar progreso
-        setAssociationProgress({
-          current: i + 1,
-          total: pendingDocuments.length,
-          currentDocumentName: '',
-          currentCupon: ''
-        });
-
-        try {
-          // Simular un pequeño delay para que se vea el procesamiento
-          await new Promise(resolve => setTimeout(resolve, 800));
-
-          const response = await api.post('/documentos/asociar-automatico-individual', {
-            documentoId: documento.id
-          });
-
-          if (response.data.success) {
-            if (response.data.resultado.estado === 'asociado') {
-              totalAsociados++;
-              
-              // Mostrar el cupón asociado durante un momento
-              if (response.data.resultado.numeroCupon) {
-                setAssociationProgress(prev => ({
-                  ...prev,
-                  currentCupon: response.data.resultado.numeroCupon
-                }));
-                
-                // Esperar un poco para mostrar el cupón
-                await new Promise(resolve => setTimeout(resolve, 1000));
-              }
-              
-              // Actualizar el documento local inmediatamente
-              setDocumentos(prev => prev.map(doc => 
-                doc.id === documento.id 
-                  ? { ...doc, documentosAsociados: [{ id: 'temp' }] } 
-                  : doc
-              ));
-            } else if (response.data.resultado.estado === 'sin_coincidencia') {
-              totalSinCoincidencia++;
-            } else if (response.data.resultado.estado === 'error') {
-              totalErrores++;
+        if (transformados > 0) {
+          toast.success(
+            `Reglas aplicadas: ${transformados} de ${procesados} documentos transformados`
+          );
+        } else {
+          toast(
+            `Se procesaron ${procesados} documentos. No se aplicaron transformaciones.`,
+            {
+              icon: '📋',
+              duration: 4000
             }
-          }
-        } catch (error) {
-          console.error(`Error procesando documento ${documento.id}:`, error);
-          totalErrores++;
+          );
         }
+
+        // Refrescar la grilla para mostrar los cambios
+        await loadDocumentos();
       }
-
-      // Limpiar progreso
-      setAssociationProgress({
-        current: 0,
-        total: 0,
-        currentDocumentName: '',
-        currentCupon: ''
-      });
-
-      // Mostrar resumen final
-      if (totalAsociados > 0) {
-        toast.success(
-          `Asociación completada: ${totalAsociados} documentos asociados de ${pendingDocuments.length} procesados`
-        );
-      } else {
-        toast(
-          `Proceso completado. No se encontraron coincidencias automáticas para ${pendingDocuments.length} documentos`,
-          { 
-            icon: <Info className="w-8 h-8 text-blue-500" />,
-            duration: 4000
-          }
-        );
-      }
-
-      if (totalErrores > 0) {
-        toast.error(`${totalErrores} documentos tuvieron errores durante el procesamiento`);
-      }
-
-      // Refrescar la grilla para mostrar los cupones asociados
-      await loadDocumentos();
 
     } catch (error) {
-      console.error('Error en asociación automática:', error);
-      toast.error('Error al ejecutar la asociación automática');
-      setProcessingDocuments(new Set());
+      console.error('Error aplicando reglas:', error);
+      toast.error('Error al aplicar reglas de completado');
+    } finally {
+      setProcessingAssociation(false);
       setAssociationProgress({
         current: 0,
         total: 0,
         currentDocumentName: '',
         currentCupon: ''
       });
-    } finally {
-      setProcessingAssociation(false);
     }
   };
 
@@ -1008,6 +943,12 @@ export default function ComprobantesPage() {
                   Impuestos
                 </th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Desc./Rec.
+                </th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Moneda
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Total
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1021,7 +962,7 @@ export default function ComprobantesPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {paginatedDocumentos.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={11} className="px-6 py-4 text-center text-gray-500">
                     {documentos.length === 0 ? 
                       'No hay documentos procesados. ¡Sube tu primer comprobante!' : 
                       'No se encontraron documentos que coincidan con los filtros.'}
@@ -1157,6 +1098,23 @@ export default function ComprobantesPage() {
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
                       {impuestos > 0 ? formatCurrency(impuestos) : '-'}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                      {doc.descuentoGlobalExtraido ? (
+                        <span className={doc.descuentoGlobalExtraido < 0 ? 'text-green-600' : 'text-red-600'}>
+                          {formatCurrency(Math.abs(doc.descuentoGlobalExtraido))}
+                          <span className="text-xs ml-1">
+                            {doc.descuentoGlobalTipo === 'DESCUENTO' ? '(D)' : doc.descuentoGlobalTipo === 'RECARGO' ? '(R)' : ''}
+                          </span>
+                        </span>
+                      ) : '-'}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                      <span className={`px-2 py-1 text-xs font-semibold rounded ${
+                        doc.monedaExtraida === 'USD' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {doc.monedaExtraida || 'ARS'}
+                      </span>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
                       {total ? formatCurrency(total) : '-'}
@@ -1516,7 +1474,48 @@ export default function ComprobantesPage() {
                   />
                 </div>
 
-                {/* 9. Importe Total */}
+                {/* 9. Descuento/Recargo */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Descuento/Recargo
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={editFormData.descuentoGlobalExtraido || ''}
+                      onChange={(e) => setEditFormData({ ...editFormData, descuentoGlobalExtraido: e.target.value })}
+                      className="flex-1 px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
+                      placeholder="0.00"
+                    />
+                    <select
+                      value={editFormData.descuentoGlobalTipo || ''}
+                      onChange={(e) => setEditFormData({ ...editFormData, descuentoGlobalTipo: e.target.value })}
+                      className="px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    >
+                      <option value="">-</option>
+                      <option value="DESCUENTO">Desc.</option>
+                      <option value="RECARGO">Rec.</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* 10. Moneda */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Moneda
+                  </label>
+                  <select
+                    value={editFormData.monedaExtraida || 'ARS'}
+                    onChange={(e) => setEditFormData({ ...editFormData, monedaExtraida: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  >
+                    <option value="ARS">ARS (Pesos Argentinos)</option>
+                    <option value="USD">USD (Dólares)</option>
+                  </select>
+                </div>
+
+                {/* 11. Importe Total */}
                 <div>
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     <Receipt className="w-4 h-4 inline mr-1" />

@@ -897,11 +897,18 @@ router.get('/', authWithTenant, async (req, res) => {
 
 // POST /api/documentos/asociar-automatico-individual - Asociar un documento individual
 router.post('/asociar-automatico-individual', async (req, res) => {
+  // FUNCIONALIDAD DESHABILITADA: No existe tabla resumen_tarjeta
+  return res.status(501).json({
+    success: false,
+    error: 'Asociación automática no disponible - funcionalidad deshabilitada'
+  });
+
+  /* CÓDIGO COMENTADO - REQUIERE TABLA resumen_tarjeta QUE NO EXISTE
   try {
     const userId = req.user.id;
     const tenantId = req.tenantId;
     const { documentoId } = req.body;
-    
+
     console.log('🔄 Procesando documento individual:', { documentoId, userId });
     
     // Obtener el documento específico
@@ -909,10 +916,7 @@ router.post('/asociar-automatico-individual', async (req, res) => {
       where: {
         id: documentoId,
         usuarioId: userId,
-        estadoProcesamiento: 'completado',
-        documentos_asociados: {
-          none: {}  // No tiene asociaciones
-        }
+        estadoProcesamiento: 'completado'
       },
       select: {
         id: true,
@@ -1045,9 +1049,6 @@ router.post('/asociar-automatico-individual', async (req, res) => {
         AND: [
           {
             numeroTarjeta: { in: numerosTarjeta }
-          },
-          {
-            documentos_asociados: { none: {} }
           }
         ]
       };
@@ -1214,10 +1215,18 @@ router.post('/asociar-automatico-individual', async (req, res) => {
     const errorMessage = error.message || 'Error interno del servidor';
     res.status(500).json({ error: errorMessage });
   }
+  */
 });
 
 // POST /api/documentos/asociar-automatico - Asociación automática de documentos pendientes
 router.post('/asociar-automatico', async (req, res) => {
+  // FUNCIONALIDAD DESHABILITADA: No existe tabla resumen_tarjeta
+  return res.status(501).json({
+    success: false,
+    error: 'Asociación automática masiva no disponible - funcionalidad deshabilitada'
+  });
+
+  /* CÓDIGO COMENTADO - REQUIERE TABLA resumen_tarjeta QUE NO EXISTE
   try {
     const userId = req.user.id;
     
@@ -1324,14 +1333,7 @@ router.post('/asociar-automatico', async (req, res) => {
         // Buscar todos los registros potenciales de resumen_tarjeta
         const registrosResumen = await prisma.resumen_tarjeta.findMany({
           where: {
-            AND: [
-              {
-                numeroTarjeta: { in: numerosTarjeta }
-              },
-              {
-                documentos_asociados: { none: {} }
-              }
-            ]
+            numeroTarjeta: { in: numerosTarjeta }
           }
         });
 
@@ -1490,6 +1492,7 @@ router.post('/asociar-automatico', async (req, res) => {
     const errorMessage = error.message || 'Error interno del servidor';
     res.status(500).json({ error: errorMessage });
   }
+  */
 });
 
 // PUT /api/documentos/:id/observaciones - Actualizar observaciones del documento
@@ -1533,15 +1536,22 @@ router.put('/:id/observaciones', authWithTenant, async (req, res) => {
 
 // POST /api/documentos/:id/desasociar - Desasociar documento de resumen de tarjeta
 router.post('/:id/desasociar', authWithTenant, async (req, res) => {
+  // FUNCIONALIDAD DESHABILITADA: No existe tabla documentos_asociados
+  return res.status(501).json({
+    success: false,
+    error: 'Desasociación no disponible - funcionalidad deshabilitada'
+  });
+
+  /* CÓDIGO COMENTADO - REQUIERE TABLA documentos_asociados QUE NO EXISTE
   try {
     const { id } = req.params;
     const userId = req.user.id;
 
     // Verificar que el documento pertenece al usuario
     const documento = await prisma.documentos_procesados.findFirst({
-      where: { 
+      where: {
         id,
-        usuarioId: userId 
+        usuarioId: userId
       },
       include: {
         documentos_asociados: {
@@ -1582,6 +1592,7 @@ router.post('/:id/desasociar', authWithTenant, async (req, res) => {
     console.error('Error desasociando documento:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
+  */
 });
 
 // PUT /api/documentos/:id/datos-extraidos - Actualizar datos extraídos del documento
@@ -1592,13 +1603,16 @@ router.put('/:id/datos-extraidos', authWithTenant, async (req, res) => {
       fechaExtraida, 
       importeExtraido, 
       cuitExtraido, 
-      numeroComprobanteExtraido, 
-      razonSocialExtraida, 
-      caeExtraido, 
-      tipoComprobanteExtraido, 
-      netoGravadoExtraido, 
+      numeroComprobanteExtraido,
+      razonSocialExtraida,
+      caeExtraido,
+      tipoComprobanteExtraido,
+      netoGravadoExtraido,
       exentoExtraido,
-      impuestosExtraido 
+      impuestosExtraido,
+      descuentoGlobalExtraido,
+      descuentoGlobalTipo,
+      monedaExtraida
     } = req.body;
     const userId = req.user.id;
 
@@ -1663,6 +1677,18 @@ router.put('/:id/datos-extraidos', authWithTenant, async (req, res) => {
 
     if (impuestosExtraido !== undefined) {
       updateData.impuestosExtraido = impuestosExtraido || null;
+    }
+
+    if (descuentoGlobalExtraido !== undefined) {
+      updateData.descuentoGlobalExtraido = descuentoGlobalExtraido ? parseFloat(descuentoGlobalExtraido) : null;
+    }
+
+    if (descuentoGlobalTipo !== undefined) {
+      updateData.descuentoGlobalTipo = descuentoGlobalTipo || null;
+    }
+
+    if (monedaExtraida !== undefined) {
+      updateData.monedaExtraida = monedaExtraida || 'ARS'; // Default to ARS for Argentina
     }
 
     // Actualizar el documento
@@ -2252,37 +2278,8 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo) {
         numeroComprobanteExtraido: datosExtraidos?.numeroComprobante || null,
         caeExtraido: datosExtraidos?.cae || null,
         razonSocialExtraida: datosExtraidos?.razonSocial || null,
-        // Lógica para calcular neto gravado y exento según tipo de comprobante
-        netoGravadoExtraido: (() => {
-          const total = datosExtraidos?.importe;
-          const impuestos = datosExtraidos?.impuestos;
-          const netoGravado = datosExtraidos?.netoGravado;
-          const tipoComprobante = datosExtraidos?.tipoComprobante;
-
-          console.log('Calculando neto gravado:', { total, impuestos, netoGravado, tipoComprobante });
-
-          // Si NO hay impuestos detectados y hay total, netoGravado = total
-          if ((!impuestos || impuestos === 0) && total && total > 0) {
-            console.log('💡 Sin impuestos detectados - netoGravado = total:', total);
-            return total;
-          }
-
-          // Si hay impuestos, calcular: netoGravado = total - impuestos
-          if (impuestos && impuestos > 0 && total && total > 0) {
-            const calculado = total - impuestos;
-            console.log('💡 Con impuestos - netoGravado = total - impuestos:', calculado);
-            return calculado;
-          }
-
-          // Fallback: usar netoGravado extraído si existe
-          if (netoGravado && netoGravado > 0) {
-            console.log('💡 Usando neto gravado extraído:', netoGravado);
-            return netoGravado;
-          }
-
-          console.log('No se puede calcular neto gravado');
-          return null;
-        })(),
+        // EXTRAER neto gravado directamente (NO calcular)
+        netoGravadoExtraido: datosExtraidos?.netoGravado ? parseFloat(datosExtraidos.netoGravado) : null,
         exentoExtraido: (() => {
           const total = datosExtraidos?.importe;
           const gravado = datosExtraidos?.netoGravado;
@@ -2347,6 +2344,9 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo) {
           console.log(`Comprobante tipo A: impuestos = ${impuestos || 0}`);
           return impuestos || 0;
         })(),
+        descuentoGlobalExtraido: datosExtraidos?.descuentoGlobal ? parseFloat(datosExtraidos.descuentoGlobal) : null,
+        descuentoGlobalTipo: datosExtraidos?.descuentoGlobalTipo || null,
+        monedaExtraida: datosExtraidos?.moneda || 'ARS', // Default to ARS for Argentina
         cuponExtraido: datosExtraidos?.cupon || null,
         tipoComprobanteExtraido: datosExtraidos?.tipoComprobante || null,
         modeloIA: metodoExtraccion, // Guardar el modelo/método usado para la extracción
@@ -2393,6 +2393,9 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo) {
             alicuotaIva: item.alicuotaIva ? parseFloat(item.alicuotaIva) : null,
             importeIva: item.importeIva ? parseFloat(item.importeIva) : null,
             totalLinea: parseFloat(item.totalLinea || item.subtotal) || 0,
+            descuentoTipo: item.descuentoTipo || null,
+            descuentoValor: item.descuentoValor ? parseFloat(item.descuentoValor) : null,
+            descuentoImporte: item.descuentoImporte ? parseFloat(item.descuentoImporte) : null,
             tenantId: documento.tenantId,
             createdAt: new Date()
           }))
@@ -2467,6 +2470,13 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo) {
 
 // POST /api/documentos/:id/asociar-manual - Asociar manualmente un documento con un item de rendición
 router.post('/:id/asociar-manual', authWithTenant, async (req, res) => {
+  // FUNCIONALIDAD DESHABILITADA: No existe tabla resumen_tarjeta ni documentos_asociados
+  return res.status(501).json({
+    success: false,
+    error: 'Asociación manual no disponible - funcionalidad deshabilitada'
+  });
+
+  /* CÓDIGO COMENTADO - REQUIERE TABLAS resumen_tarjeta Y documentos_asociados QUE NO EXISTEN
   try {
     const { id } = req.params;
     const { rendicionItemId, resumenTarjetaId } = req.body;
@@ -2564,10 +2574,18 @@ router.post('/:id/asociar-manual', authWithTenant, async (req, res) => {
     const errorMessage = error.message || 'Error al asociar documento';
     res.status(500).json({ error: errorMessage });
   }
+  */
 });
 
 // GET /api/documentos/sin-asociar/:userId - Obtener documentos sin asociar de un usuario
 router.get('/sin-asociar/:userId', authWithTenant, async (req, res) => {
+  // FUNCIONALIDAD DESHABILITADA: No existe tabla documentos_asociados
+  return res.status(501).json({
+    success: false,
+    error: 'Consulta de documentos sin asociar no disponible - funcionalidad deshabilitada'
+  });
+
+  /* CÓDIGO COMENTADO - REQUIERE TABLA documentos_asociados QUE NO EXISTE
   try {
     const { userId } = req.params;
 
@@ -2591,6 +2609,7 @@ router.get('/sin-asociar/:userId', authWithTenant, async (req, res) => {
     console.error('Error obteniendo documentos sin asociar:', error);
     res.status(500).json({ error: 'Error al obtener documentos sin asociar' });
   }
+  */
 });
 
 // GET /api/documentos/caja/:cajaId - Obtener documentos de una caja específica
@@ -2967,6 +2986,141 @@ router.post('/exportar', authWithTenant, async (req, res) => {
 
   } catch (error) {
     console.error('Error marcando documentos como exportados:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// POST /api/documentos/aplicar-reglas - Aplicar reglas de completado a documentos pendientes
+router.post('/aplicar-reglas', authWithTenant, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const tenantId = req.tenantId;
+
+    console.log('🔄 Iniciando aplicación de reglas de completado...');
+
+    // Obtener documentos completados sin exportar del usuario
+    const documentos = await prisma.documentos_procesados.findMany({
+      where: {
+        usuarioId: userId,
+        tenantId: tenantId,
+        estadoProcesamiento: 'completado',
+        exportado: false
+      },
+      include: {
+        documento_lineas: true,
+        documento_impuestos: true
+      }
+    });
+
+    if (documentos.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No hay documentos pendientes para aplicar reglas',
+        total: 0,
+        procesados: 0,
+        transformados: 0
+      });
+    }
+
+    console.log(`📋 Encontrados ${documentos.length} documentos para procesar`);
+
+    // Inicializar el motor de reglas y cargar reglas de TRANSFORMACION
+    const rulesEngine = new BusinessRulesEngine(prisma);
+    await rulesEngine.loadRules('TRANSFORMACION', true, prisma);
+
+    if (rulesEngine.rules.length === 0) {
+      console.log('⚠️ No hay reglas de transformación activas');
+      return res.json({
+        success: true,
+        message: 'No hay reglas de transformación configuradas',
+        total: documentos.length,
+        procesados: 0,
+        transformados: 0
+      });
+    }
+
+    console.log(`📐 Cargadas ${rulesEngine.rules.length} reglas de transformación`);
+
+    let documentosTransformados = 0;
+    let documentosProcesados = 0;
+
+    // Aplicar reglas de negocio a cada documento
+    for (const documento of documentos) {
+      try {
+        documentosProcesados++;
+
+        // Aplicar reglas de transformación/completado
+        const ruleResult = await rulesEngine.applyRules(
+          documento,
+          {},
+          {
+            tipo: 'TRANSFORMACION',
+            contexto: 'APLICACION_REGLAS',
+            logExecution: false  // Deshabilitado por error de schema en reglas_ejecuciones
+          }
+        );
+
+        // Si se aplicaron reglas y hay datos transformados, actualizar el documento
+        if (ruleResult.rulesApplied > 0) {
+          // Preparar datos para actualizar y detectar cambios
+          const updateData = {
+            razonSocialExtraida: ruleResult.data.razonSocialExtraida || documento.razonSocialExtraida,
+            cuitExtraido: ruleResult.data.cuitExtraido || documento.cuitExtraido,
+            numeroComprobanteExtraido: ruleResult.data.numeroComprobanteExtraido || documento.numeroComprobanteExtraido,
+            fechaExtraida: ruleResult.data.fechaExtraida || documento.fechaExtraida,
+            importeExtraido: ruleResult.data.importeExtraido || documento.importeExtraido,
+            netoGravadoExtraido: ruleResult.data.netoGravadoExtraido || documento.netoGravadoExtraido,
+            exentoExtraido: ruleResult.data.exentoExtraido || documento.exentoExtraido,
+            impuestosExtraido: ruleResult.data.impuestosExtraido || documento.impuestosExtraido,
+            updatedAt: new Date()
+          };
+
+          // Detectar cambios específicos
+          const cambios = [];
+          if (updateData.razonSocialExtraida !== documento.razonSocialExtraida) {
+            cambios.push(`razonSocial: "${documento.razonSocialExtraida || 'null'}" → "${updateData.razonSocialExtraida}"`);
+          }
+          if (updateData.cuitExtraido !== documento.cuitExtraido) {
+            cambios.push(`CUIT: "${documento.cuitExtraido || 'null'}" → "${updateData.cuitExtraido}"`);
+          }
+          if (updateData.numeroComprobanteExtraido !== documento.numeroComprobanteExtraido) {
+            cambios.push(`nroComprobante: "${documento.numeroComprobanteExtraido || 'null'}" → "${updateData.numeroComprobanteExtraido}"`);
+          }
+
+          await prisma.documentos_procesados.update({
+            where: { id: documento.id },
+            data: updateData
+          });
+
+          documentosTransformados++;
+          console.log(`✅ Documento ${documento.nombreArchivo} (${documento.id.substring(0, 8)}...):`);
+          console.log(`   📐 ${ruleResult.rulesApplied} regla(s) aplicada(s)`);
+          if (cambios.length > 0) {
+            console.log(`   🔄 Cambios realizados:`);
+            cambios.forEach(cambio => console.log(`      - ${cambio}`));
+          }
+        }
+      } catch (ruleError) {
+        console.error(`❌ Error aplicando reglas al documento ${documento.id}:`, ruleError);
+        // Continuar con el siguiente documento aunque falle la regla
+      }
+    }
+
+    console.log(`✅ Reglas aplicadas: ${documentosProcesados} documentos procesados, ${documentosTransformados} transformados`);
+
+    res.json({
+      success: true,
+      message: `Reglas aplicadas correctamente`,
+      total: documentos.length,
+      procesados: documentosProcesados,
+      transformados: documentosTransformados
+    });
+
+  } catch (error) {
+    console.error('❌ Error aplicando reglas:', error);
     res.status(500).json({
       success: false,
       error: error.message

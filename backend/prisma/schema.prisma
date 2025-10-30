@@ -102,6 +102,9 @@ model documento_lineas {
   alicuotaIva           Decimal?              @db.Decimal(5, 2)
   importeIva            Decimal?              @db.Decimal(15, 2)
   totalLinea            Decimal               @db.Decimal(15, 2)
+  descuentoTipo         String?               @db.VarChar(20)
+  descuentoValor        Decimal?              @db.Decimal(15, 4)
+  descuentoImporte      Decimal?              @db.Decimal(15, 2)
   tenantId              String
   createdAt             DateTime              @default(now())
   documentos_procesados documentos_procesados @relation(fields: [documentoId], references: [id], onDelete: Cascade)
@@ -139,6 +142,9 @@ model documentos_procesados {
   modeloIA                  String?
   exportado                 Boolean               @default(false)
   fechaExportacion          DateTime?
+  descuentoGlobalExtraido   Decimal?
+  descuentoGlobalTipo       String?               @db.VarChar(20)
+  monedaExtraida            String?               @db.VarChar(10)
   documento_impuestos       documento_impuestos[]
   documento_lineas          documento_lineas[]
   tenants                   tenants               @relation(fields: [tenantId], references: [id])

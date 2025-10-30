@@ -167,30 +167,54 @@ class PromptManager {
    * @param {string} clave - Clave del prompt
    * @param {boolean} exitoso - Si la ejecución fue exitosa
    * @param {string|null} tenantId - ID del tenant
+   * @param {string|null} motor - Motor de IA usado (opcional)
    */
-  async registrarResultado(clave, exitoso, tenantId = null) {
-    const promptData = await this.getPrompt(clave, tenantId);
+  async registrarResultado(clave, exitoso, tenantId = null, motor = null) {
+    console.log(`📊 [PROMPT STATS] Registrando resultado para: ${clave} (tenant: ${tenantId || 'global'}, motor: ${motor || 'any'}) - Exitoso: ${exitoso}`);
+
+    const promptData = await this.getPrompt(clave, tenantId, motor);
 
     if (!promptData) {
+      console.log(`⚠️ [PROMPT STATS] No se encontró prompt: ${clave}`);
       return;
     }
 
+    console.log(`📋 [PROMPT STATS] Prompt encontrado: ID=${promptData.id}, vecesUsado actual=${promptData.vecesUsado}`);
+
     // Calcular nueva tasa de éxito
     const vecesUsado = promptData.vecesUsado || 0;
-    const tasaExitoActual = parseFloat(promptData.tasaExito || 0);
+    let tasaExitoActual = parseFloat(promptData.tasaExito || 0);
+
+    // 🔧 CORRECCIÓN: Limpiar valores corruptos (tasaExito debe estar entre 0-100)
+    if (tasaExitoActual > 100 || tasaExitoActual < 0 || isNaN(tasaExitoActual)) {
+      console.log(`⚠️ [PROMPT STATS] Tasa de éxito corrupta detectada: ${tasaExitoActual}% - Normalizando...`);
+      tasaExitoActual = Math.max(0, Math.min(100, tasaExitoActual));
+
+      // Si está fuera de rango, usar heurística: si vecesUsado > 0, asumir 100% (fue usado con éxito)
+      if (promptData.tasaExito > 100) {
+        tasaExitoActual = vecesUsado > 0 ? 100 : 0;
+      }
+    }
 
     const nuevaTasaExito = vecesUsado === 0
       ? (exitoso ? 100 : 0)
       : ((tasaExitoActual * vecesUsado) + (exitoso ? 100 : 0)) / (vecesUsado + 1);
 
+    // 🔒 VALIDACIÓN: Asegurar que la tasa de éxito esté entre 0-100
+    const tasaExitoFinal = Math.max(0, Math.min(100, nuevaTasaExito));
+
+    console.log(`🔢 [PROMPT STATS] Actualizando: vecesUsado ${vecesUsado} -> ${vecesUsado + 1}, tasaExito: ${tasaExitoActual.toFixed(2)}% -> ${tasaExitoFinal.toFixed(2)}%`);
+
     await prisma.ai_prompts.update({
       where: { id: promptData.id },
       data: {
-        tasaExito: nuevaTasaExito,
+        tasaExito: tasaExitoFinal,
         vecesUsado: { increment: 1 },
         ultimoUso: new Date()
       }
     });
+
+    console.log(`✅ [PROMPT STATS] Estadísticas actualizadas correctamente para ${clave}`);
 
     // Invalidar cache para reflejar métricas actualizadas
     this._invalidateCache(clave, tenantId);

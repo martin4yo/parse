@@ -369,7 +369,7 @@ export default function PromptsIAPage() {
                       {prompt.vecesUsado || 0}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
-                      {prompt.tasaExito ? `${(Number(prompt.tasaExito) * 100).toFixed(1)}%` : '-'}
+                      {prompt.tasaExito ? `${Number(prompt.tasaExito).toFixed(1)}%` : '-'}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
                       v{prompt.version}
