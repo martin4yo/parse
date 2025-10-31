@@ -243,10 +243,11 @@ class BusinessRulesEngine {
     }
 
     // Combinar datos para evaluación
-    const fullData = {
-      ...itemData,
-      resumen: resumenData
-    };
+    // Solo agregar resumen si existe y tiene datos (para compatibilidad con rendiciones)
+    const fullData = { ...itemData };
+    if (resumenData && Object.keys(resumenData).length > 0) {
+      fullData.resumen = resumenData;
+    }
 
     const result = { ...itemData };
     const executedRules = [];
@@ -352,7 +353,7 @@ class BusinessRulesEngine {
     if (logExecution && executedRules.length > 0) {
       for (const executed of executedRules.filter(r => r.aplicada)) {
         try {
-          await prisma.reglaEjecucion.create({
+          await prisma.reglas_ejecuciones.create({
             data: {
               reglaId: executed.reglaId,
               contexto,
@@ -527,7 +528,7 @@ class BusinessRulesEngine {
       }
 
       // Buscar en parametros_maestros con campo JSON
-      const parametros = await prisma.parametroMaestro.findMany({
+      const parametros = await prisma.parametros_maestros.findMany({
         where: {
           tipo_campo: tipoCampo,
           activo: true
@@ -540,9 +541,15 @@ class BusinessRulesEngine {
         if (param.parametros_json) {
           // El campo JSON puede tener el valor directamente o en una propiedad anidada
           const jsonValue = param.parametros_json[campoJSON];
-          if (jsonValue && String(jsonValue).toUpperCase() === String(valorBusqueda).toUpperCase()) {
-            encontrado = param;
-            break;
+          if (jsonValue) {
+            // Normalizar valores para comparación (remover guiones, espacios, etc.)
+            const normalizedJsonValue = String(jsonValue).replace(/[-\s]/g, '').toUpperCase();
+            const normalizedSearchValue = String(valorBusqueda).replace(/[-\s]/g, '').toUpperCase();
+
+            if (normalizedJsonValue === normalizedSearchValue) {
+              encontrado = param;
+              break;
+            }
           }
         }
       }
@@ -618,6 +625,7 @@ class BusinessRulesEngine {
             resultadoPaso = await this.lookupUserAtributos(campoConsulta, valorActual, campoResultado, paso.filtroAdicional);
             break;
           case 'valorAtributo':
+          case 'valores_atributo':
             // Cache key para valorAtributo
             const valorAtribCacheKey = `valorAtributo_${valorActual}_${campoResultado}`;
 
@@ -626,7 +634,7 @@ class BusinessRulesEngine {
               resultadoPaso = this.lookupCache.get(valorAtribCacheKey);
             } else {
               // Para valorAtributo, buscar por id y obtener codigo
-              const valorAtrib = await prisma.valorAtributo.findUnique({
+              const valorAtrib = await prisma.valores_atributo.findUnique({
                 where: { id: valorActual },
                 select: { [campoResultado]: true }
               });
@@ -690,11 +698,11 @@ class BusinessRulesEngine {
           return this.lookupCache.get(cacheKey);
         }
 
-        const userAtributo = await prisma.userAtributo.findFirst({
+        const userAtributo = await prisma.user_atributos.findFirst({
           where: {
             userId: valorBusqueda,
-            valorAtributo: {
-              atributo: {
+            valores_atributo: {
+              atributos: {
                 codigo: codigoAtributo,
                 activo: true
               }
@@ -716,26 +724,26 @@ class BusinessRulesEngine {
       if (campoConsulta === 'userId' && campoResultado.startsWith('atributo.')) {
         const nombreAtributo = campoResultado.replace('atributo.', '');
 
-        const userAtributo = await prisma.userAtributo.findFirst({
+        const userAtributo = await prisma.user_atributos.findFirst({
           where: {
             userId: valorBusqueda,
-            valorAtributo: {
-              atributo: {
+            valores_atributo: {
+              atributos: {
                 codigo: nombreAtributo,
                 activo: true
               }
             }
           },
           include: {
-            valorAtributo: {
+            valores_atributo: {
               include: {
-                atributo: true
+                atributos: true
               }
             }
           }
         });
 
-        return userAtributo ? userAtributo.valorAtributo.codigo : null;
+        return userAtributo ? userAtributo.valores_atributo.codigo : null;
       }
 
       // Lookup genérico
@@ -754,7 +762,7 @@ class BusinessRulesEngine {
     where[campoConsulta] = valorBusqueda;
     where.activo = true;
 
-    const parametro = await prisma.parametroMaestro.findFirst({
+    const parametro = await prisma.parametros_maestros.findFirst({
       where,
       select: {
         [campoResultado]: true

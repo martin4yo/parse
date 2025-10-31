@@ -3,9 +3,15 @@ const Anthropic = require('@anthropic-ai/sdk');
 const featureService = require('./featureService');
 const aiConfigService = require('./aiConfigService');
 const classifierService = require('./classifierService');
+const promptManager = require('./promptManager');
+const documentAIProcessor = require('./documentAIProcessor');
+const DocumentProcessor = require('../lib/documentProcessor');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
+
+// Crear instancia del procesador de documentos
+const documentProcessor = new DocumentProcessor();
 
 /**
  * Document Extraction Orchestrator
@@ -21,15 +27,76 @@ class DocumentExtractionOrchestrator {
    * @param {string} documentText - Texto extraído del documento
    * @param {string} tenantId - ID del tenant
    * @param {string} userId - ID del usuario
+   * @param {string} filePath - Ruta al archivo original (opcional, para Document AI)
    * @returns {Promise<Object>} - Resultado de la extracción
    */
-  async extractData(documentText, tenantId, userId) {
+  async extractData(documentText, tenantId, userId, filePath = null) {
     try {
       console.log('\n🎯 ===== INICIANDO EXTRACCIÓN DE DOCUMENTO =====');
       console.log(`👤 Tenant: ${tenantId}`);
       console.log(`📄 Longitud de texto: ${documentText.length} caracteres`);
 
-      // 1. Verificar qué tipo de extracción usar
+      // 0. PRIORIDAD MÁXIMA: Intentar con Document AI si está configurado
+      if (filePath && documentAIProcessor.isConfigured() && process.env.USE_DOCUMENT_AI === 'true') {
+        try {
+          console.log('\n🎯 ===== USANDO DOCUMENT AI (PRIORIDAD) =====');
+          const result = await documentAIProcessor.processInvoice(filePath);
+
+          if (result.success && result.data) {
+            console.log(`✅ Document AI exitoso (confianza: ${result.confidence.toFixed(1)}%)`);
+            console.log('✅ ===== EXTRACCIÓN COMPLETADA CON DOCUMENT AI =====\n');
+
+            return {
+              metodo: 'DOCUMENT_AI',
+              datos: result.data,
+              promptUtilizado: 'Document AI Invoice Parser',
+              confidence: result.confidence,
+              processingTime: result.processingTime,
+              success: true
+            };
+          } else {
+            console.warn(`⚠️  Document AI falló: ${result.error}`);
+            console.log('🔄 Continuando con métodos alternativos...\n');
+          }
+        } catch (error) {
+          console.error('❌ Error con Document AI:', error.message);
+          console.log('🔄 Continuando con métodos alternativos...\n');
+        }
+      } else if (filePath && !documentAIProcessor.isConfigured()) {
+        console.log('ℹ️  Document AI no configurado, probando otros métodos');
+      } else if (!filePath) {
+        console.log('ℹ️  No hay archivo original disponible, usando extracción de texto');
+      }
+
+      // 1. Si tenemos filePath, intentar con el pipeline completo de IA
+      // (incluye Claude Vision, Gemini, Claude texto, etc.)
+      if (filePath && process.env.USE_CLAUDE_VISION === 'true') {
+        try {
+          console.log('\n🎯 ===== USANDO PIPELINE DE IA CON VISIÓN =====');
+          console.log('🔄 Intentará: Claude Vision → Gemini → Claude Texto → Regex');
+
+          const aiResult = await documentProcessor.extractDataWithAI(documentText, tenantId, filePath);
+
+          if (aiResult && aiResult.data) {
+            console.log(`✅ Extracción exitosa con: ${aiResult.modelUsed}`);
+            console.log('✅ ===== EXTRACCIÓN COMPLETADA CON IA =====\n');
+
+            return {
+              metodo: aiResult.modelUsed || 'AI',
+              datos: aiResult.data,
+              promptUtilizado: `${aiResult.modelUsed} Pipeline`,
+              success: true
+            };
+          } else {
+            console.warn('⚠️  Pipeline de IA no retornó datos, probando métodos tradicionales...\n');
+          }
+        } catch (error) {
+          console.error('❌ Error con pipeline de IA:', error.message);
+          console.log('🔄 Continuando con métodos tradicionales...\n');
+        }
+      }
+
+      // 2. Verificar qué tipo de extracción usar (pipeline tradicional o simple)
       const hasPipeline = await featureService.canUsePipeline(tenantId);
 
       console.log(`🔍 Tipo de extracción: ${hasPipeline ? 'PIPELINE (2 pasos)' : 'SIMPLE (1 paso)'}`);
@@ -150,10 +217,11 @@ class DocumentExtractionOrchestrator {
         throw new Error(`Prompt no encontrado: ${promptKey}`);
       }
 
-      console.log(`🤖 Motor de IA: ${prompt.motor}`);
+      const motor = prompt.motor;
+      console.log(`🤖 Motor de IA: ${motor}`);
 
       // Obtener configuración de IA
-      const config = await aiConfigService.getProviderConfig(prompt.motor, tenantId);
+      const config = await aiConfigService.getProviderConfig(motor, tenantId);
       console.log(`📦 Modelo: ${config.modelo}`);
       console.log(`🔑 API Key: ${config.apiKey ? '✓ Configurada' : '✗ No configurada'}`);
 
@@ -161,16 +229,16 @@ class DocumentExtractionOrchestrator {
       const fullPrompt = prompt.prompt.replace('{{DOCUMENT_TEXT}}', documentText);
       console.log(`📝 Prompt construido (${fullPrompt.length} caracteres)`);
 
-      console.log(`\n⏳ Llamando a ${prompt.motor}...`);
+      console.log(`\n⏳ Llamando a ${motor}...`);
 
       // Extraer según el motor
       let response;
-      if (prompt.motor === 'gemini') {
+      if (motor === 'gemini') {
         response = await this.extractWithGemini(fullPrompt, config);
-      } else if (prompt.motor === 'anthropic') {
+      } else if (motor === 'anthropic') {
         response = await this.extractWithClaude(fullPrompt, config);
       } else {
-        throw new Error(`Motor de IA no soportado: ${prompt.motor}`);
+        throw new Error(`Motor de IA no soportado: ${motor}`);
       }
 
       // Parsear respuesta
@@ -188,10 +256,19 @@ class DocumentExtractionOrchestrator {
         console.log(`   📋 Items: ${datos.lineItems.length}`);
       }
 
+      // Registrar uso exitoso del prompt
+      await promptManager.registrarResultado(promptKey, true, tenantId, motor);
+
       return datos;
 
     } catch (error) {
       console.error(`❌ Error extrayendo con ${promptKey}:`, error.message);
+
+      // Registrar uso fallido del prompt (necesitamos obtener el motor del prompt si es posible)
+      const prompt = await this.getPrompt(promptKey, tenantId);
+      const motor = prompt?.motor || null;
+      await promptManager.registrarResultado(promptKey, false, tenantId, motor).catch(() => {});
+
       throw error;
     }
   }

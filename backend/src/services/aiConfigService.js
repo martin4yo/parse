@@ -297,7 +297,7 @@ class AIConfigService {
   getDefaultModel(provider) {
     const defaults = {
       'gemini': 'gemini-1.5-flash-latest',
-      'anthropic': 'claude-3-haiku-20240307',
+      'anthropic': 'claude-3-7-sonnet-20250219', // Claude Sonnet con visión
       'openai': 'gpt-4o'
     };
 

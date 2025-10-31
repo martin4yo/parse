@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const crypto = require('crypto');
+const { v4: uuidv4 } = require('uuid');
 const prisma = new PrismaClient();
 
 /**
@@ -63,7 +64,7 @@ router.get('/', async (req, res) => {
         createdAt: true,
         updatedAt: true,
         tenantId: true,
-        tenant: {
+        tenants: {
           select: {
             nombre: true,
             slug: true,
@@ -111,7 +112,7 @@ router.get('/:id', async (req, res) => {
         createdAt: true,
         updatedAt: true,
         tenantId: true,
-        tenant: {
+        tenants: {
           select: {
             nombre: true,
             slug: true,
@@ -176,6 +177,7 @@ router.post('/', async (req, res) => {
     // Crear el registro
     const apiKey = await prisma.sync_api_keys.create({
       data: {
+        id: uuidv4(),
         tenantId,
         nombre,
         key: hashedKey,
@@ -183,9 +185,10 @@ router.post('/', async (req, res) => {
         permisos,
         expiraEn: expiraEn ? new Date(expiraEn) : null,
         createdBy,
+        updatedAt: new Date(),
       },
       include: {
-        tenant: {
+        tenants: {
           select: {
             nombre: true,
             slug: true,
@@ -244,7 +247,7 @@ router.put('/:id', async (req, res) => {
       where: { id },
       data: updateData,
       include: {
-        tenant: {
+        tenants: {
           select: {
             nombre: true,
             slug: true,
@@ -339,7 +342,7 @@ router.post('/:id/regenerate', async (req, res) => {
         ultimoUsoIp: null,
       },
       include: {
-        tenant: {
+        tenants: {
           select: {
             nombre: true,
             slug: true,
