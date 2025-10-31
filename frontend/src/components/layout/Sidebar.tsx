@@ -41,8 +41,6 @@ import {
   Package,
   Brain
 } from 'lucide-react';
-import Image from 'next/image';
-import axiomaLogo from '@/assets/axioma_logo_300x500_invertido.png';
 import { clsx } from 'clsx';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
@@ -487,16 +485,11 @@ export function Sidebar({ children }: SidebarProps) {
           className="bg-sidebar py-0 hover:opacity-80 transition-opacity cursor-pointer w-full"
           title="Ir a Parse"
         >
-          <div className="relative h-16">
-            <Image
-              src={axiomaLogo}
+          <div className="relative h-16 w-full flex items-center justify-center">
+            <img
+              src="/axioma_logo_invertido.png"
               alt="Axioma Logo"
-              fill
-              sizes="64px"
-              className="object-contain p-2"
-              priority
-              quality={100}
-              unoptimized
+              className="h-full w-auto object-contain p-3"
             />
           </div>
         </button>
@@ -521,16 +514,11 @@ export function Sidebar({ children }: SidebarProps) {
               className="bg-sidebar py-2 hover:opacity-80 transition-opacity cursor-pointer w-full"
               title="Ir a Parse"
             >
-              <div className="relative h-12">
-                <Image
-                  src={axiomaLogo}
+              <div className="relative h-12 w-full flex items-center justify-center">
+                <img
+                  src="/axioma_logo_invertido.png"
                   alt="Axioma Logo"
-                  fill
-                  sizes="40px"
-                  className="object-contain p-1"
-                  priority
-                  quality={100}
-                  unoptimized
+                  className="h-full w-auto object-contain p-2"
                 />
               </div>
             </button>

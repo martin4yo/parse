@@ -131,7 +131,11 @@ export function MenuItemsList({ items, loading, onEdit, onRefetch }: MenuItemsLi
       onRefetch();
     } catch (error) {
       console.error('Error al eliminar item:', error);
-      alert('Error al eliminar el item del menú');
+      await confirm(
+        'Ocurrió un error al eliminar el item del menú. Por favor, intenta nuevamente.',
+        'Error',
+        'danger'
+      );
     }
   };
 
@@ -183,7 +187,11 @@ export function MenuItemsList({ items, loading, onEdit, onRefetch }: MenuItemsLi
       onRefetch();
     } catch (error) {
       console.error('Error al reordenar items:', error);
-      alert('Error al reordenar los items del menú');
+      await confirm(
+        'Ocurrió un error al reordenar los items del menú. Por favor, intenta nuevamente.',
+        'Error',
+        'danger'
+      );
     } finally {
       setReordering(false);
     }

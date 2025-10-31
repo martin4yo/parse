@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const { authWithTenant } = require('../middleware/authWithTenant');
+const { v4: uuidv4 } = require('uuid');
 const prisma = new PrismaClient();
 
 /**
@@ -150,6 +151,7 @@ router.post('/', authWithTenant, async (req, res) => {
 
     const menuItem = await prisma.menu_items.create({
       data: {
+        id: uuidv4(),
         parentId,
         title,
         icon,
@@ -160,7 +162,10 @@ router.post('/', authWithTenant, async (req, res) => {
         requiresPermission,
         superuserOnly: superuserOnly || false,
         tenantId,
-        createdBy: req.user.id
+        createdBy: req.user.id,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        updatedBy: req.user.id
       },
       include: {
         other_menu_items: true,
