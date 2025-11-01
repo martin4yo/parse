@@ -82,26 +82,35 @@ router.get('/providers', authWithTenant, async (req, res) => {
   try {
     const availableModels = await aiConfigService.getAvailableModels();
 
+    // Transformar modelos al formato esperado por el frontend
+    const transformModels = (models) => {
+      if (!models) return [];
+      return models.map(m => ({
+        value: m.id,
+        label: m.name
+      }));
+    };
+
     const providers = [
       {
         id: 'anthropic',
         nombre: 'Anthropic Claude',
         descripcion: 'Claude 3.7 y 3.5 - Con capacidades de visión',
-        modelosDisponibles: availableModels.anthropic || [],
+        modelosDisponibles: transformModels(availableModels.anthropic),
         requiresApiKey: true
       },
       {
         id: 'gemini',
         nombre: 'Google Gemini',
         descripcion: 'Gemini 1.5 - Modelos de Google AI',
-        modelosDisponibles: availableModels.gemini || [],
+        modelosDisponibles: transformModels(availableModels.gemini),
         requiresApiKey: true
       },
       {
         id: 'openai',
         nombre: 'OpenAI',
         descripcion: 'GPT-4o y modelos de OpenAI',
-        modelosDisponibles: availableModels.openai || [],
+        modelosDisponibles: transformModels(availableModels.openai),
         requiresApiKey: true
       }
     ];
