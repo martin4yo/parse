@@ -286,9 +286,14 @@ export default function ExportarPage() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Exportar Documentos</h1>
-          <p className="text-gray-600 mt-1">Gestiona y exporta tus documentos procesados</p>
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-palette-blue rounded-lg flex items-center justify-center">
+            <FileDown className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Exportar Documentos</h1>
+            <p className="text-gray-600 mt-1">Gestiona y exporta tus documentos procesados</p>
+          </div>
         </div>
         <div className="flex items-center space-x-3">
           <Button
