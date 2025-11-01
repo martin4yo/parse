@@ -52,7 +52,7 @@ export function UserAtributosManager({ userId }: UserAtributosManagerProps) {
   const loadUserAtributos = async () => {
     try {
       const data = await userAtributosApi.getByUserId(userId);
-      setUserAtributos(Array.isArray(data) ? data : []);
+      setUserAtributos(Array.isArray(data.userAtributos) ? data.userAtributos : []);
     } catch (error) {
       console.error('Error loading user atributos:', error);
       setUserAtributos([]);

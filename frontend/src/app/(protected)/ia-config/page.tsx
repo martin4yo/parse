@@ -1,18 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Brain, Plus, Edit, Trash2, X, Eye, EyeOff, Check, AlertCircle } from 'lucide-react';
+import { Brain, Plus, Edit, Trash2, X, Eye, EyeOff, Check, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { aiConfigsApi, type AIProviderConfig, type AIProvider } from '@/lib/api';
+import { aiConfigsApi, type AIProviderConfig, type AIProvider, type AIAvailableModels, type AIModel } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 export default function IAConfigPage() {
   const [configs, setConfigs] = useState<AIProviderConfig[]>([]);
   const [providers, setProviders] = useState<AIProvider[]>([]);
+  const [availableModels, setAvailableModels] = useState<AIAvailableModels | null>(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingConfig, setEditingConfig] = useState<AIProviderConfig | null>(null);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [updatingModel, setUpdatingModel] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     provider: '',
@@ -29,12 +31,14 @@ export default function IAConfigPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [configsData, providersData] = await Promise.all([
+      const [configsData, providersData, modelsData] = await Promise.all([
         aiConfigsApi.getAll(),
-        aiConfigsApi.getProviders()
+        aiConfigsApi.getProviders(),
+        aiConfigsApi.getAvailableModels()
       ]);
       setConfigs(configsData);
       setProviders(providersData);
+      setAvailableModels(modelsData);
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Error al cargar configuraciones');
@@ -126,6 +130,32 @@ export default function IAConfigPage() {
     return providers.filter(p => !usedProviders.has(p.id));
   };
 
+  const getProviderAvailableModels = (providerId: string): AIModel[] => {
+    if (!availableModels) return [];
+    return availableModels[providerId as keyof AIAvailableModels] || [];
+  };
+
+  const getCurrentModelInfo = (providerId: string, modelId: string): AIModel | null => {
+    const models = getProviderAvailableModels(providerId);
+    return models.find(m => m.id === modelId) || null;
+  };
+
+  const handleQuickModelChange = async (config: AIProviderConfig, newModelId: string) => {
+    if (newModelId === config.modelo) return;
+
+    try {
+      setUpdatingModel(config.id);
+      await aiConfigsApi.updateModel(config.provider, newModelId);
+      toast.success('Modelo actualizado correctamente');
+      loadData();
+    } catch (error: any) {
+      console.error('Error updating model:', error);
+      toast.error(error.response?.data?.message || 'Error al actualizar modelo');
+    } finally {
+      setUpdatingModel(null);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -181,63 +211,113 @@ export default function IAConfigPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {configs.map((config) => (
-                    <div
-                      key={config.id}
-                      className="border border-border rounded-lg p-4 hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h4 className="font-semibold text-text-primary">
-                            {getProviderName(config.provider)}
-                          </h4>
-                          <p className="text-xs text-text-secondary mt-1">
-                            {config.modelo}
-                          </p>
+                  {configs.map((config) => {
+                    const modelInfo = getCurrentModelInfo(config.provider, config.modelo);
+                    const providerModels = getProviderAvailableModels(config.provider);
+
+                    return (
+                      <div
+                        key={config.id}
+                        className="border border-border rounded-lg p-4 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-text-primary">
+                              {getProviderName(config.provider)}
+                            </h4>
+                            <div className="flex items-center gap-2 mt-1">
+                              <p className="text-xs text-text-secondary">
+                                {modelInfo?.name || config.modelo}
+                              </p>
+                              {modelInfo?.recommended && (
+                                <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+                                  Recomendado
+                                </span>
+                              )}
+                              {modelInfo?.deprecated && (
+                                <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">
+                                  Obsoleto
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {config.activo ? (
+                              <span className="flex items-center text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+                                <Check className="w-3 h-3 mr-1" />
+                                Activo
+                              </span>
+                            ) : (
+                              <span className="flex items-center text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded">
+                                <AlertCircle className="w-3 h-3 mr-1" />
+                                Inactivo
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {config.activo ? (
-                            <span className="flex items-center text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
-                              <Check className="w-3 h-3 mr-1" />
-                              Activo
-                            </span>
-                          ) : (
-                            <span className="flex items-center text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded">
-                              <AlertCircle className="w-3 h-3 mr-1" />
-                              Inactivo
-                            </span>
+
+                        {/* Quick Model Selector */}
+                        <div className="mb-3">
+                          <label className="block text-xs font-medium text-text-secondary mb-1">
+                            Cambiar modelo:
+                          </label>
+                          <div className="relative">
+                            <select
+                              value={config.modelo}
+                              onChange={(e) => handleQuickModelChange(config, e.target.value)}
+                              disabled={updatingModel === config.id}
+                              className="w-full px-2 py-1.5 text-sm border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {providerModels.map((model) => (
+                                <option key={model.id} value={model.id}>
+                                  {model.name}
+                                  {model.recommended ? ' ⭐' : ''}
+                                  {model.deprecated ? ' ⚠️' : ''}
+                                </option>
+                              ))}
+                            </select>
+                            {updatingModel === config.id && (
+                              <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                                <RefreshCw className="w-4 h-4 animate-spin text-primary" />
+                              </div>
+                            )}
+                          </div>
+                          {modelInfo?.description && (
+                            <p className="text-xs text-text-secondary mt-1 italic">
+                              {modelInfo.description}
+                            </p>
                           )}
                         </div>
-                      </div>
 
-                      <div className="space-y-2 text-sm mb-4">
-                        <div className="flex justify-between">
-                          <span className="text-text-secondary">Límite diario:</span>
-                          <span className="font-medium">{config.maxRequestsPerDay.toLocaleString()}</span>
+                        <div className="space-y-2 text-sm mb-4">
+                          <div className="flex justify-between">
+                            <span className="text-text-secondary">Límite diario:</span>
+                            <span className="font-medium">{config.maxRequestsPerDay.toLocaleString()}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEdit(config)}
+                            className="flex-1"
+                          >
+                            <Edit className="w-3 h-3 mr-1" />
+                            Editar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDelete(config)}
+                            className="text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
                         </div>
                       </div>
-
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEdit(config)}
-                          className="flex-1"
-                        >
-                          <Edit className="w-3 h-3 mr-1" />
-                          Editar
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDelete(config)}
-                          className="text-red-600 hover:bg-red-50"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -306,12 +386,24 @@ export default function IAConfigPage() {
                     required
                   >
                     <option value="">Seleccionar modelo...</option>
-                    {getProviderModels(formData.provider).map((model) => (
-                      <option key={model.value} value={model.value}>
-                        {model.label}
+                    {getProviderAvailableModels(formData.provider).map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {model.name}
+                        {model.recommended ? ' ⭐ Recomendado' : ''}
+                        {model.deprecated ? ' ⚠️ Obsoleto' : ''}
                       </option>
                     ))}
                   </select>
+                  {formData.modelo && (() => {
+                    const selectedModel = getProviderAvailableModels(formData.provider).find(
+                      m => m.id === formData.modelo
+                    );
+                    return selectedModel?.description ? (
+                      <p className="text-xs text-text-secondary mt-1 italic">
+                        {selectedModel.description}
+                      </p>
+                    ) : null;
+                  })()}
                 </div>
               )}
 

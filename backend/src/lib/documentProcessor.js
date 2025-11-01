@@ -782,7 +782,8 @@ Responde solo el JSON:`,
             const fecha = new Date(year, month - 1, day);
             if (!isNaN(fecha.getTime()) && fecha.getFullYear() === year && fecha.getMonth() === month - 1 && fecha.getDate() === day) {
               fechas.push({
-                fecha: fecha.toISOString().split('T')[0],
+                // Formatear fecha directamente como string para evitar problemas de timezone
+                fecha: `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`,
                 priority,
                 context: match[0]
               });

@@ -676,7 +676,11 @@ export const AperturaRendicionEfectivoModal = ({ isOpen, onClose, onSave, item }
     try {
       const date = new Date(dateString);
       if (!isNaN(date.getTime())) {
-        return date.toLocaleDateString('es-AR');
+        // Usar UTC para evitar problemas de timezone
+        const day = date.getUTCDate().toString().padStart(2, '0');
+        const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+        const year = date.getUTCFullYear();
+        return `${day}/${month}/${year}`;
       }
     } catch (error) {
       console.error('Error parsing date:', error);

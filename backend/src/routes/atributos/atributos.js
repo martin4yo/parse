@@ -28,7 +28,7 @@ router.get('/', authWithTenant, async (req, res) => {
         { codigo: 'asc' }
       ],
       include: {
-        valores: {
+        valores_atributo: {
           where: { activo: true },
           orderBy: { codigo: 'asc' }
         }
@@ -54,7 +54,7 @@ router.get('/:id', authWithTenant, async (req, res) => {
     const atributo = await prisma.atributos.findUnique({
       where: { id },
       include: {
-        valores: {
+        valores_atributo: {
           orderBy: { codigo: 'asc' }
         }
       }
@@ -103,7 +103,7 @@ router.post('/', authWithTenant, async (req, res) => {
     const nuevoAtributo = await prisma.atributos.create({
       data: createData,
       include: {
-        valores: true
+        valores_atributo: true
       }
     });
 
@@ -160,7 +160,7 @@ router.put('/:id', authWithTenant, async (req, res) => {
       where: { id },
       data: updateData,
       include: {
-        valores: true
+        valores_atributo: true
       }
     });
 
@@ -198,7 +198,7 @@ router.delete('/:id', authWithTenant, async (req, res) => {
     const existingAtributo = await prisma.atributos.findUnique({
       where: { id },
       include: {
-        valores: true
+        valores_atributo: true
       }
     });
 

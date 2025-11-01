@@ -24,9 +24,9 @@ router.get('/usuario/:userId', authWithTenant, async (req, res) => {
     const userAtributos = await prisma.user_atributos.findMany({
       where: { userId },
       include: {
-        valorAtributo: {
+        valores_atributo: {
           include: {
-            atributo: true
+            atributos: true
           }
         }
       },
@@ -35,7 +35,7 @@ router.get('/usuario/:userId', authWithTenant, async (req, res) => {
       }
     });
 
-    res.json(userAtributos);
+    res.json({ userAtributos });
 
   } catch (error) {
     console.error('Error fetching user atributos:', error);
@@ -54,10 +54,10 @@ router.get('/:id', authWithTenant, async (req, res) => {
     const userAtributo = await prisma.user_atributos.findUnique({
       where: { id },
       include: {
-        user: true,
-        valorAtributo: {
+        users: true,
+        valores_atributo: {
           include: {
-            atributo: true
+            atributos: true
           }
         }
       }
@@ -109,7 +109,7 @@ router.post('/', authWithTenant, async (req, res) => {
     const valorAtributo = await prisma.valores_atributo.findUnique({
       where: { id: valorAtributoId },
       include: {
-        atributo: true
+        atributos: true
       }
     });
 
@@ -124,7 +124,7 @@ router.post('/', authWithTenant, async (req, res) => {
     const existingAssignment = await prisma.user_atributos.findFirst({
       where: {
         userId,
-        valorAtributo: {
+        valores_atributo: {
           atributoId: valorAtributo.atributoId
         }
       }
@@ -143,10 +143,10 @@ router.post('/', authWithTenant, async (req, res) => {
         valorAtributoId
       },
       include: {
-        user: true,
-        valorAtributo: {
+        users: true,
+        valores_atributo: {
           include: {
-            atributo: true
+            atributos: true
           }
         }
       }
@@ -211,10 +211,10 @@ router.put('/:id', authWithTenant, async (req, res) => {
       where: { id },
       data: { valorAtributoId },
       include: {
-        user: true,
-        valorAtributo: {
+        users: true,
+        valores_atributo: {
           include: {
-            atributo: true
+            atributos: true
           }
         }
       }

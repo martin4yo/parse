@@ -30,50 +30,78 @@ router.get('/', authWithTenant, async (req, res) => {
   }
 });
 
+// GET /api/ai-configs/available-models - Obtener catálogo completo de modelos disponibles
+router.get('/available-models', authWithTenant, async (req, res) => {
+  try {
+    const models = aiConfigService.getAvailableModels();
+
+    res.json(models);
+
+  } catch (error) {
+    console.error('Error fetching available models:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: error.message
+    });
+  }
+});
+
+// PATCH /api/ai-configs/update-model - Actualizar solo el modelo de un provider
+router.patch('/update-model', authWithTenant, async (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+    const { provider, modelo } = req.body;
+
+    if (!provider || !modelo) {
+      return res.status(400).json({
+        error: 'Provider y modelo son requeridos'
+      });
+    }
+
+    if (!tenantId) {
+      return res.status(400).json({
+        error: 'Tenant requerido'
+      });
+    }
+
+    const result = await aiConfigService.updateModel(tenantId, provider, modelo);
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('Error updating model:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor',
+      message: error.message
+    });
+  }
+});
+
 // GET /api/ai-configs/providers - Obtener lista de proveedores disponibles
 router.get('/providers', authWithTenant, async (req, res) => {
   try {
+    const availableModels = aiConfigService.getAvailableModels();
+
     const providers = [
-      {
-        id: 'gemini',
-        nombre: 'Google Gemini',
-        descripcion: 'Gemini - Modelos de Google AI',
-        modelosDisponibles: [
-          { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash (recomendado)' },
-          { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
-          { value: 'gemini-pro', label: 'Gemini Pro (legacy)' },
-          { value: 'gemini-pro-vision', label: 'Gemini Pro Vision' }
-        ],
-        requiresApiKey: true
-      },
       {
         id: 'anthropic',
         nombre: 'Anthropic Claude',
-        descripcion: 'Claude 3.7, 4.5 y 4.1 - Con capacidades de visión',
-        modelosDisponibles: [
-          // Modelos actuales (recomendados)
-          { value: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5 (más reciente)' },
-          { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 (rápido)' },
-          { value: 'claude-opus-4-1-20250805', label: 'Claude Opus 4.1 (más capaz)' },
-          { value: 'claude-3-7-sonnet-20250219', label: 'Claude 3.7 Sonnet (con visión)' },
-
-          // Modelos legacy
-          { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku (legacy)' },
-          { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku (legacy)' },
-          { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus (legacy)' }
-        ],
+        descripcion: 'Claude 3.7 y 3.5 - Con capacidades de visión',
+        modelosDisponibles: availableModels.anthropic || [],
+        requiresApiKey: true
+      },
+      {
+        id: 'gemini',
+        nombre: 'Google Gemini',
+        descripcion: 'Gemini 1.5 - Modelos de Google AI',
+        modelosDisponibles: availableModels.gemini || [],
         requiresApiKey: true
       },
       {
         id: 'openai',
         nombre: 'OpenAI',
-        descripcion: 'GPT-4 y modelos de OpenAI',
-        modelosDisponibles: [
-          { value: 'gpt-4o', label: 'GPT-4o (recomendado)' },
-          { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
-          { value: 'gpt-4', label: 'GPT-4' },
-          { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
-        ],
+        descripcion: 'GPT-4o y modelos de OpenAI',
+        modelosDisponibles: availableModels.openai || [],
         requiresApiKey: true
       }
     ];

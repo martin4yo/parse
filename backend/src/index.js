@@ -127,8 +127,6 @@ app.use('/api/prompts', promptsRoutes);
 app.use('/api/reglas', reglasRoutes);
 app.use('/api/parametros', parametrosRoutes);
 app.use('/api/atributos', atributosRoutes);
-app.use('/api/valores-atributo', atributosRoutes);
-app.use('/api/user-atributos', atributosRoutes);
 app.use('/api/ai-configs', aiConfigsRoutes);
 app.use('/api/ai-rules', aiRulesRoutes);
 
