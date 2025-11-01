@@ -1376,3 +1376,76 @@ export const aiConfigsApi = {
     return response.data;
   }
 };
+
+// Tipos para AI Models CRUD
+export interface AIModelData {
+  id: string;
+  provider: string;
+  modelId: string;
+  name: string;
+  description?: string;
+  recommended: boolean;
+  active: boolean;
+  deprecated: boolean;
+  orderIndex: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// API para gestión de catálogo de modelos
+export const aiModelsApi = {
+  getAll: async (provider?: string, active?: boolean): Promise<AIModelData[]> => {
+    const params = new URLSearchParams();
+    if (provider) params.append('provider', provider);
+    if (active !== undefined) params.append('active', String(active));
+
+    const response = await api.get(`/ai-models?${params.toString()}`);
+    return response.data;
+  },
+
+  getByProvider: async (): Promise<Record<string, AIModelData[]>> => {
+    const response = await api.get('/ai-models/by-provider');
+    return response.data;
+  },
+
+  getById: async (id: string): Promise<AIModelData> => {
+    const response = await api.get(`/ai-models/${id}`);
+    return response.data;
+  },
+
+  create: async (data: {
+    provider: string;
+    modelId: string;
+    name: string;
+    description?: string;
+    recommended?: boolean;
+    active?: boolean;
+    deprecated?: boolean;
+    orderIndex?: number;
+  }): Promise<AIModelData> => {
+    const response = await api.post('/ai-models', data);
+    return response.data;
+  },
+
+  update: async (id: string, data: {
+    modelId?: string;
+    name?: string;
+    description?: string;
+    recommended?: boolean;
+    active?: boolean;
+    deprecated?: boolean;
+    orderIndex?: number;
+  }): Promise<AIModelData> => {
+    const response = await api.put(`/ai-models/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/ai-models/${id}`);
+  },
+
+  toggleRecommended: async (id: string): Promise<AIModelData> => {
+    const response = await api.patch(`/ai-models/${id}/toggle-recommended`);
+    return response.data;
+  }
+};

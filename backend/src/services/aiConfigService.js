@@ -81,7 +81,7 @@ class AIConfigService {
 
       return {
         apiKey,
-        modelo: tenantConfig?.modelo || this.getDefaultModel(provider),
+        modelo: tenantConfig?.modelo || await this.getDefaultModel(provider),
         maxRequestsPerDay: tenantConfig?.maxRequestsPerDay || 1000,
         config: tenantConfig?.config || {}
       };
@@ -290,11 +290,52 @@ class AIConfigService {
 
   /**
    * Catálogo de modelos disponibles por provider
-   * Actualizar esta lista cuando salgan nuevos modelos
+   * Ahora lee desde la base de datos
+   *
+   * @returns {Promise<Object>}
+   */
+  async getAvailableModels() {
+    try {
+      const models = await prisma.ai_models.findMany({
+        orderBy: [
+          { provider: 'asc' },
+          { orderIndex: 'asc' }
+        ]
+      });
+
+      // Agrupar por provider
+      const grouped = models.reduce((acc, model) => {
+        if (!acc[model.provider]) {
+          acc[model.provider] = [];
+        }
+        acc[model.provider].push({
+          id: model.modelId,
+          name: model.name,
+          description: model.description,
+          recommended: model.recommended,
+          active: model.active,
+          deprecated: model.deprecated
+        });
+        return acc;
+      }, {});
+
+      return grouped;
+
+    } catch (error) {
+      console.error('❌ Error obteniendo modelos de BD:', error.message);
+
+      // Fallback a modelos hardcodeados si falla la BD
+      console.warn('⚠️  Usando modelos fallback hardcodeados');
+      return this.getFallbackModels();
+    }
+  }
+
+  /**
+   * Modelos fallback en caso de error con BD
    *
    * @returns {Object}
    */
-  getAvailableModels() {
+  getFallbackModels() {
     return {
       'anthropic': [
         {
@@ -302,35 +343,6 @@ class AIConfigService {
           name: 'Claude 3.7 Sonnet',
           description: 'Más reciente, balanceado en velocidad y calidad',
           recommended: true,
-          active: true
-        },
-        {
-          id: 'claude-3-5-sonnet-20241022',
-          name: 'Claude 3.5 Sonnet (Oct 2024)',
-          description: 'Versión anterior del modelo balanceado',
-          recommended: false,
-          active: true
-        },
-        {
-          id: 'claude-3-5-sonnet-20240620',
-          name: 'Claude 3.5 Sonnet (Jun 2024)',
-          description: 'Versión anterior - puede estar descontinuada',
-          recommended: false,
-          active: false,
-          deprecated: true
-        },
-        {
-          id: 'claude-3-opus-20240229',
-          name: 'Claude 3 Opus',
-          description: 'Más potente pero más lento y costoso',
-          recommended: false,
-          active: true
-        },
-        {
-          id: 'claude-3-haiku-20240307',
-          name: 'Claude 3 Haiku',
-          description: 'Más rápido y económico, menor calidad',
-          recommended: false,
           active: true
         }
       ],
@@ -341,27 +353,6 @@ class AIConfigService {
           description: 'Versión más reciente, rápida y económica',
           recommended: true,
           active: true
-        },
-        {
-          id: 'gemini-1.5-pro-latest',
-          name: 'Gemini 1.5 Pro (Latest)',
-          description: 'Más potente, mejor para tareas complejas',
-          recommended: false,
-          active: true
-        },
-        {
-          id: 'gemini-1.5-flash',
-          name: 'Gemini 1.5 Flash',
-          description: 'Versión estable',
-          recommended: false,
-          active: true
-        },
-        {
-          id: 'gemini-1.5-pro',
-          name: 'Gemini 1.5 Pro',
-          description: 'Versión estable del modelo Pro',
-          recommended: false,
-          active: true
         }
       ],
       'openai': [
@@ -370,27 +361,6 @@ class AIConfigService {
           name: 'GPT-4o',
           description: 'Más reciente, optimizado y económico',
           recommended: true,
-          active: true
-        },
-        {
-          id: 'gpt-4o-mini',
-          name: 'GPT-4o Mini',
-          description: 'Versión mini, más rápida y económica',
-          recommended: false,
-          active: true
-        },
-        {
-          id: 'gpt-4-turbo',
-          name: 'GPT-4 Turbo',
-          description: 'Versión anterior, aún disponible',
-          recommended: false,
-          active: true
-        },
-        {
-          id: 'gpt-4',
-          name: 'GPT-4',
-          description: 'Modelo original GPT-4',
-          recommended: false,
           active: true
         }
       ]
@@ -401,10 +371,10 @@ class AIConfigService {
    * Modelos por defecto según provider
    *
    * @param {string} provider
-   * @returns {string}
+   * @returns {Promise<string>}
    */
-  getDefaultModel(provider) {
-    const models = this.getAvailableModels();
+  async getDefaultModel(provider) {
+    const models = await this.getAvailableModels();
     const providerModels = models[provider] || [];
     const recommended = providerModels.find(m => m.recommended);
 
@@ -421,10 +391,12 @@ class AIConfigService {
    */
   async updateModel(tenantId, provider, modelo) {
     try {
-      // Validar que el modelo existe en el catálogo
-      const models = this.getAvailableModels();
-      const providerModels = models[provider] || [];
-      const modelExists = providerModels.find(m => m.id === modelo);
+      // Validar que el modelo existe en la BD
+      const modelExists = await prisma.ai_models.findUnique({
+        where: {
+          provider_modelId: { provider, modelId: modelo }
+        }
+      });
 
       if (!modelExists) {
         throw new Error(`Modelo ${modelo} no encontrado para el proveedor ${provider}`);

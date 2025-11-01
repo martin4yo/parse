@@ -33,7 +33,7 @@ router.get('/', authWithTenant, async (req, res) => {
 // GET /api/ai-configs/available-models - Obtener catálogo completo de modelos disponibles
 router.get('/available-models', authWithTenant, async (req, res) => {
   try {
-    const models = aiConfigService.getAvailableModels();
+    const models = await aiConfigService.getAvailableModels();
 
     res.json(models);
 
@@ -80,7 +80,7 @@ router.patch('/update-model', authWithTenant, async (req, res) => {
 // GET /api/ai-configs/providers - Obtener lista de proveedores disponibles
 router.get('/providers', authWithTenant, async (req, res) => {
   try {
-    const availableModels = aiConfigService.getAvailableModels();
+    const availableModels = await aiConfigService.getAvailableModels();
 
     const providers = [
       {

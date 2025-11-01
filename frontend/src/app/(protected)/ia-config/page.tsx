@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Brain, Plus, Edit, Trash2, X, Eye, EyeOff, Check, AlertCircle, RefreshCw } from 'lucide-react';
+import { Brain, Plus, Edit, Trash2, X, Eye, EyeOff, Check, AlertCircle, RefreshCw, Settings, Star } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { aiConfigsApi, type AIProviderConfig, type AIProvider, type AIAvailableModels, type AIModel } from '@/lib/api';
+import { aiConfigsApi, aiModelsApi, type AIProviderConfig, type AIProvider, type AIAvailableModels, type AIModel, type AIModelData } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 export default function IAConfigPage() {
@@ -15,6 +15,11 @@ export default function IAConfigPage() {
   const [editingConfig, setEditingConfig] = useState<AIProviderConfig | null>(null);
   const [showApiKey, setShowApiKey] = useState(false);
   const [updatingModel, setUpdatingModel] = useState<string | null>(null);
+  const [showModelsModal, setShowModelsModal] = useState(false);
+  const [managingProvider, setManagingProvider] = useState<string | null>(null);
+  const [providerModels, setProviderModels] = useState<AIModelData[]>([]);
+  const [showModelForm, setShowModelForm] = useState(false);
+  const [editingModel, setEditingModel] = useState<AIModelData | null>(null);
 
   const [formData, setFormData] = useState({
     provider: '',
@@ -22,6 +27,16 @@ export default function IAConfigPage() {
     modelo: '',
     maxRequestsPerDay: 1000,
     activo: true
+  });
+
+  const [modelFormData, setModelFormData] = useState({
+    modelId: '',
+    name: '',
+    description: '',
+    recommended: false,
+    active: true,
+    deprecated: false,
+    orderIndex: 0
   });
 
   useEffect(() => {
@@ -153,6 +168,115 @@ export default function IAConfigPage() {
       toast.error(error.response?.data?.message || 'Error al actualizar modelo');
     } finally {
       setUpdatingModel(null);
+    }
+  };
+
+  const handleManageModels = async (providerId: string) => {
+    try {
+      setManagingProvider(providerId);
+      const models = await aiModelsApi.getAll(providerId);
+      setProviderModels(models);
+      setShowModelsModal(true);
+    } catch (error) {
+      console.error('Error loading models:', error);
+      toast.error('Error al cargar modelos');
+    }
+  };
+
+  const handleAddModel = () => {
+    setEditingModel(null);
+    setModelFormData({
+      modelId: '',
+      name: '',
+      description: '',
+      recommended: false,
+      active: true,
+      deprecated: false,
+      orderIndex: providerModels.length
+    });
+    setShowModelForm(true);
+  };
+
+  const handleEditModel = (model: AIModelData) => {
+    setEditingModel(model);
+    setModelFormData({
+      modelId: model.modelId,
+      name: model.name,
+      description: model.description || '',
+      recommended: model.recommended,
+      active: model.active,
+      deprecated: model.deprecated,
+      orderIndex: model.orderIndex
+    });
+    setShowModelForm(true);
+  };
+
+  const handleSaveModel = async () => {
+    try {
+      if (!managingProvider) return;
+
+      if (editingModel) {
+        // Actualizar
+        await aiModelsApi.update(editingModel.id, modelFormData);
+        toast.success('Modelo actualizado');
+      } else {
+        // Crear
+        await aiModelsApi.create({
+          provider: managingProvider,
+          ...modelFormData
+        });
+        toast.success('Modelo creado');
+      }
+
+      // Recargar modelos del provider
+      const updated = await aiModelsApi.getAll(managingProvider);
+      setProviderModels(updated);
+
+      // Recargar toda la data para actualizar dropdowns
+      loadData();
+
+      setShowModelForm(false);
+    } catch (error: any) {
+      console.error('Error saving model:', error);
+      toast.error(error.response?.data?.message || 'Error al guardar modelo');
+    }
+  };
+
+  const handleDeleteModel = async (model: AIModelData) => {
+    if (!confirm(`¿Eliminar el modelo "${model.name}"?`)) return;
+
+    try {
+      await aiModelsApi.delete(model.id);
+      toast.success('Modelo eliminado');
+
+      // Recargar modelos
+      if (managingProvider) {
+        const updated = await aiModelsApi.getAll(managingProvider);
+        setProviderModels(updated);
+      }
+
+      loadData();
+    } catch (error: any) {
+      console.error('Error deleting model:', error);
+      toast.error(error.response?.data?.message || 'Error al eliminar modelo');
+    }
+  };
+
+  const handleToggleRecommended = async (model: AIModelData) => {
+    try {
+      await aiModelsApi.toggleRecommended(model.id);
+      toast.success('Modelo actualizado');
+
+      // Recargar modelos
+      if (managingProvider) {
+        const updated = await aiModelsApi.getAll(managingProvider);
+        setProviderModels(updated);
+      }
+
+      loadData();
+    } catch (error: any) {
+      console.error('Error toggling recommended:', error);
+      toast.error(error.response?.data?.message || 'Error al actualizar modelo');
     }
   };
 
@@ -305,6 +429,15 @@ export default function IAConfigPage() {
                           >
                             <Edit className="w-3 h-3 mr-1" />
                             Editar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleManageModels(config.provider)}
+                            className="flex-1"
+                          >
+                            <Settings className="w-3 h-3 mr-1" />
+                            Modelos
                           </Button>
                           <Button
                             size="sm"
