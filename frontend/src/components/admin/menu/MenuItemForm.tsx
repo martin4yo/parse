@@ -37,6 +37,7 @@ import {
   Package
 } from 'lucide-react';
 import axios from 'axios';
+import { useConfirmDialog } from '@/hooks/useConfirm';
 
 // Mapa de íconos
 const IconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -107,6 +108,7 @@ export function MenuItemForm({ item, isOpen, onClose, onSuccess, isCreating }: M
   });
   const [loading, setLoading] = useState(false);
   const [parentItems, setParentItems] = useState<MenuItem[]>([]);
+  const { confirm } = useConfirmDialog();
 
   // Cargar items padre disponibles
   useEffect(() => {
@@ -196,7 +198,11 @@ export function MenuItemForm({ item, isOpen, onClose, onSuccess, isCreating }: M
       onSuccess();
     } catch (error) {
       console.error('Error al guardar item:', error);
-      alert('Error al guardar el item del menú');
+      await confirm(
+        'Ocurrió un error al guardar el item del menú. Por favor, intenta nuevamente.',
+        'Error',
+        'danger'
+      );
     } finally {
       setLoading(false);
     }
