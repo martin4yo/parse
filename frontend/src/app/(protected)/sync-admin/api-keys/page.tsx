@@ -240,7 +240,7 @@ export default function ApiKeysPage() {
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="p-6 space-y-6">
       {/* Nueva API Key Modal */}
       {newKeyData && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -397,34 +397,39 @@ export default function ApiKeysPage() {
       )}
 
       {/* Main Card */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-2xl flex items-center gap-2">
-                <Key className="h-6 w-6" />
-                API Keys de Sincronización
-              </CardTitle>
-              <CardDescription>
-                Gestiona las claves de API para autenticar los clientes de sincronización
-              </CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={fetchApiKeys}
-                disabled={loading}
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                Actualizar
-              </Button>
-              <Button onClick={() => setIsModalOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Nueva API Key
-              </Button>
-            </div>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-palette-yellow rounded-lg flex items-center justify-center">
+            <Key className="w-6 h-6 text-palette-dark" />
           </div>
-        </CardHeader>
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary">
+              API Keys de Sincronización
+            </h1>
+            <p className="text-text-secondary mt-1">
+              Gestiona las claves de API para autenticar los clientes de sincronización
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={fetchApiKeys}
+            disabled={loading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Actualizar
+          </Button>
+          <Button onClick={() => setIsModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nueva API Key
+          </Button>
+        </div>
+      </div>
+
+      {/* Content Card */}
+      <Card>
         <CardContent className="!p-0">
           {loading ? (
             <div className="flex justify-center py-8">

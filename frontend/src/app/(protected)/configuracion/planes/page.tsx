@@ -224,16 +224,18 @@ export default function PlanesPage() {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="p-6 space-y-6 flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-border bg-white">
+      <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
-            <Package className="w-6 h-6 text-white" />
+          <div className="w-10 h-10 bg-palette-yellow rounded-lg flex items-center justify-center">
+            <Package className="w-6 h-6 text-palette-dark" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-text-primary">Gestión de Planes</h1>
-            <p className="text-text-secondary">
+            <h1 className="text-2xl font-bold text-text-primary">
+              Gestión de Planes
+            </h1>
+            <p className="text-text-secondary mt-1">
               Administra los planes y sus features
             </p>
           </div>
@@ -248,7 +250,7 @@ export default function PlanesPage() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-hidden p-6">
+      <div className="flex-1 overflow-hidden">
         <div className="bg-white rounded-lg border border-border overflow-hidden">
           <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)]">
             <table className="w-full">
