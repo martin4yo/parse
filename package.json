@@ -13,7 +13,8 @@
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
   },
   "devDependencies": {
-    "concurrently": "^8.2.0"
+    "concurrently": "^8.2.0",
+    "puppeteer": "^24.27.0"
   },
   "engines": {
     "node": ">=18.0.0",
