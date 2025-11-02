@@ -149,7 +149,7 @@ export default function ExportarPage() {
   const handleOpenEditModal = async (doc: DocumentoProcessado) => {
     setSelectedDocumentForEdit(doc);
     setEditFormData({
-      fechaExtraida: doc.fechaExtraida ? new Date(doc.fechaExtraida).toISOString().split('T')[0] : '',
+      fechaExtraida: doc.fechaExtraida || '',
       importeExtraido: doc.importeExtraido ? Number(doc.importeExtraido).toFixed(2) : '',
       cuitExtraido: doc.cuitExtraido || '',
       numeroComprobanteExtraido: doc.numeroComprobanteExtraido || '',
@@ -272,15 +272,32 @@ export default function ExportarPage() {
   }, [searchTerm, filterStatus]);
 
   const formatCurrency = (value: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
-  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('es-AR');
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    // Usar UTC para evitar problemas de timezone
+    const day = date.getUTCDate().toString().padStart(2, '0');
+    const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+    const year = date.getUTCFullYear();
+    return `${day}/${month}/${year}`;
+  };
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Exportar Documentos</h1>
-          <p className="text-gray-600 mt-1">Gestiona y exporta tus documentos procesados</p>
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-palette-yellow rounded-lg flex items-center justify-center">
+            <FileDown className="w-6 h-6 text-palette-dark" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary">
+              Exportar Documentos
+            </h1>
+            <p className="text-text-secondary mt-1">
+              Gestiona y exporta tus documentos procesados
+            </p>
+          </div>
         </div>
         <div className="flex items-center space-x-3">
           <Button

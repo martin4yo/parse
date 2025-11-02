@@ -148,28 +148,34 @@ export default function AIRulesPage() {
   };
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
+    <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <Sparkles className="w-8 h-8 text-purple-500" />
-          <h1 className="text-3xl font-bold">Reglas de IA</h1>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-palette-yellow rounded-lg flex items-center justify-center">
+            <Sparkles className="w-6 h-6 text-palette-dark" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary">
+              Reglas de IA
+            </h1>
+            <p className="text-text-secondary mt-1">
+              Describe en lenguaje natural qué regla de negocio quieres crear y la IA la generará por ti
+            </p>
+          </div>
         </div>
-        <p className="text-gray-600">
-          Describe en lenguaje natural qué regla de negocio quieres crear y la IA la generará por ti
-        </p>
       </div>
 
       {/* Alerts */}
       {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
           <p className="text-red-700">{error}</p>
         </div>
       )}
 
       {success && (
-        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
+        <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
           <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
           <p className="text-green-700">{success}</p>
         </div>

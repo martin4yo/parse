@@ -250,11 +250,12 @@ export function DocumentViewerModal({
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return '-';
     try {
-      return new Date(dateString).toLocaleDateString('es-ES', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
+      const date = new Date(dateString);
+      // Usar UTC para evitar problemas de timezone
+      const day = date.getUTCDate().toString().padStart(2, '0');
+      const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+      const year = date.getUTCFullYear();
+      return `${day}/${month}/${year}`;
     } catch {
       return '-';
     }

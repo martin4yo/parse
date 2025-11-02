@@ -20,6 +20,7 @@ const reglasRoutes = require('./routes/reglas');
 const parametrosRoutes = require('./routes/parametros');
 const atributosRoutes = require('./routes/atributos');
 const aiConfigsRoutes = require('./routes/ai-configs');
+const aiModelsRoutes = require('./routes/ai-models');
 const aiRulesRoutes = require('./routes/ai-rules');
 const syncRoutes = require('./routes/sync');
 const { router: syncApiKeysRoutes } = require('./routes/syncApiKeys');
@@ -127,9 +128,8 @@ app.use('/api/prompts', promptsRoutes);
 app.use('/api/reglas', reglasRoutes);
 app.use('/api/parametros', parametrosRoutes);
 app.use('/api/atributos', atributosRoutes);
-app.use('/api/valores-atributo', atributosRoutes);
-app.use('/api/user-atributos', atributosRoutes);
 app.use('/api/ai-configs', aiConfigsRoutes);
+app.use('/api/ai-models', aiModelsRoutes);
 app.use('/api/ai-rules', aiRulesRoutes);
 
 // Sincronización SQL

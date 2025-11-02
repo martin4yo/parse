@@ -135,7 +135,7 @@ async function saveTestResults() {
             data: {
               documentoId: documento.id,
               tenantId: tenant.id,
-              numero: item.numero || 1,
+              numero: item.numero ? parseInt(item.numero, 10) : 1,
               descripcion: item.descripcion || 'Sin descripción',
               codigoProducto: item.codigoProducto,
               cantidad: item.cantidad ? parseFloat(item.cantidad) : 1,

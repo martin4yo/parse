@@ -32,11 +32,11 @@ router.get('/', authWithTenant, async (req, res) => {
         { codigo: 'asc' }
       ],
       include: {
-        atributo: true
+        atributos: true
       }
     });
 
-    res.json(valores);
+    res.json({ valoresAtributo: valores });
 
   } catch (error) {
     console.error('Error fetching valores atributo:', error);
@@ -55,7 +55,7 @@ router.get('/:id', authWithTenant, async (req, res) => {
     const valor = await prisma.valores_atributo.findUnique({
       where: { id },
       include: {
-        atributo: true
+        atributos: true
       }
     });
 
@@ -109,7 +109,7 @@ router.post('/', authWithTenant, async (req, res) => {
         activo
       },
       include: {
-        atributo: true
+        atributos: true
       }
     });
 
@@ -166,7 +166,7 @@ router.put('/:id', authWithTenant, async (req, res) => {
       where: { id },
       data: updateData,
       include: {
-        atributo: true
+        atributos: true
       }
     });
 

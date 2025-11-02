@@ -706,28 +706,28 @@ export const atributosApi = {
 // Funciones de valores de atributo
 export const valoresAtributoApi = {
   getAll: async (atributoId?: string) => {
-    const url = atributoId ? `/valores-atributo?atributoId=${atributoId}` : '/valores-atributo';
+    const url = atributoId ? `/atributos/valores-atributo?atributoId=${atributoId}` : '/atributos/valores-atributo';
     const response = await api.get(url);
     return response.data;
   },
-  
+
   getById: async (id: string) => {
-    const response = await api.get(`/valores-atributo/${id}`);
+    const response = await api.get(`/atributos/valores-atributo/${id}`);
     return response.data;
   },
-  
+
   create: async (valorData: { codigo: string; descripcion: string; atributoId: string }) => {
-    const response = await api.post('/valores-atributo', valorData);
+    const response = await api.post('/atributos/valores-atributo', valorData);
     return response.data;
   },
-  
+
   update: async (id: string, valorData: Partial<{ codigo: string; descripcion: string; activo: boolean }>) => {
-    const response = await api.put(`/valores-atributo/${id}`, valorData);
+    const response = await api.put(`/atributos/valores-atributo/${id}`, valorData);
     return response.data;
   },
-  
+
   delete: async (id: string) => {
-    const response = await api.delete(`/valores-atributo/${id}`);
+    const response = await api.delete(`/atributos/valores-atributo/${id}`);
     return response.data;
   }
 };
@@ -797,32 +797,32 @@ export const usersApi = {
 // Funciones de user-atributos
 export const userAtributosApi = {
   getByUserId: async (userId: string): Promise<{ userAtributos: UserAtributo[] }> => {
-    const response = await api.get(`/user-atributos/usuario/${userId}`);
+    const response = await api.get(`/atributos/user-atributos/usuario/${userId}`);
     return response.data;
   },
-  
+
   getAtributosDisponibles: async (userId: string): Promise<{ atributos: Atributo[] }> => {
-    const response = await api.get(`/user-atributos/usuario/${userId}/disponibles`);
+    const response = await api.get(`/atributos/user-atributos/usuario/${userId}/disponibles`);
     return response.data;
   },
-  
+
   create: async (userAtributoData: {
     userId: string;
     valorAtributoId: string;
   }) => {
-    const response = await api.post('/user-atributos', userAtributoData);
+    const response = await api.post('/atributos/user-atributos', userAtributoData);
     return response.data;
   },
-  
+
   update: async (id: string, userAtributoData: {
     valorAtributoId: string;
   }) => {
-    const response = await api.put(`/user-atributos/${id}`, userAtributoData);
+    const response = await api.put(`/atributos/user-atributos/${id}`, userAtributoData);
     return response.data;
   },
-  
+
   delete: async (id: string) => {
-    const response = await api.delete(`/user-atributos/${id}`);
+    const response = await api.delete(`/atributos/user-atributos/${id}`);
     return response.data;
   }
 };
@@ -1288,6 +1288,15 @@ export interface AIProviderConfig {
   updatedAt: string;
 }
 
+export interface AIModel {
+  id: string;
+  name: string;
+  description: string;
+  recommended: boolean;
+  active: boolean;
+  deprecated?: boolean;
+}
+
 export interface AIProvider {
   id: string;
   nombre: string;
@@ -1297,6 +1306,12 @@ export interface AIProvider {
     label: string;
   }>;
   requiresApiKey: boolean;
+}
+
+export interface AIAvailableModels {
+  anthropic: AIModel[];
+  gemini: AIModel[];
+  openai: AIModel[];
 }
 
 // API para configuración de IA
@@ -1343,6 +1358,94 @@ export const aiConfigsApi = {
 
   test: async (provider: string, apiKey: string): Promise<{ success: boolean; message: string }> => {
     const response = await api.post('/ai-configs/test', { provider, apiKey });
+    return response.data;
+  },
+
+  getAvailableModels: async (): Promise<AIAvailableModels> => {
+    const response = await api.get('/ai-configs/available-models');
+    return response.data;
+  },
+
+  updateModel: async (provider: string, modelo: string): Promise<{
+    success: boolean;
+    provider: string;
+    modelo: string;
+    modelName: string;
+  }> => {
+    const response = await api.patch('/ai-configs/update-model', { provider, modelo });
+    return response.data;
+  }
+};
+
+// Tipos para AI Models CRUD
+export interface AIModelData {
+  id: string;
+  provider: string;
+  modelId: string;
+  name: string;
+  description?: string;
+  recommended: boolean;
+  active: boolean;
+  deprecated: boolean;
+  orderIndex: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// API para gestión de catálogo de modelos
+export const aiModelsApi = {
+  getAll: async (provider?: string, active?: boolean): Promise<AIModelData[]> => {
+    const params = new URLSearchParams();
+    if (provider) params.append('provider', provider);
+    if (active !== undefined) params.append('active', String(active));
+
+    const response = await api.get(`/ai-models?${params.toString()}`);
+    return response.data;
+  },
+
+  getByProvider: async (): Promise<Record<string, AIModelData[]>> => {
+    const response = await api.get('/ai-models/by-provider');
+    return response.data;
+  },
+
+  getById: async (id: string): Promise<AIModelData> => {
+    const response = await api.get(`/ai-models/${id}`);
+    return response.data;
+  },
+
+  create: async (data: {
+    provider: string;
+    modelId: string;
+    name: string;
+    description?: string;
+    recommended?: boolean;
+    active?: boolean;
+    deprecated?: boolean;
+    orderIndex?: number;
+  }): Promise<AIModelData> => {
+    const response = await api.post('/ai-models', data);
+    return response.data;
+  },
+
+  update: async (id: string, data: {
+    modelId?: string;
+    name?: string;
+    description?: string;
+    recommended?: boolean;
+    active?: boolean;
+    deprecated?: boolean;
+    orderIndex?: number;
+  }): Promise<AIModelData> => {
+    const response = await api.put(`/ai-models/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/ai-models/${id}`);
+  },
+
+  toggleRecommended: async (id: string): Promise<AIModelData> => {
+    const response = await api.patch(`/ai-models/${id}/toggle-recommended`);
     return response.data;
   }
 };

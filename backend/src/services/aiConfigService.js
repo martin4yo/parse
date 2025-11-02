@@ -81,7 +81,7 @@ class AIConfigService {
 
       return {
         apiKey,
-        modelo: tenantConfig?.modelo || this.getDefaultModel(provider),
+        modelo: tenantConfig?.modelo || await this.getDefaultModel(provider),
         maxRequestsPerDay: tenantConfig?.maxRequestsPerDay || 1000,
         config: tenantConfig?.config || {}
       };
@@ -289,19 +289,152 @@ class AIConfigService {
   }
 
   /**
+   * Catálogo de modelos disponibles por provider
+   * Ahora lee desde la base de datos
+   *
+   * @returns {Promise<Object>}
+   */
+  async getAvailableModels() {
+    try {
+      const models = await prisma.ai_models.findMany({
+        orderBy: [
+          { provider: 'asc' },
+          { orderIndex: 'asc' }
+        ]
+      });
+
+      // Agrupar por provider
+      const grouped = models.reduce((acc, model) => {
+        if (!acc[model.provider]) {
+          acc[model.provider] = [];
+        }
+        acc[model.provider].push({
+          id: model.modelId,
+          name: model.name,
+          description: model.description,
+          recommended: model.recommended,
+          active: model.active,
+          deprecated: model.deprecated
+        });
+        return acc;
+      }, {});
+
+      return grouped;
+
+    } catch (error) {
+      console.error('❌ Error obteniendo modelos de BD:', error.message);
+
+      // Fallback a modelos hardcodeados si falla la BD
+      console.warn('⚠️  Usando modelos fallback hardcodeados');
+      return this.getFallbackModels();
+    }
+  }
+
+  /**
+   * Modelos fallback en caso de error con BD
+   *
+   * @returns {Object}
+   */
+  getFallbackModels() {
+    return {
+      'anthropic': [
+        {
+          id: 'claude-3-7-sonnet-20250219',
+          name: 'Claude 3.7 Sonnet',
+          description: 'Más reciente, balanceado en velocidad y calidad',
+          recommended: true,
+          active: true
+        }
+      ],
+      'gemini': [
+        {
+          id: 'gemini-1.5-flash-latest',
+          name: 'Gemini 1.5 Flash (Latest)',
+          description: 'Versión más reciente, rápida y económica',
+          recommended: true,
+          active: true
+        }
+      ],
+      'openai': [
+        {
+          id: 'gpt-4o',
+          name: 'GPT-4o',
+          description: 'Más reciente, optimizado y económico',
+          recommended: true,
+          active: true
+        }
+      ]
+    };
+  }
+
+  /**
    * Modelos por defecto según provider
    *
    * @param {string} provider
-   * @returns {string}
+   * @returns {Promise<string>}
    */
-  getDefaultModel(provider) {
-    const defaults = {
-      'gemini': 'gemini-1.5-flash-latest',
-      'anthropic': 'claude-3-7-sonnet-20250219', // Claude Sonnet con visión
-      'openai': 'gpt-4o'
-    };
+  async getDefaultModel(provider) {
+    const models = await this.getAvailableModels();
+    const providerModels = models[provider] || [];
+    const recommended = providerModels.find(m => m.recommended);
 
-    return defaults[provider] || 'default';
+    return recommended?.id || providerModels[0]?.id || 'default';
+  }
+
+  /**
+   * Actualiza solo el modelo de un provider para un tenant
+   *
+   * @param {string} tenantId - ID del tenant
+   * @param {string} provider - Proveedor de IA
+   * @param {string} modelo - ID del modelo
+   * @returns {Promise<Object>}
+   */
+  async updateModel(tenantId, provider, modelo) {
+    try {
+      // Validar que el modelo existe en la BD
+      const modelExists = await prisma.ai_models.findUnique({
+        where: {
+          provider_modelId: { provider, modelId: modelo }
+        }
+      });
+
+      if (!modelExists) {
+        throw new Error(`Modelo ${modelo} no encontrado para el proveedor ${provider}`);
+      }
+
+      // Actualizar o crear configuración
+      const config = await prisma.ai_provider_configs.upsert({
+        where: {
+          tenantId_provider: { tenantId, provider }
+        },
+        create: {
+          id: uuidv4(),
+          tenantId,
+          provider,
+          modelo,
+          activo: true,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        update: {
+          modelo,
+          updatedAt: new Date()
+        }
+      });
+
+      console.log(`✅ Modelo actualizado para tenant ${tenantId} - ${provider}: ${modelo}`);
+
+      return {
+        success: true,
+        provider,
+        modelo,
+        modelName: modelExists.name
+      };
+
+    } catch (error) {
+      console.error(`❌ Error actualizando modelo:`, error.message);
+      throw error;
+    }
   }
 
   /**

@@ -168,7 +168,7 @@ export default function ComprobantesPage() {
   const handleOpenEditModal = async (doc: DocumentoProcessado) => {
     setSelectedDocumentForEdit(doc);
     setEditFormData({
-      fechaExtraida: doc.fechaExtraida ? new Date(doc.fechaExtraida).toISOString().split('T')[0] : '',
+      fechaExtraida: doc.fechaExtraida || '',
       importeExtraido: doc.importeExtraido ? Number(doc.importeExtraido).toFixed(2) : '',
       cuitExtraido: doc.cuitExtraido || '',
       numeroComprobanteExtraido: doc.numeroComprobanteExtraido || '',

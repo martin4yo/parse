@@ -38,7 +38,7 @@ router.get('/', authWithTenant, async (req, res) => {
               descripcion: true
             }
           },
-          tenant: {
+          tenants: {
             select: {
               id: true,
               nombre: true,

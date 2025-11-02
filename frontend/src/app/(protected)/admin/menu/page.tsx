@@ -5,7 +5,7 @@ import { MenuItemsList } from '@/components/admin/menu/MenuItemsList';
 import { MenuItemForm } from '@/components/admin/menu/MenuItemForm';
 import { MenuPreview } from '@/components/admin/menu/MenuPreview';
 import { Button } from '@/components/ui/Button';
-import { Plus } from 'lucide-react';
+import { Plus, Menu } from 'lucide-react';
 import { useMenu, MenuItem } from '@/hooks/useMenu';
 
 export default function MenuAdminPage() {
@@ -41,13 +41,18 @@ export default function MenuAdminPage() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">
-            Administración de Menú
-          </h1>
-          <p className="text-text-secondary mt-1">
-            Gestiona los items del menú de navegación del sidebar
-          </p>
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-palette-yellow rounded-lg flex items-center justify-center">
+            <Menu className="w-6 h-6 text-palette-dark" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary">
+              Administración de Menú
+            </h1>
+            <p className="text-text-secondary mt-1">
+              Gestiona los items del menú de navegación del sidebar
+            </p>
+          </div>
         </div>
         <Button onClick={handleCreate}>
           <Plus className="w-4 h-4 mr-2" />

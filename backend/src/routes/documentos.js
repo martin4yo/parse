@@ -2385,7 +2385,7 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo) {
           data: lineItems.map((item, idx) => ({
             id: uuidv4(),
             documentoId: documentoId,
-            numero: item.numero || (idx + 1),
+            numero: item.numero ? parseInt(item.numero, 10) : (idx + 1),
             descripcion: item.descripcion || 'Sin descripción',
             codigoProducto: item.codigoProducto || null,
             cantidad: parseFloat(item.cantidad) || 1,
