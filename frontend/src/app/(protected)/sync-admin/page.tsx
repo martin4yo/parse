@@ -91,35 +91,40 @@ export default function SyncAdminPage() {
   };
 
   return (
-    <div className="container mx-auto py-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-2xl flex items-center gap-2">
-                <Database className="h-6 w-6" />
-                Administración de Sincronización
-              </CardTitle>
-              <CardDescription>
-                Configura la sincronización bidireccional entre SQL Server y PostgreSQL
-              </CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={fetchConfigurations}
-                disabled={loading}
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                Actualizar
-              </Button>
-              <Button onClick={() => router.push('/sync-admin/new')}>
-                <Plus className="h-4 w-4 mr-2" />
-                Nueva Configuración
-              </Button>
-            </div>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-palette-yellow rounded-lg flex items-center justify-center">
+            <Database className="w-6 h-6 text-palette-dark" />
           </div>
-        </CardHeader>
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary">
+              Administración de Sincronización
+            </h1>
+            <p className="text-text-secondary mt-1">
+              Configura la sincronización bidireccional entre SQL Server y PostgreSQL
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={fetchConfigurations}
+            disabled={loading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Actualizar
+          </Button>
+          <Button onClick={() => router.push('/sync-admin/new')}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nueva Configuración
+          </Button>
+        </div>
+      </div>
+
+      {/* Content Card */}
+      <Card>
         <CardContent className="!p-0">
           {loading ? (
             <div className="flex justify-center py-8">

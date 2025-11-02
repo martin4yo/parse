@@ -281,18 +281,18 @@ export default function IAConfigPage() {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="p-6 space-y-6 flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-border bg-white">
+      <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-palette-blue rounded-lg flex items-center justify-center">
-            <Brain className="w-6 h-6 text-white" />
+          <div className="w-10 h-10 bg-palette-yellow rounded-lg flex items-center justify-center">
+            <Brain className="w-6 h-6 text-palette-dark" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-text-primary">
               Configuración de IA
             </h1>
-            <p className="text-text-secondary">
+            <p className="text-text-secondary mt-1">
               Gestiona los proveedores de inteligencia artificial para extracción de documentos
             </p>
           </div>
@@ -301,7 +301,7 @@ export default function IAConfigPage() {
 
       {/* Content */}
       <div className="flex-1 overflow-hidden">
-        <div className="p-6 h-full flex flex-col">
+        <div className="h-full flex flex-col">
           <div className="bg-white rounded-lg border border-border flex flex-col h-full">
             <div className="flex items-center justify-between p-4 border-b border-border flex-shrink-0">
               <h3 className="text-lg font-semibold text-text-primary">Proveedores Configurados</h3>
