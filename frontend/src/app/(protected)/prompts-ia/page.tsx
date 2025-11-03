@@ -261,7 +261,7 @@ export default function PromptsIAPage() {
           </button>
           <button
             onClick={handleOpenCreate}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-palette-dark text-palette-yellow rounded-lg hover:bg-palette-dark/90 transition-colors flex items-center gap-2"
           >
             <Plus className="h-4 w-4" />
             Nuevo Prompt
@@ -533,7 +533,7 @@ export default function PromptsIAPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                  className="px-4 py-2 bg-palette-dark text-palette-yellow rounded-lg hover:bg-palette-dark/90 transition-colors"
                 >
                   {editingPrompt ? 'Actualizar' : 'Crear'}
                 </button>

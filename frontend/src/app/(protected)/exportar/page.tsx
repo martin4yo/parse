@@ -150,8 +150,20 @@ export default function ExportarPage() {
   const handleOpenEditModal = async (doc: DocumentoProcessado, readOnly: boolean = false) => {
     setSelectedDocumentForEdit(doc);
     setIsReadOnly(readOnly);
+
+    // Convertir fecha al formato YYYY-MM-DD que espera el input type="date"
+    let fechaFormateada = '';
+    if (doc.fechaExtraida) {
+      try {
+        // Si viene en formato ISO (2024-01-15T00:00:00.000Z), extraer solo la fecha
+        fechaFormateada = doc.fechaExtraida.split('T')[0];
+      } catch (e) {
+        fechaFormateada = doc.fechaExtraida;
+      }
+    }
+
     setEditFormData({
-      fechaExtraida: doc.fechaExtraida || '',
+      fechaExtraida: fechaFormateada,
       importeExtraido: doc.importeExtraido ? Number(doc.importeExtraido).toFixed(2) : '',
       cuitExtraido: doc.cuitExtraido || '',
       numeroComprobanteExtraido: doc.numeroComprobanteExtraido || '',
