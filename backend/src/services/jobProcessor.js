@@ -200,13 +200,13 @@ class JobProcessor {
         });
         
         await this.updateJobStatus(jobId, 'PROCESSING', 50, 'Aplicando reglas de negocio...');
-        
+
         // 6. Crear items y aplicar reglas de negocio
         const itemsData = [];
         let cabeceraIndex = 0;
-        
+
         // Inicializar motor de reglas
-        const rulesEngine = new BusinessRulesEngine();
+        const rulesEngine = new BusinessRulesEngine(tenantId);
         await rulesEngine.loadRules('IMPORTACION_DKT', false, tx);
         
         // Calcular total de items para el progreso

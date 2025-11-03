@@ -2995,7 +2995,7 @@ router.post('/exportar', authWithTenant, async (req, res) => {
     }
 
     // Inicializar motor de reglas de negocio para transformaciones y validaciones pre-exportación
-    const rulesEngine = new BusinessRulesEngine();
+    const rulesEngine = new BusinessRulesEngine(tenantId);
 
     let documentosTransformados = 0;
     let lineasTransformadas = 0;
@@ -3273,7 +3273,7 @@ router.post('/aplicar-reglas', authWithTenant, async (req, res) => {
     console.log(`📋 Encontrados ${documentos.length} documentos para procesar`);
 
     // Inicializar el motor de reglas y cargar reglas de TRANSFORMACION
-    const rulesEngine = new BusinessRulesEngine(prisma);
+    const rulesEngine = new BusinessRulesEngine(tenantId);
     await rulesEngine.loadRules('TRANSFORMACION', true, prisma);
 
     if (rulesEngine.rules.length === 0) {

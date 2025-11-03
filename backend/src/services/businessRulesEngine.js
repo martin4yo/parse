@@ -3,12 +3,13 @@ const { v4: uuidv4 } = require('uuid');
 const prisma = new PrismaClient();
 
 class BusinessRulesEngine {
-  constructor() {
+  constructor(tenantId = null) {
     this.rules = [];
     this.rulesCache = new Map(); // Cache de reglas por tipo
     this.lastLoadTime = new Map(); // Último tiempo de carga por tipo
     this.cacheTimeout = 5 * 60 * 1000; // 5 minutos de cache
     this.lookupCache = new Map(); // Cache para lookups repetidos
+    this.tenantId = tenantId; // TenantId para filtrar reglas
   }
 
   /**
@@ -26,15 +27,24 @@ class BusinessRulesEngine {
 
     try {
       const db = prismaInstance || prisma;
+
+      // Construir el where con tenantId si está disponible
+      const where = {
+        tipo,
+        activa: true,
+        OR: [
+          { fechaVigencia: null },
+          { fechaVigencia: { lte: new Date() } }
+        ]
+      };
+
+      // Filtrar por tenantId si está configurado
+      if (this.tenantId) {
+        where.tenantId = this.tenantId;
+      }
+
       const rules = await db.reglas_negocio.findMany({
-        where: {
-          tipo,
-          activa: true,
-          OR: [
-            { fechaVigencia: null },
-            { fechaVigencia: { lte: new Date() } }
-          ]
-        },
+        where,
         orderBy: [
           { prioridad: 'asc' },
           { createdAt: 'asc' }
@@ -46,7 +56,7 @@ class BusinessRulesEngine {
       this.lastLoadTime.set(tipo, now);
       this.rules = rules;
 
-      console.log(`Cargadas ${this.rules.length} reglas de tipo ${tipo}`);
+      console.log(`Cargadas ${this.rules.length} reglas de tipo ${tipo}${this.tenantId ? ` para tenant ${this.tenantId}` : ''}`);
       return this.rules;
     } catch (error) {
       console.error('Error cargando reglas:', error);
@@ -269,30 +279,31 @@ class BusinessRulesEngine {
         const isValidationRule = rule.tipo === 'VALIDACION';
         
         // 1. Aplicar transformaciones de campo si existen
-        let transformedData = fullData;
+        // IMPORTANTE: usar result en lugar de fullData para que vea los cambios de reglas anteriores
+        let transformedData = result;
         if (config.transformacionesCampo && config.transformacionesCampo.length > 0) {
-          transformedData = this.applyFieldTransformations(fullData, config.transformacionesCampo);
-          
+          transformedData = this.applyFieldTransformations(result, config.transformacionesCampo);
+
           if (logExecution) {
-            console.log(`Transformaciones aplicadas para regla "${rule.nombre}":`, 
+            console.log(`Transformaciones aplicadas para regla "${rule.nombre}":`,
               config.transformacionesCampo.map(t => `${t.campo} -> ${t.transformacion}`));
           }
         }
-        
-        // 2. Verificar si todas las condiciones se cumplen (usando datos transformados)
+
+        // 2. Verificar si todas las condiciones se cumplen (usando datos ya modificados por reglas anteriores)
         let shouldApply = true;
-        
+
         if (config.condiciones) {
           // Si hay múltiples condiciones, verificar el operador lógico
           const logicOperator = config.logicOperator || 'AND';
-          
+
           if (logicOperator === 'AND') {
-            shouldApply = config.condiciones.every(cond => 
-              this.evaluateCondition(cond, fullData, transformedData)
+            shouldApply = config.condiciones.every(cond =>
+              this.evaluateCondition(cond, result, transformedData)
             );
           } else if (logicOperator === 'OR') {
-            shouldApply = config.condiciones.some(cond => 
-              this.evaluateCondition(cond, fullData, transformedData)
+            shouldApply = config.condiciones.some(cond =>
+              this.evaluateCondition(cond, result, transformedData)
             );
           }
         }
@@ -341,6 +352,9 @@ class BusinessRulesEngine {
                 } else if (operacion === 'LOOKUP_CHAIN') {
                   // Realizar lookup encadenado entre múltiples tablas
                   await this.applyLookupChain(result, fullData, accion, transformedData);
+                } else if (operacion === 'EXTRACT_REGEX') {
+                  // Extraer valor usando expresión regular
+                  this.applyExtractRegex(result, fullData, accion, transformedData);
                 }
               }
             }
@@ -465,12 +479,13 @@ class BusinessRulesEngine {
    * Aplicar lookup dinámico desde tablas de parámetros
    */
   async applyLookup(result, fullData, accion, transformedData = null) {
-    const { 
+    const {
       campo,           // Campo donde guardar el resultado
       tabla,           // Tabla a consultar (ej: 'parametros_maestros', 'user_tarjetas_credito')
       campoConsulta,   // Campo por el cual filtrar (ej: 'numero_tarjeta', 'codigo')
       valorConsulta,   // Valor a buscar o campo de donde obtenerlo (ej: 'resumen.numeroTarjeta', 'FIJO_123')
       campoResultado,  // Campo que queremos obtener (ej: 'nombre', 'codigo_dimension')
+      campoJSON,       // Campo específico dentro del JSON a extraer (ej: 'cuentaContable')
       valorDefecto     // Valor por defecto si no encuentra nada
     } = accion;
 
@@ -501,7 +516,7 @@ class BusinessRulesEngine {
 
       switch (tabla) {
         case 'parametros_maestros':
-          lookupResult = await this.lookupParametrosMaestros(campoConsulta, valorBusqueda, campoResultado);
+          lookupResult = await this.lookupParametrosMaestros(campoConsulta, valorBusqueda, campoResultado, campoJSON);
           break;
           
         case 'user_tarjetas_credito':
@@ -817,7 +832,7 @@ class BusinessRulesEngine {
   /**
    * Lookup específico para parámetros maestros
    */
-  async lookupParametrosMaestros(campoConsulta, valorBusqueda, campoResultado) {
+  async lookupParametrosMaestros(campoConsulta, valorBusqueda, campoResultado, campoJSON = null) {
     const where = {};
     where[campoConsulta] = valorBusqueda;
     where.activo = true;
@@ -829,7 +844,16 @@ class BusinessRulesEngine {
       }
     });
 
-    return parametro ? parametro[campoResultado] : null;
+    if (!parametro) return null;
+
+    let resultado = parametro[campoResultado];
+
+    // Si se especifica campoJSON y el resultado es un objeto, extraer el campo del JSON
+    if (campoJSON && resultado && typeof resultado === 'object') {
+      resultado = resultado[campoJSON] || null;
+    }
+
+    return resultado;
   }
 
   /**
@@ -972,6 +996,55 @@ class BusinessRulesEngine {
     } catch (error) {
       console.error(`Error en lookup genérico de ${tabla}:`, error);
       return null;
+    }
+  }
+
+  /**
+   * Extraer valor usando expresión regular
+   */
+  applyExtractRegex(result, fullData, accion, transformedData = null) {
+    const {
+      campo,           // Campo donde guardar el resultado
+      campoOrigen,     // Campo del cual extraer (ej: 'descripcion')
+      patron,          // Patrón regex (ej: '[oO]\\.?[cC]\\.?\\s*:\\s*(\\d+)')
+      grupoCaptura,    // Número de grupo a capturar (default: 1)
+      valorDefecto     // Valor por defecto si no encuentra match
+    } = accion;
+
+    try {
+      // Obtener el valor del campo origen
+      const dataToUse = transformedData || fullData;
+      const valorOrigen = this.getNestedValue(dataToUse, campoOrigen);
+
+      if (!valorOrigen) {
+        if (valorDefecto !== undefined) {
+          this.setNestedValue(result, campo, valorDefecto);
+        }
+        return;
+      }
+
+      // Aplicar el patrón regex
+      const regex = new RegExp(patron, 'i');
+      const match = String(valorOrigen).match(regex);
+
+      if (match) {
+        const grupo = grupoCaptura !== undefined ? grupoCaptura : 1;
+        const valorExtraido = match[grupo];
+
+        this.setNestedValue(result, campo, valorExtraido);
+        console.log(`ExtractRegex exitoso: ${campoOrigen}="${valorOrigen}" -> ${campo}="${valorExtraido}"`);
+      } else {
+        // No se encontró match, usar valor por defecto
+        if (valorDefecto !== undefined) {
+          this.setNestedValue(result, campo, valorDefecto);
+        }
+      }
+
+    } catch (error) {
+      console.error(`Error en ExtractRegex: ${campoOrigen}`, error);
+      if (valorDefecto !== undefined) {
+        this.setNestedValue(result, campo, valorDefecto);
+      }
     }
   }
 
@@ -1278,7 +1351,8 @@ class BusinessRulesEngine {
    */
   clearCache() {
     this.rules = [];
-    this.lastLoadTime = null;
+    this.rulesCache.clear();
+    this.lastLoadTime.clear();
   }
 
   /**
