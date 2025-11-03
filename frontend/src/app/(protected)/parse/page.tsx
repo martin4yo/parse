@@ -1429,6 +1429,20 @@ export default function ComprobantesPage() {
                   />
                 </div>
 
+                {/* 5.1 Código de Proveedor */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Código de Proveedor
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.codigoProveedor || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, codigoProveedor: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="Código del proveedor"
+                  />
+                </div>
+
                 {/* 6. Neto Gravado */}
                 <div>
                   <label className="block text-sm font-medium text-text-primary mb-2">
@@ -1592,50 +1606,83 @@ export default function ComprobantesPage() {
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                           {documentoLineas.map((linea) => (
-                            <tr key={linea.id} className="hover:bg-gray-50">
-                              <td className="px-3 py-2 text-sm text-gray-900">{linea.numero}</td>
-                              <td className="px-3 py-2 text-sm text-gray-900">
-                                <div className="max-w-xs truncate" title={linea.descripcion}>
-                                  {linea.descripcion}
-                                </div>
-                                {linea.codigoProducto && (
-                                  <div className="text-xs text-gray-500">Cód: {linea.codigoProducto}</div>
-                                )}
+                            <>
+                              <tr key={linea.id} className="hover:bg-gray-50">
+                                <td className="px-3 py-2 text-sm text-gray-900">{linea.numero}</td>
+                                <td className="px-3 py-2 text-sm text-gray-900">
+                                  <div className="max-w-xs truncate" title={linea.descripcion}>
+                                    {linea.descripcion}
+                                  </div>
+                                  {linea.codigoProducto && (
+                                    <div className="text-xs text-gray-500">Cód: {linea.codigoProducto}</div>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-900 text-right">
+                                  {Number(linea.cantidad).toFixed(2)} {linea.unidad || ''}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-900 text-right">
+                                  ${Number(linea.precioUnitario).toFixed(2)}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-900 text-right">
+                                  ${Number(linea.subtotal).toFixed(2)}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-900 text-right">
+                                  {linea.alicuotaIva ? `${Number(linea.alicuotaIva)}%` : '-'}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-900 text-right font-medium">
+                                  ${Number(linea.totalLinea).toFixed(2)}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-center">
+                                  <div className="flex items-center justify-center space-x-2">
+                                    <button
+                                      onClick={() => handleOpenItemModal(linea)}
+                                      className="text-blue-600 hover:text-blue-800"
+                                      title="Editar"
+                                    >
+                                      <Pencil className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteItem(linea.id)}
+                                      className="text-red-600 hover:text-red-800"
+                                      title="Eliminar"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
                               </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 text-right">
-                                {Number(linea.cantidad).toFixed(2)} {linea.unidad || ''}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 text-right">
-                                ${Number(linea.precioUnitario).toFixed(2)}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 text-right">
-                                ${Number(linea.subtotal).toFixed(2)}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 text-right">
-                                {linea.alicuotaIva ? `${Number(linea.alicuotaIva)}%` : '-'}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 text-right font-medium">
-                                ${Number(linea.totalLinea).toFixed(2)}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-center">
-                                <div className="flex items-center justify-center space-x-2">
-                                  <button
-                                    onClick={() => handleOpenItemModal(linea)}
-                                    className="text-blue-600 hover:text-blue-800"
-                                    title="Editar"
-                                  >
-                                    <Pencil className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteItem(linea.id)}
-                                    className="text-red-600 hover:text-red-800"
-                                    title="Eliminar"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
+                            </tr>
+                            {/* Fila adicional con campos contables */}
+                            <tr key={`${linea.id}-extra`} className="bg-blue-50 border-t border-blue-200">
+                              <td colSpan={8} className="px-3 py-2">
+                                <div className="grid grid-cols-6 gap-2 text-xs">
+                                  <div>
+                                    <span className="font-medium text-gray-600">Tipo Producto:</span>
+                                    <span className="ml-1 text-gray-800">{linea.tipoProducto || '-'}</span>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-gray-600">Dimensión:</span>
+                                    <span className="ml-1 text-gray-800">{linea.codigoDimension || '-'}</span>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-gray-600">Subcuenta:</span>
+                                    <span className="ml-1 text-gray-800">{linea.subcuenta || '-'}</span>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-gray-600">Cuenta Cont.:</span>
+                                    <span className="ml-1 text-gray-800">{linea.cuentaContable || '-'}</span>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-gray-600">Tipo OC:</span>
+                                    <span className="ml-1 text-gray-800">{linea.tipoOrdenCompra || '-'}</span>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-gray-600">Orden Compra:</span>
+                                    <span className="ml-1 text-gray-800">{linea.ordenCompra || '-'}</span>
+                                  </div>
                                 </div>
                               </td>
                             </tr>
+                          </>
                           ))}
                         </tbody>
                       </table>
@@ -1687,41 +1734,62 @@ export default function ComprobantesPage() {
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                           {documentoImpuestos.map((impuesto) => (
-                            <tr key={impuesto.id} className="hover:bg-gray-50">
-                              <td className="px-3 py-2 text-sm text-gray-900 font-medium">{impuesto.tipo}</td>
-                              <td className="px-3 py-2 text-sm text-gray-900">
-                                <div className="max-w-xs truncate" title={impuesto.descripcion}>
-                                  {impuesto.descripcion}
-                                </div>
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 text-right">
-                                {impuesto.alicuota ? `${Number(impuesto.alicuota)}%` : '-'}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 text-right">
-                                {impuesto.baseImponible ? `$${Number(impuesto.baseImponible).toFixed(2)}` : '-'}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-gray-900 text-right font-medium">
-                                ${Number(impuesto.importe).toFixed(2)}
-                              </td>
-                              <td className="px-3 py-2 text-sm text-center">
-                                <div className="flex items-center justify-center space-x-2">
-                                  <button
-                                    onClick={() => handleOpenImpuestoModal(impuesto)}
-                                    className="text-blue-600 hover:text-blue-800"
-                                    title="Editar"
-                                  >
-                                    <Pencil className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteImpuesto(impuesto.id)}
-                                    className="text-red-600 hover:text-red-800"
-                                    title="Eliminar"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
+                            <>
+                              <tr key={impuesto.id} className="hover:bg-gray-50">
+                                <td className="px-3 py-2 text-sm text-gray-900 font-medium">{impuesto.tipo}</td>
+                                <td className="px-3 py-2 text-sm text-gray-900">
+                                  <div className="max-w-xs truncate" title={impuesto.descripcion}>
+                                    {impuesto.descripcion}
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-900 text-right">
+                                  {impuesto.alicuota ? `${Number(impuesto.alicuota)}%` : '-'}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-900 text-right">
+                                  {impuesto.baseImponible ? `$${Number(impuesto.baseImponible).toFixed(2)}` : '-'}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-900 text-right font-medium">
+                                  ${Number(impuesto.importe).toFixed(2)}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-center">
+                                  <div className="flex items-center justify-center space-x-2">
+                                    <button
+                                      onClick={() => handleOpenImpuestoModal(impuesto)}
+                                      className="text-blue-600 hover:text-blue-800"
+                                      title="Editar"
+                                    >
+                                      <Pencil className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteImpuesto(impuesto.id)}
+                                      className="text-red-600 hover:text-red-800"
+                                      title="Eliminar"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                              {/* Fila adicional con campos contables */}
+                              <tr key={`${impuesto.id}-extra`} className="bg-green-50 border-t border-green-200">
+                                <td colSpan={6} className="px-3 py-2">
+                                  <div className="grid grid-cols-3 gap-2 text-xs">
+                                    <div>
+                                      <span className="font-medium text-gray-600">Dimensión:</span>
+                                      <span className="ml-1 text-gray-800">{impuesto.codigoDimension || '-'}</span>
+                                    </div>
+                                    <div>
+                                      <span className="font-medium text-gray-600">Subcuenta:</span>
+                                      <span className="ml-1 text-gray-800">{impuesto.subcuenta || '-'}</span>
+                                    </div>
+                                    <div>
+                                      <span className="font-medium text-gray-600">Cuenta Contable:</span>
+                                      <span className="ml-1 text-gray-800">{impuesto.cuentaContable || '-'}</span>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            </>
                           ))}
                         </tbody>
                       </table>
@@ -2012,6 +2080,95 @@ export default function ComprobantesPage() {
                     placeholder="0.00"
                   />
                 </div>
+
+                {/* Separador para campos contables */}
+                <div className="col-span-2 border-t border-gray-300 pt-4 mt-2">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Información Contable</h3>
+                </div>
+
+                {/* Tipo de Producto */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Tipo de Producto
+                  </label>
+                  <input
+                    type="text"
+                    value={itemFormData.tipoProducto || ''}
+                    onChange={(e) => setItemFormData({ ...itemFormData, tipoProducto: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="Tipo de producto"
+                  />
+                </div>
+
+                {/* Código de Dimensión */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Código de Dimensión
+                  </label>
+                  <input
+                    type="text"
+                    value={itemFormData.codigoDimension || ''}
+                    onChange={(e) => setItemFormData({ ...itemFormData, codigoDimension: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="Código dimensión"
+                  />
+                </div>
+
+                {/* Subcuenta */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Subcuenta
+                  </label>
+                  <input
+                    type="text"
+                    value={itemFormData.subcuenta || ''}
+                    onChange={(e) => setItemFormData({ ...itemFormData, subcuenta: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="Subcuenta"
+                  />
+                </div>
+
+                {/* Cuenta Contable */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Cuenta Contable
+                  </label>
+                  <input
+                    type="text"
+                    value={itemFormData.cuentaContable || ''}
+                    onChange={(e) => setItemFormData({ ...itemFormData, cuentaContable: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="Cuenta contable"
+                  />
+                </div>
+
+                {/* Tipo de Orden de Compra */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Tipo de Orden de Compra
+                  </label>
+                  <input
+                    type="text"
+                    value={itemFormData.tipoOrdenCompra || ''}
+                    onChange={(e) => setItemFormData({ ...itemFormData, tipoOrdenCompra: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="Tipo OC"
+                  />
+                </div>
+
+                {/* Orden de Compra */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Orden de Compra
+                  </label>
+                  <input
+                    type="text"
+                    value={itemFormData.ordenCompra || ''}
+                    onChange={(e) => setItemFormData({ ...itemFormData, ordenCompra: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="Número de OC"
+                  />
+                </div>
               </div>
             </div>
 
@@ -2152,6 +2309,53 @@ export default function ComprobantesPage() {
                     onChange={(e) => setImpuestoFormData({ ...impuestoFormData, importe: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
                     placeholder="0.00"
+                  />
+                </div>
+
+                {/* Separador para campos contables */}
+                <div className="col-span-2 border-t border-gray-300 pt-4 mt-2">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Información Contable</h3>
+                </div>
+
+                {/* Código de Dimensión */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Código de Dimensión
+                  </label>
+                  <input
+                    type="text"
+                    value={impuestoFormData.codigoDimension || ''}
+                    onChange={(e) => setImpuestoFormData({ ...impuestoFormData, codigoDimension: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="Código dimensión"
+                  />
+                </div>
+
+                {/* Subcuenta */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Subcuenta
+                  </label>
+                  <input
+                    type="text"
+                    value={impuestoFormData.subcuenta || ''}
+                    onChange={(e) => setImpuestoFormData({ ...impuestoFormData, subcuenta: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="Subcuenta"
+                  />
+                </div>
+
+                {/* Cuenta Contable */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Cuenta Contable
+                  </label>
+                  <input
+                    type="text"
+                    value={impuestoFormData.cuentaContable || ''}
+                    onChange={(e) => setImpuestoFormData({ ...impuestoFormData, cuentaContable: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="Cuenta contable"
                   />
                 </div>
               </div>

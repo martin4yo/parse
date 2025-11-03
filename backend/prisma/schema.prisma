@@ -98,6 +98,9 @@ model documento_impuestos {
   alicuota              Decimal?              @db.Decimal(5, 2)
   baseImponible         Decimal?              @db.Decimal(15, 2)
   importe               Decimal               @db.Decimal(15, 2)
+  codigoDimension       String?               @db.VarChar(50)
+  subcuenta             String?               @db.VarChar(50)
+  cuentaContable        String?               @db.VarChar(50)
   tenantId              String
   createdAt             DateTime              @default(now())
   documentos_procesados documentos_procesados @relation(fields: [documentoId], references: [id], onDelete: Cascade)
@@ -124,6 +127,12 @@ model documento_lineas {
   descuentoTipo         String?               @db.VarChar(20)
   descuentoValor        Decimal?              @db.Decimal(15, 4)
   descuentoImporte      Decimal?              @db.Decimal(15, 2)
+  tipoProducto          String?               @db.VarChar(50)
+  codigoDimension       String?               @db.VarChar(50)
+  subcuenta             String?               @db.VarChar(50)
+  cuentaContable        String?               @db.VarChar(50)
+  tipoOrdenCompra       String?               @db.VarChar(50)
+  ordenCompra           String?               @db.VarChar(50)
   tenantId              String
   createdAt             DateTime              @default(now())
   documentos_procesados documentos_procesados @relation(fields: [documentoId], references: [id], onDelete: Cascade)
@@ -164,6 +173,7 @@ model documentos_procesados {
   descuentoGlobalExtraido   Decimal?
   descuentoGlobalTipo       String?               @db.VarChar(20)
   monedaExtraida            String?               @db.VarChar(10)
+  codigoProveedor           String?               @db.VarChar(50)
   documento_impuestos       documento_impuestos[]
   documento_lineas          documento_lineas[]
   tenants                   tenants               @relation(fields: [tenantId], references: [id])
