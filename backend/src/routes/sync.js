@@ -297,7 +297,7 @@ router.get('/configurations', async (req, res) => {
   try {
     const configs = await prisma.sync_configurations.findMany({
       include: {
-        tenant: {
+        tenants: {
           select: {
             nombre: true,
             cuit: true
