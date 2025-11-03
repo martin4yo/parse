@@ -395,7 +395,12 @@ export default function TenantsPage() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {tenant.planes ? (
-                              <Badge className={getPlanBadgeColor(tenant.planes.codigo)}>
+                              <Badge
+                                className="text-white"
+                                style={{
+                                  backgroundColor: tenant.planes.color || '#9333ea'
+                                }}
+                              >
                                 {tenant.planes.nombre}
                               </Badge>
                             ) : (

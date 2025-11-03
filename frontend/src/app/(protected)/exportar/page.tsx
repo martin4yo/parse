@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FileDown, Search, Edit, CheckSquare, Square, FileText, X, Calendar, Receipt, Save, Plus, Pencil, Trash2, ExternalLink } from 'lucide-react';
+import { FileDown, Search, Edit, CheckSquare, Square, FileText, X, Calendar, Receipt, Save, Plus, Pencil, Trash2, ExternalLink, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { api } from '@/lib/api';
@@ -67,6 +67,7 @@ export default function ExportarPage() {
   const [selectedImpuesto, setSelectedImpuesto] = useState<any>(null);
   const [impuestoFormData, setImpuestoFormData] = useState<any>({});
   const [savingImpuesto, setSavingImpuesto] = useState(false);
+  const [isReadOnly, setIsReadOnly] = useState(false);
 
   useEffect(() => {
     loadDocumentos();
@@ -146,8 +147,9 @@ export default function ExportarPage() {
     }
   };
 
-  const handleOpenEditModal = async (doc: DocumentoProcessado) => {
+  const handleOpenEditModal = async (doc: DocumentoProcessado, readOnly: boolean = false) => {
     setSelectedDocumentForEdit(doc);
+    setIsReadOnly(readOnly);
     setEditFormData({
       fechaExtraida: doc.fechaExtraida || '',
       importeExtraido: doc.importeExtraido ? Number(doc.importeExtraido).toFixed(2) : '',
@@ -499,13 +501,23 @@ export default function ExportarPage() {
                             >
                               <ExternalLink className="w-4 h-4" />
                             </button>
-                            <button
-                              onClick={() => handleOpenEditModal(doc)}
-                              className="text-blue-600 hover:text-blue-800 p-1"
-                              title="Editar"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
+                            {doc.exportado ? (
+                              <button
+                                onClick={() => handleOpenEditModal(doc, true)}
+                                className="text-green-600 hover:text-green-800 p-1"
+                                title="Ver datos (solo lectura)"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleOpenEditModal(doc, false)}
+                                className="text-blue-600 hover:text-blue-800 p-1"
+                                title="Editar"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -605,7 +617,476 @@ export default function ExportarPage() {
         </CardContent>
       </Card>
 
-      {/* TODO: Agregar aquí el modal de edición reutilizado de la página parse */}
+      {/* Modal de Edición/Visualización */}
+      {showEditModal && selectedDocumentForEdit && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full mx-4 max-h-[90vh] flex flex-col animate-in fade-in-0 zoom-in-95">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-border bg-white flex-shrink-0">
+              <div className="flex items-center space-x-3">
+                <div className={`w-10 h-10 ${isReadOnly ? 'bg-green-100' : 'bg-palette-yellow'} rounded-lg flex items-center justify-center`}>
+                  {isReadOnly ? (
+                    <Eye className="w-6 h-6 text-green-600" />
+                  ) : (
+                    <Edit className="w-6 h-6 text-palette-dark" />
+                  )}
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-text-primary">
+                    {isReadOnly ? 'Ver Datos Extraídos' : 'Editar Datos Extraídos'}
+                  </h2>
+                  {isReadOnly && (
+                    <p className="text-xs text-gray-500 mt-1">Documento exportado - Solo lectura</p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="text-text-secondary hover:text-text-primary transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Información del Documento */}
+            <div className="px-6 pt-4 pb-2 flex-shrink-0">
+              <div className="text-sm text-text-secondary mb-1">Documento:</div>
+              <div className="text-sm font-medium text-text-primary bg-gray-50 p-2 rounded">
+                {selectedDocumentForEdit.nombreArchivo}
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div className="border-b border-gray-200 flex-shrink-0">
+              <nav className="flex px-6" aria-label="Tabs">
+                <button
+                  onClick={() => setActiveTab('encabezado')}
+                  className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'encabezado'
+                      ? 'border-palette-dark text-palette-dark'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Encabezado
+                </button>
+                <button
+                  onClick={() => setActiveTab('items')}
+                  className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'items'
+                      ? 'border-palette-dark text-palette-dark'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Items {documentoLineas.length > 0 && `(${documentoLineas.length})`}
+                </button>
+                <button
+                  onClick={() => setActiveTab('impuestos')}
+                  className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'impuestos'
+                      ? 'border-palette-dark text-palette-dark'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Impuestos {documentoImpuestos.length > 0 && `(${documentoImpuestos.length})`}
+                </button>
+              </nav>
+            </div>
+
+            {/* Tab Content - Área de scroll fija */}
+            <div className="overflow-y-auto p-6" style={{ height: '500px' }}>
+              {/* TAB: ENCABEZADO */}
+              {activeTab === 'encabezado' && (
+                <div className="grid grid-cols-2 gap-4">
+                {/* 1. Fecha */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    <Calendar className="w-4 h-4 inline mr-1" />
+                    Fecha
+                  </label>
+                  <input
+                    type="date"
+                    value={editFormData.fechaExtraida || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, fechaExtraida: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    disabled={isReadOnly}
+                  />
+                </div>
+
+                {/* 2. Tipo de Comprobante */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Tipo de Comprobante
+                  </label>
+                  <select
+                    value={editFormData.tipoComprobanteExtraido || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, tipoComprobanteExtraido: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    disabled={isReadOnly}
+                  >
+                    <option value="">Seleccionar...</option>
+                    <option value="FACTURA A">FACTURA A</option>
+                    <option value="FACTURA B">FACTURA B</option>
+                    <option value="FACTURA C">FACTURA C</option>
+                    <option value="TICKET">TICKET</option>
+                    <option value="NOTA DE CREDITO">NOTA DE CREDITO</option>
+                    <option value="NOTA DE DEBITO">NOTA DE DEBITO</option>
+                    <option value="RECIBO">RECIBO</option>
+                    <option value="OTRO">OTRO</option>
+                  </select>
+                </div>
+
+                {/* 3. Número de Comprobante */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Número de Comprobante
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.numeroComprobanteExtraido || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, numeroComprobanteExtraido: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    placeholder="00000-00000000"
+                    disabled={isReadOnly}
+                  />
+                </div>
+
+                {/* 4. CUIT */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    CUIT
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.cuitExtraido || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, cuitExtraido: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    placeholder="XX-XXXXXXXX-X"
+                    disabled={isReadOnly}
+                  />
+                </div>
+
+                {/* 5. Razón Social */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Razón Social
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.razonSocialExtraida || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, razonSocialExtraida: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    placeholder="Nombre del emisor"
+                    disabled={isReadOnly}
+                  />
+                </div>
+
+                {/* 6. Neto Gravado */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Neto Gravado
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editFormData.netoGravadoExtraido || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, netoGravadoExtraido: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    placeholder="0.00"
+                    disabled={isReadOnly}
+                  />
+                </div>
+
+                {/* 7. Exento */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Exento
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editFormData.exentoExtraido || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, exentoExtraido: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    placeholder="0.00"
+                    disabled={isReadOnly}
+                  />
+                </div>
+
+                {/* 8. Impuestos */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Impuestos
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editFormData.impuestosExtraido || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, impuestosExtraido: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    placeholder="0.00"
+                    disabled={isReadOnly}
+                  />
+                </div>
+
+                {/* 9. Importe Total */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    <Receipt className="w-4 h-4 inline mr-1" />
+                    Importe Total
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editFormData.importeExtraido || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, importeExtraido: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    placeholder="0.00"
+                    disabled={isReadOnly}
+                  />
+                </div>
+
+                {/* 10. CAE */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    CAE
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.caeExtraido || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, caeExtraido: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    placeholder="CAE del comprobante"
+                    disabled={isReadOnly}
+                  />
+                </div>
+              </div>
+              )}
+
+              {/* TAB: ITEMS */}
+              {activeTab === 'items' && (
+                <div>
+                  {/* Header */}
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-md font-semibold text-gray-800">Line Items</h3>
+                  </div>
+
+                  {/* Grilla de items */}
+                  {loadingLineas ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
+                      <p className="mt-2">Cargando items...</p>
+                    </div>
+                  ) : documentoLineas.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
+                      <FileText className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                      <p>No hay items cargados</p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4">
+                      {documentoLineas.map((linea) => (
+                        <div key={linea.id} className="border border-gray-200 rounded-lg bg-white shadow-sm">
+                          {/* Header de la tarjeta */}
+                          <div className="bg-gradient-to-r from-blue-50 to-blue-100 px-4 py-3 border-b border-blue-200">
+                            <div className="flex items-center gap-3">
+                              <span className="bg-blue-600 text-white text-xs font-bold rounded-full w-7 h-7 flex items-center justify-center">
+                                {linea.numero}
+                              </span>
+                              <h4 className="font-semibold text-gray-900 text-sm">{linea.descripcion}</h4>
+                            </div>
+                          </div>
+
+                          {/* Contenido principal */}
+                          <div className="p-4">
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
+                              <div>
+                                <span className="text-xs font-medium text-gray-500 uppercase">Cantidad</span>
+                                <p className="text-sm font-semibold text-gray-900 mt-1">
+                                  {Number(linea.cantidad).toFixed(2)} {linea.unidad || ''}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-xs font-medium text-gray-500 uppercase">Precio Unit.</span>
+                                <p className="text-sm font-semibold text-gray-900 mt-1">
+                                  ${Number(linea.precioUnitario).toFixed(2)}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-xs font-medium text-gray-500 uppercase">Subtotal</span>
+                                <p className="text-sm font-semibold text-gray-900 mt-1">
+                                  ${Number(linea.subtotal).toFixed(2)}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-xs font-medium text-gray-500 uppercase">IVA</span>
+                                <p className="text-sm font-semibold text-gray-900 mt-1">
+                                  {linea.alicuotaIva ? `${Number(linea.alicuotaIva)}%` : '-'}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-xs font-medium text-gray-500 uppercase">Total Línea</span>
+                                <p className="text-lg font-bold text-blue-600 mt-1">
+                                  ${Number(linea.totalLinea).toFixed(2)}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Separador */}
+                            <div className="border-t border-gray-200 my-3"></div>
+
+                            {/* Campos contables */}
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 text-xs">
+                              <div className="bg-blue-50 p-2 rounded">
+                                <span className="font-medium text-gray-600 block mb-1">Tipo Producto</span>
+                                <span className="text-gray-800">{linea.tipoProducto || '-'}</span>
+                              </div>
+                              <div className="bg-blue-50 p-2 rounded">
+                                <span className="font-medium text-gray-600 block mb-1">Cód. Producto</span>
+                                <span className="text-gray-800">{linea.codigoProducto || '-'}</span>
+                              </div>
+                              <div className="bg-blue-50 p-2 rounded">
+                                <span className="font-medium text-gray-600 block mb-1">Dimensión</span>
+                                <span className="text-gray-800">{linea.codigoDimension || '-'}</span>
+                              </div>
+                              <div className="bg-blue-50 p-2 rounded">
+                                <span className="font-medium text-gray-600 block mb-1">Subcuenta</span>
+                                <span className="text-gray-800">{linea.subcuenta || '-'}</span>
+                              </div>
+                              <div className="bg-blue-50 p-2 rounded">
+                                <span className="font-medium text-gray-600 block mb-1">Cuenta Contable</span>
+                                <span className="text-gray-800">{linea.cuentaContable || '-'}</span>
+                              </div>
+                              <div className="bg-blue-50 p-2 rounded">
+                                <span className="font-medium text-gray-600 block mb-1">Tipo OC</span>
+                                <span className="text-gray-800">{linea.tipoOrdenCompra || '-'}</span>
+                              </div>
+                              <div className="bg-blue-50 p-2 rounded">
+                                <span className="font-medium text-gray-600 block mb-1">Orden Compra</span>
+                                <span className="text-gray-800">{linea.ordenCompra || '-'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB: IMPUESTOS */}
+              {activeTab === 'impuestos' && (
+                <div>
+                  {/* Header */}
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-md font-semibold text-gray-800">Impuestos</h3>
+                  </div>
+
+                  {/* Grilla de impuestos */}
+                  {loadingImpuestos ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
+                      <p className="mt-2">Cargando impuestos...</p>
+                    </div>
+                  ) : documentoImpuestos.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
+                      <Receipt className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                      <p>No hay impuestos cargados</p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4">
+                      {documentoImpuestos.map((impuesto) => (
+                        <div key={impuesto.id} className="border border-gray-200 rounded-lg bg-white shadow-sm">
+                          {/* Header de la tarjeta */}
+                          <div className="bg-gradient-to-r from-green-50 to-green-100 px-4 py-3 border-b border-green-200">
+                            <div className="flex items-center gap-3">
+                              <span className="bg-green-600 text-white text-xs font-bold rounded px-3 py-1">
+                                {impuesto.tipo}
+                              </span>
+                              <h4 className="font-semibold text-gray-900 text-sm">{impuesto.descripcion}</h4>
+                            </div>
+                          </div>
+
+                          {/* Contenido principal */}
+                          <div className="p-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                              <div>
+                                <span className="text-xs font-medium text-gray-500 uppercase">Alícuota</span>
+                                <p className="text-sm font-semibold text-gray-900 mt-1">
+                                  {impuesto.alicuota ? `${Number(impuesto.alicuota)}%` : '-'}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-xs font-medium text-gray-500 uppercase">Base Imponible</span>
+                                <p className="text-sm font-semibold text-gray-900 mt-1">
+                                  {impuesto.baseImponible ? `$${Number(impuesto.baseImponible).toFixed(2)}` : '-'}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-xs font-medium text-gray-500 uppercase">Importe</span>
+                                <p className="text-lg font-bold text-green-600 mt-1">
+                                  ${Number(impuesto.importe).toFixed(2)}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Separador */}
+                            <div className="border-t border-gray-200 my-3"></div>
+
+                            {/* Campos contables */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                              <div className="bg-green-50 p-2 rounded">
+                                <span className="font-medium text-gray-600 block mb-1">Dimensión</span>
+                                <span className="text-gray-800">{impuesto.codigoDimension || '-'}</span>
+                              </div>
+                              <div className="bg-green-50 p-2 rounded">
+                                <span className="font-medium text-gray-600 block mb-1">Subcuenta</span>
+                                <span className="text-gray-800">{impuesto.subcuenta || '-'}</span>
+                              </div>
+                              <div className="bg-green-50 p-2 rounded">
+                                <span className="font-medium text-gray-600 block mb-1">Cuenta Contable</span>
+                                <span className="text-gray-800">{impuesto.cuentaContable || '-'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer - Visible en todos los tabs */}
+            <div className="flex items-center justify-end space-x-3 p-6 border-t border-border bg-gray-50 flex-shrink-0">
+              <Button
+                variant="outline"
+                onClick={() => setShowEditModal(false)}
+                disabled={savingEdit}
+              >
+                {isReadOnly ? 'Cerrar' : 'Cancelar'}
+              </Button>
+              {!isReadOnly && (
+                <Button
+                  onClick={handleSaveEdit}
+                  disabled={savingEdit}
+                  className="bg-palette-dark hover:bg-palette-dark/90 text-palette-yellow"
+                >
+                  {savingEdit ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Guardar Cambios
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de visualización de documentos */}
       <DocumentViewerProvider documentViewer={documentViewer} />

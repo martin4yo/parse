@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { DocumentUploadModal } from '@/components/shared/DocumentUploadModal';
 import { DocumentViewerProvider } from '@/components/shared/DocumentViewerProvider';
 import { useDocumentViewer, formatComprobantesEfectivoData } from '@/hooks/useDocumentViewer';
-import { api } from '@/lib/api';
+import { api, parametrosApi, ParametroMaestro } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { useConfirmDialog } from '@/hooks/useConfirm';
 
@@ -106,6 +106,21 @@ export default function ComprobantesPage() {
   const [impuestoFormData, setImpuestoFormData] = useState<any>({});
   const [savingImpuesto, setSavingImpuesto] = useState(false);
 
+  // Estados para proveedores
+  const [proveedores, setProveedores] = useState<ParametroMaestro[]>([]);
+
+  // Estados para productos (selectores en cascada)
+  const [tiposProducto, setTiposProducto] = useState<ParametroMaestro[]>([]);
+  const [codigosProducto, setCodigosProducto] = useState<ParametroMaestro[]>([]);
+
+  // Estados para contabilidad (selectores en cascada)
+  const [codigosDimension, setCodigosDimension] = useState<ParametroMaestro[]>([]);
+  const [subcuentas, setSubcuentas] = useState<ParametroMaestro[]>([]);
+  const [cuentasContables, setCuentasContables] = useState<ParametroMaestro[]>([]);
+
+  // Estados para órdenes de compra
+  const [tiposOrdenCompra, setTiposOrdenCompra] = useState<ParametroMaestro[]>([]);
+
   // Función para abrir el archivo
   const handleViewDocument = (documentId: string) => {
     // Use the document viewer hook
@@ -179,10 +194,22 @@ export default function ComprobantesPage() {
       exentoExtraido: doc.exentoExtraido ? Number(doc.exentoExtraido).toFixed(2) : '',
       impuestosExtraido: doc.impuestosExtraido ? Number(doc.impuestosExtraido).toFixed(2) : '',
       descuentoGlobalExtraido: doc.descuentoGlobalExtraido ? Number(doc.descuentoGlobalExtraido).toFixed(2) : '',
-      descuentoGlobalTipo: doc.descuentoGlobalTipo || ''
+      descuentoGlobalTipo: doc.descuentoGlobalTipo || '',
+      codigoProveedor: doc.codigoProveedor || ''
     });
     setActiveTab('encabezado');
     setShowEditModal(true);
+
+    // Cargar proveedores
+    try {
+      console.log('Cargando proveedores del tipo_campo: proveedor');
+      const response = await parametrosApi.getPorCampo('proveedor');
+      console.log('Respuesta de proveedores:', response);
+      setProveedores(response.parametros);
+      console.log('Proveedores cargados:', response.parametros);
+    } catch (error) {
+      console.error('Error loading proveedores:', error);
+    }
 
     // Cargar líneas e impuestos
     await loadDocumentoLineas(doc.id);
@@ -274,13 +301,29 @@ export default function ComprobantesPage() {
     }
   };
 
-  const handleOpenItemModal = (item: any = null) => {
+  const handleOpenItemModal = async (item: any = null) => {
     setSelectedItem(item);
+
+    // Cargar tipos de producto, códigos de dimensión y tipos de orden de compra
+    try {
+      const [responseTipos, responseDimensiones, responseTiposOC] = await Promise.all([
+        parametrosApi.getPorCampo('tipo_producto'),
+        parametrosApi.getPorCampo('codigo_dimension'),
+        parametrosApi.getPorCampo('tipo_orden_compra')
+      ]);
+      setTiposProducto(responseTipos.parametros);
+      setCodigosDimension(responseDimensiones.parametros);
+      setTiposOrdenCompra(responseTiposOC.parametros);
+    } catch (error) {
+      console.error('Error loading parametros:', error);
+    }
+
     if (item) {
       // Edición
       setItemFormData({
         numero: item.numero,
         descripcion: item.descripcion || '',
+        tipoProducto: item.tipoProducto || '',
         codigoProducto: item.codigoProducto || '',
         cantidad: item.cantidad ? Number(item.cantidad).toString() : '',
         unidad: item.unidad || '',
@@ -288,8 +331,43 @@ export default function ComprobantesPage() {
         subtotal: item.subtotal ? Number(item.subtotal).toString() : '',
         alicuotaIva: item.alicuotaIva ? Number(item.alicuotaIva).toString() : '',
         importeIva: item.importeIva ? Number(item.importeIva).toString() : '',
-        totalLinea: item.totalLinea ? Number(item.totalLinea).toString() : ''
+        totalLinea: item.totalLinea ? Number(item.totalLinea).toString() : '',
+        codigoDimension: item.codigoDimension || '',
+        subcuenta: item.subcuenta || '',
+        cuentaContable: item.cuentaContable || '',
+        tipoOrdenCompra: item.tipoOrdenCompra || '',
+        ordenCompra: item.ordenCompra || ''
       });
+
+      // Si tiene tipo de producto, cargar códigos de producto filtrados
+      if (item.tipoProducto) {
+        try {
+          const response = await parametrosApi.getPorCampo('codigo_producto', item.tipoProducto);
+          setCodigosProducto(response.parametros);
+        } catch (error) {
+          console.error('Error loading codigos producto:', error);
+        }
+      }
+
+      // Si tiene código de dimensión, cargar subcuentas filtradas
+      if (item.codigoDimension) {
+        try {
+          const response = await parametrosApi.getPorCampo('subcuenta', item.codigoDimension);
+          setSubcuentas(response.parametros);
+        } catch (error) {
+          console.error('Error loading subcuentas:', error);
+        }
+      }
+
+      // Si tiene subcuenta, cargar cuentas contables (sin filtro, cuenta_contable no tiene padre)
+      if (item.subcuenta) {
+        try {
+          const response = await parametrosApi.getPorCampo('cuenta_contable');
+          setCuentasContables(response.parametros);
+        } catch (error) {
+          console.error('Error loading cuentas contables:', error);
+        }
+      }
     } else {
       // Nuevo item
       const nextNumero = documentoLineas.length > 0
@@ -298,6 +376,7 @@ export default function ComprobantesPage() {
       setItemFormData({
         numero: nextNumero,
         descripcion: '',
+        tipoProducto: '',
         codigoProducto: '',
         cantidad: '',
         unidad: 'un',
@@ -305,10 +384,68 @@ export default function ComprobantesPage() {
         subtotal: '',
         alicuotaIva: '21',
         importeIva: '',
-        totalLinea: ''
+        totalLinea: '',
+        codigoDimension: '',
+        subcuenta: '',
+        cuentaContable: '',
+        tipoOrdenCompra: '',
+        ordenCompra: ''
       });
     }
     setShowItemModal(true);
+  };
+
+  // Función para manejar cambio de tipo de producto (cascada)
+  const handleTipoProductoChange = async (tipoProducto: string) => {
+    setItemFormData({ ...itemFormData, tipoProducto, codigoProducto: '' });
+
+    if (tipoProducto) {
+      try {
+        const response = await parametrosApi.getPorCampo('codigo_producto', tipoProducto);
+        setCodigosProducto(response.parametros);
+      } catch (error) {
+        console.error('Error loading codigos producto:', error);
+        setCodigosProducto([]);
+      }
+    } else {
+      setCodigosProducto([]);
+    }
+  };
+
+  // Función para manejar cambio de código de dimensión (cascada)
+  const handleCodigoDimensionChange = async (codigoDimension: string) => {
+    setItemFormData({ ...itemFormData, codigoDimension, subcuenta: '', cuentaContable: '' });
+
+    if (codigoDimension) {
+      try {
+        const response = await parametrosApi.getPorCampo('subcuenta', codigoDimension);
+        setSubcuentas(response.parametros);
+      } catch (error) {
+        console.error('Error loading subcuentas:', error);
+        setSubcuentas([]);
+      }
+    } else {
+      setSubcuentas([]);
+      setCuentasContables([]);
+    }
+  };
+
+  // Función para manejar cambio de subcuenta (cascada)
+  const handleSubcuentaChange = async (subcuenta: string) => {
+    setItemFormData({ ...itemFormData, subcuenta, cuentaContable: '' });
+
+    if (subcuenta) {
+      try {
+        // cuenta_contable no tiene padre, se muestran todas
+        const response = await parametrosApi.getPorCampo('cuenta_contable');
+        setCuentasContables(response.parametros);
+      } catch (error) {
+        console.error('Error loading cuentas contables:', error);
+        setCuentasContables([]);
+      }
+    } else {
+      setCuentasContables([]);
+    }
   };
 
   const handleSaveItem = async () => {
@@ -327,7 +464,13 @@ export default function ComprobantesPage() {
         subtotal: parseFloat(itemFormData.subtotal) || 0,
         alicuotaIva: itemFormData.alicuotaIva ? parseFloat(itemFormData.alicuotaIva) : null,
         importeIva: itemFormData.importeIva ? parseFloat(itemFormData.importeIva) : null,
-        totalLinea: parseFloat(itemFormData.totalLinea) || 0
+        totalLinea: parseFloat(itemFormData.totalLinea) || 0,
+        tipoProducto: itemFormData.tipoProducto || null,
+        codigoDimension: itemFormData.codigoDimension || null,
+        subcuenta: itemFormData.subcuenta || null,
+        cuentaContable: itemFormData.cuentaContable || null,
+        tipoOrdenCompra: itemFormData.tipoOrdenCompra || null,
+        ordenCompra: itemFormData.ordenCompra || null
       };
 
       if (selectedItem) {
@@ -385,8 +528,21 @@ export default function ComprobantesPage() {
     }
   };
 
-  const handleOpenImpuestoModal = (impuesto: any = null) => {
+  const handleOpenImpuestoModal = async (impuesto: any = null) => {
     setSelectedImpuesto(impuesto);
+
+    // Cargar códigos de dimensión y cuentas contables
+    try {
+      const [responseDimensiones, responseCuentas] = await Promise.all([
+        parametrosApi.getPorCampo('codigo_dimension'),
+        parametrosApi.getPorCampo('cuenta_contable')
+      ]);
+      setCodigosDimension(responseDimensiones.parametros);
+      setCuentasContables(responseCuentas.parametros);
+    } catch (error) {
+      console.error('Error loading parametros:', error);
+    }
+
     if (impuesto) {
       // Edición
       setImpuestoFormData({
@@ -394,8 +550,21 @@ export default function ComprobantesPage() {
         descripcion: impuesto.descripcion || '',
         alicuota: impuesto.alicuota ? Number(impuesto.alicuota).toString() : '',
         baseImponible: impuesto.baseImponible ? Number(impuesto.baseImponible).toString() : '',
-        importe: impuesto.importe ? Number(impuesto.importe).toString() : ''
+        importe: impuesto.importe ? Number(impuesto.importe).toString() : '',
+        codigoDimension: impuesto.codigoDimension || '',
+        subcuenta: impuesto.subcuenta || '',
+        cuentaContable: impuesto.cuentaContable || ''
       });
+
+      // Si tiene código de dimensión, cargar subcuentas filtradas
+      if (impuesto.codigoDimension) {
+        try {
+          const response = await parametrosApi.getPorCampo('subcuenta', impuesto.codigoDimension);
+          setSubcuentas(response.parametros);
+        } catch (error) {
+          console.error('Error loading subcuentas:', error);
+        }
+      }
     } else {
       // Nuevo impuesto
       setImpuestoFormData({
@@ -403,10 +572,36 @@ export default function ComprobantesPage() {
         descripcion: '',
         alicuota: '21',
         baseImponible: '',
-        importe: ''
+        importe: '',
+        codigoDimension: '',
+        subcuenta: '',
+        cuentaContable: ''
       });
     }
     setShowImpuestoModal(true);
+  };
+
+  // Funciones de cascada para modal de impuestos
+  const handleCodigoDimensionChangeImpuesto = async (codigoDimension: string) => {
+    setImpuestoFormData({ ...impuestoFormData, codigoDimension, subcuenta: '', cuentaContable: '' });
+
+    if (codigoDimension) {
+      try {
+        const response = await parametrosApi.getPorCampo('subcuenta', codigoDimension);
+        setSubcuentas(response.parametros);
+      } catch (error) {
+        console.error('Error loading subcuentas:', error);
+        setSubcuentas([]);
+      }
+    } else {
+      setSubcuentas([]);
+      setCuentasContables([]);
+    }
+  };
+
+  const handleSubcuentaChangeImpuesto = (subcuenta: string) => {
+    // cuenta_contable es independiente, no se limpia al cambiar subcuenta
+    setImpuestoFormData({ ...impuestoFormData, subcuenta });
   };
 
   const handleSaveImpuesto = async () => {
@@ -420,7 +615,10 @@ export default function ComprobantesPage() {
         descripcion: impuestoFormData.descripcion,
         alicuota: impuestoFormData.alicuota ? parseFloat(impuestoFormData.alicuota) : null,
         baseImponible: impuestoFormData.baseImponible ? parseFloat(impuestoFormData.baseImponible) : null,
-        importe: parseFloat(impuestoFormData.importe) || 0
+        importe: parseFloat(impuestoFormData.importe) || 0,
+        codigoDimension: impuestoFormData.codigoDimension || null,
+        subcuenta: impuestoFormData.subcuenta || null,
+        cuentaContable: impuestoFormData.cuentaContable || null
       };
 
       if (selectedImpuesto) {
@@ -1289,7 +1487,9 @@ export default function ComprobantesPage() {
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-border bg-white flex-shrink-0">
               <div className="flex items-center space-x-3">
-                <Edit className="w-6 h-6 text-green-600" />
+                <div className="w-10 h-10 bg-palette-yellow rounded-lg flex items-center justify-center">
+                  <Edit className="w-6 h-6 text-palette-dark" />
+                </div>
                 <h2 className="text-lg font-semibold text-text-primary">
                   Editar Datos Extraídos
                 </h2>
@@ -1317,7 +1517,7 @@ export default function ComprobantesPage() {
                   onClick={() => setActiveTab('encabezado')}
                   className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
                     activeTab === 'encabezado'
-                      ? 'border-green-600 text-green-600'
+                      ? 'border-palette-dark text-palette-dark'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
@@ -1327,7 +1527,7 @@ export default function ComprobantesPage() {
                   onClick={() => setActiveTab('items')}
                   className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
                     activeTab === 'items'
-                      ? 'border-green-600 text-green-600'
+                      ? 'border-palette-dark text-palette-dark'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
@@ -1337,7 +1537,7 @@ export default function ComprobantesPage() {
                   onClick={() => setActiveTab('impuestos')}
                   className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
                     activeTab === 'impuestos'
-                      ? 'border-green-600 text-green-600'
+                      ? 'border-palette-dark text-palette-dark'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
@@ -1434,13 +1634,18 @@ export default function ComprobantesPage() {
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     Código de Proveedor
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={editFormData.codigoProveedor || ''}
                     onChange={(e) => setEditFormData({ ...editFormData, codigoProveedor: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    placeholder="Código del proveedor"
-                  />
+                  >
+                    <option value="">Seleccionar proveedor...</option>
+                    {proveedores.map((proveedor) => (
+                      <option key={proveedor.id} value={proveedor.codigo}>
+                        {proveedor.nombre} ({proveedor.codigo})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* 6. Neto Gravado */}
@@ -1590,102 +1795,107 @@ export default function ComprobantesPage() {
                       <p className="text-sm mt-1">Haz clic en "Agregar Item" para comenzar</p>
                     </div>
                   ) : (
-                    <div className="overflow-x-auto border rounded-lg">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Descripción</th>
-                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Cant.</th>
-                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">P. Unit.</th>
-                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Subtotal</th>
-                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">IVA</th>
-                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
-                            <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {documentoLineas.map((linea) => (
-                            <>
-                              <tr key={linea.id} className="hover:bg-gray-50">
-                                <td className="px-3 py-2 text-sm text-gray-900">{linea.numero}</td>
-                                <td className="px-3 py-2 text-sm text-gray-900">
-                                  <div className="max-w-xs truncate" title={linea.descripcion}>
-                                    {linea.descripcion}
-                                  </div>
-                                  {linea.codigoProducto && (
-                                    <div className="text-xs text-gray-500">Cód: {linea.codigoProducto}</div>
-                                  )}
-                                </td>
-                                <td className="px-3 py-2 text-sm text-gray-900 text-right">
+                    <div className="grid gap-4">
+                      {documentoLineas.map((linea) => (
+                        <div key={linea.id} className="border border-gray-200 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
+                          {/* Header de la tarjeta */}
+                          <div className="bg-gradient-to-r from-blue-50 to-blue-100 px-4 py-3 border-b border-blue-200 flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                              <span className="bg-blue-600 text-white text-xs font-bold rounded-full w-7 h-7 flex items-center justify-center">
+                                {linea.numero}
+                              </span>
+                              <h4 className="font-semibold text-gray-900 text-sm">{linea.descripcion}</h4>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleOpenItemModal(linea)}
+                                className="text-blue-600 hover:text-blue-800 hover:bg-blue-200 p-1.5 rounded transition-colors"
+                                title="Editar"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteItem(linea.id)}
+                                className="text-red-600 hover:text-red-800 hover:bg-red-100 p-1.5 rounded transition-colors"
+                                title="Eliminar"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Contenido principal */}
+                          <div className="p-4">
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
+                              <div>
+                                <span className="text-xs font-medium text-gray-500 uppercase">Cantidad</span>
+                                <p className="text-sm font-semibold text-gray-900 mt-1">
                                   {Number(linea.cantidad).toFixed(2)} {linea.unidad || ''}
-                                </td>
-                                <td className="px-3 py-2 text-sm text-gray-900 text-right">
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-xs font-medium text-gray-500 uppercase">Precio Unit.</span>
+                                <p className="text-sm font-semibold text-gray-900 mt-1">
                                   ${Number(linea.precioUnitario).toFixed(2)}
-                                </td>
-                                <td className="px-3 py-2 text-sm text-gray-900 text-right">
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-xs font-medium text-gray-500 uppercase">Subtotal</span>
+                                <p className="text-sm font-semibold text-gray-900 mt-1">
                                   ${Number(linea.subtotal).toFixed(2)}
-                                </td>
-                                <td className="px-3 py-2 text-sm text-gray-900 text-right">
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-xs font-medium text-gray-500 uppercase">IVA</span>
+                                <p className="text-sm font-semibold text-gray-900 mt-1">
                                   {linea.alicuotaIva ? `${Number(linea.alicuotaIva)}%` : '-'}
-                                </td>
-                                <td className="px-3 py-2 text-sm text-gray-900 text-right font-medium">
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-xs font-medium text-gray-500 uppercase">Total Línea</span>
+                                <p className="text-lg font-bold text-blue-600 mt-1">
                                   ${Number(linea.totalLinea).toFixed(2)}
-                                </td>
-                                <td className="px-3 py-2 text-sm text-center">
-                                  <div className="flex items-center justify-center space-x-2">
-                                    <button
-                                      onClick={() => handleOpenItemModal(linea)}
-                                      className="text-blue-600 hover:text-blue-800"
-                                      title="Editar"
-                                    >
-                                      <Pencil className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteItem(linea.id)}
-                                      className="text-red-600 hover:text-red-800"
-                                      title="Eliminar"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </button>
-                                  </div>
-                              </td>
-                            </tr>
-                            {/* Fila adicional con campos contables */}
-                            <tr key={`${linea.id}-extra`} className="bg-blue-50 border-t border-blue-200">
-                              <td colSpan={8} className="px-3 py-2">
-                                <div className="grid grid-cols-6 gap-2 text-xs">
-                                  <div>
-                                    <span className="font-medium text-gray-600">Tipo Producto:</span>
-                                    <span className="ml-1 text-gray-800">{linea.tipoProducto || '-'}</span>
-                                  </div>
-                                  <div>
-                                    <span className="font-medium text-gray-600">Dimensión:</span>
-                                    <span className="ml-1 text-gray-800">{linea.codigoDimension || '-'}</span>
-                                  </div>
-                                  <div>
-                                    <span className="font-medium text-gray-600">Subcuenta:</span>
-                                    <span className="ml-1 text-gray-800">{linea.subcuenta || '-'}</span>
-                                  </div>
-                                  <div>
-                                    <span className="font-medium text-gray-600">Cuenta Cont.:</span>
-                                    <span className="ml-1 text-gray-800">{linea.cuentaContable || '-'}</span>
-                                  </div>
-                                  <div>
-                                    <span className="font-medium text-gray-600">Tipo OC:</span>
-                                    <span className="ml-1 text-gray-800">{linea.tipoOrdenCompra || '-'}</span>
-                                  </div>
-                                  <div>
-                                    <span className="font-medium text-gray-600">Orden Compra:</span>
-                                    <span className="ml-1 text-gray-800">{linea.ordenCompra || '-'}</span>
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          </>
-                          ))}
-                        </tbody>
-                      </table>
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Separador */}
+                            <div className="border-t border-gray-200 my-3"></div>
+
+                            {/* Campos contables */}
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 text-xs">
+                              <div className="bg-blue-50 p-2 rounded">
+                                <span className="font-medium text-gray-600 block mb-1">Tipo Producto</span>
+                                <span className="text-gray-800">{linea.tipoProducto || '-'}</span>
+                              </div>
+                              <div className="bg-blue-50 p-2 rounded">
+                                <span className="font-medium text-gray-600 block mb-1">Cód. Producto</span>
+                                <span className="text-gray-800">{linea.codigoProducto || '-'}</span>
+                              </div>
+                              <div className="bg-blue-50 p-2 rounded">
+                                <span className="font-medium text-gray-600 block mb-1">Dimensión</span>
+                                <span className="text-gray-800">{linea.codigoDimension || '-'}</span>
+                              </div>
+                              <div className="bg-blue-50 p-2 rounded">
+                                <span className="font-medium text-gray-600 block mb-1">Subcuenta</span>
+                                <span className="text-gray-800">{linea.subcuenta || '-'}</span>
+                              </div>
+                              <div className="bg-blue-50 p-2 rounded">
+                                <span className="font-medium text-gray-600 block mb-1">Cuenta Contable</span>
+                                <span className="text-gray-800">{linea.cuentaContable || '-'}</span>
+                              </div>
+                              <div className="bg-blue-50 p-2 rounded">
+                                <span className="font-medium text-gray-600 block mb-1">Tipo OC</span>
+                                <span className="text-gray-800">{linea.tipoOrdenCompra || '-'}</span>
+                              </div>
+                              <div className="bg-blue-50 p-2 rounded">
+                                <span className="font-medium text-gray-600 block mb-1">Orden Compra</span>
+                                <span className="text-gray-800">{linea.ordenCompra || '-'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -1720,79 +1930,79 @@ export default function ComprobantesPage() {
                       <p className="text-sm mt-1">Haz clic en "Agregar Impuesto" para comenzar</p>
                     </div>
                   ) : (
-                    <div className="overflow-x-auto border rounded-lg">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Descripción</th>
-                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Alícuota</th>
-                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Base Imp.</th>
-                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Importe</th>
-                            <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {documentoImpuestos.map((impuesto) => (
-                            <>
-                              <tr key={impuesto.id} className="hover:bg-gray-50">
-                                <td className="px-3 py-2 text-sm text-gray-900 font-medium">{impuesto.tipo}</td>
-                                <td className="px-3 py-2 text-sm text-gray-900">
-                                  <div className="max-w-xs truncate" title={impuesto.descripcion}>
-                                    {impuesto.descripcion}
-                                  </div>
-                                </td>
-                                <td className="px-3 py-2 text-sm text-gray-900 text-right">
+                    <div className="grid gap-4">
+                      {documentoImpuestos.map((impuesto) => (
+                        <div key={impuesto.id} className="border border-gray-200 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
+                          {/* Header de la tarjeta */}
+                          <div className="bg-gradient-to-r from-green-50 to-green-100 px-4 py-3 border-b border-green-200 flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                              <span className="bg-green-600 text-white text-xs font-bold rounded px-3 py-1">
+                                {impuesto.tipo}
+                              </span>
+                              <h4 className="font-semibold text-gray-900 text-sm">{impuesto.descripcion}</h4>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleOpenImpuestoModal(impuesto)}
+                                className="text-blue-600 hover:text-blue-800 hover:bg-blue-200 p-1.5 rounded transition-colors"
+                                title="Editar"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteImpuesto(impuesto.id)}
+                                className="text-red-600 hover:text-red-800 hover:bg-red-100 p-1.5 rounded transition-colors"
+                                title="Eliminar"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Contenido principal */}
+                          <div className="p-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                              <div>
+                                <span className="text-xs font-medium text-gray-500 uppercase">Alícuota</span>
+                                <p className="text-sm font-semibold text-gray-900 mt-1">
                                   {impuesto.alicuota ? `${Number(impuesto.alicuota)}%` : '-'}
-                                </td>
-                                <td className="px-3 py-2 text-sm text-gray-900 text-right">
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-xs font-medium text-gray-500 uppercase">Base Imponible</span>
+                                <p className="text-sm font-semibold text-gray-900 mt-1">
                                   {impuesto.baseImponible ? `$${Number(impuesto.baseImponible).toFixed(2)}` : '-'}
-                                </td>
-                                <td className="px-3 py-2 text-sm text-gray-900 text-right font-medium">
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-xs font-medium text-gray-500 uppercase">Importe</span>
+                                <p className="text-lg font-bold text-green-600 mt-1">
                                   ${Number(impuesto.importe).toFixed(2)}
-                                </td>
-                                <td className="px-3 py-2 text-sm text-center">
-                                  <div className="flex items-center justify-center space-x-2">
-                                    <button
-                                      onClick={() => handleOpenImpuestoModal(impuesto)}
-                                      className="text-blue-600 hover:text-blue-800"
-                                      title="Editar"
-                                    >
-                                      <Pencil className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteImpuesto(impuesto.id)}
-                                      className="text-red-600 hover:text-red-800"
-                                      title="Eliminar"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                              {/* Fila adicional con campos contables */}
-                              <tr key={`${impuesto.id}-extra`} className="bg-green-50 border-t border-green-200">
-                                <td colSpan={6} className="px-3 py-2">
-                                  <div className="grid grid-cols-3 gap-2 text-xs">
-                                    <div>
-                                      <span className="font-medium text-gray-600">Dimensión:</span>
-                                      <span className="ml-1 text-gray-800">{impuesto.codigoDimension || '-'}</span>
-                                    </div>
-                                    <div>
-                                      <span className="font-medium text-gray-600">Subcuenta:</span>
-                                      <span className="ml-1 text-gray-800">{impuesto.subcuenta || '-'}</span>
-                                    </div>
-                                    <div>
-                                      <span className="font-medium text-gray-600">Cuenta Contable:</span>
-                                      <span className="ml-1 text-gray-800">{impuesto.cuentaContable || '-'}</span>
-                                    </div>
-                                  </div>
-                                </td>
-                              </tr>
-                            </>
-                          ))}
-                        </tbody>
-                      </table>
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Separador */}
+                            <div className="border-t border-gray-200 my-3"></div>
+
+                            {/* Campos contables */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                              <div className="bg-green-50 p-2 rounded">
+                                <span className="font-medium text-gray-600 block mb-1">Dimensión</span>
+                                <span className="text-gray-800">{impuesto.codigoDimension || '-'}</span>
+                              </div>
+                              <div className="bg-green-50 p-2 rounded">
+                                <span className="font-medium text-gray-600 block mb-1">Subcuenta</span>
+                                <span className="text-gray-800">{impuesto.subcuenta || '-'}</span>
+                              </div>
+                              <div className="bg-green-50 p-2 rounded">
+                                <span className="font-medium text-gray-600 block mb-1">Cuenta Contable</span>
+                                <span className="text-gray-800">{impuesto.cuentaContable || '-'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -2082,22 +2292,48 @@ export default function ComprobantesPage() {
                 </div>
 
                 {/* Separador para campos contables */}
-                <div className="col-span-2 border-t border-gray-300 pt-4 mt-2">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Información Contable</h3>
-                </div>
+                <div className="col-span-2 border-t border-gray-300 pt-4 mt-2"></div>
 
                 {/* Tipo de Producto */}
                 <div>
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     Tipo de Producto
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={itemFormData.tipoProducto || ''}
-                    onChange={(e) => setItemFormData({ ...itemFormData, tipoProducto: e.target.value })}
+                    onChange={(e) => handleTipoProductoChange(e.target.value)}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    placeholder="Tipo de producto"
-                  />
+                  >
+                    <option value="">Seleccionar tipo...</option>
+                    {tiposProducto.map((tipo) => (
+                      <option key={tipo.id} value={tipo.codigo}>
+                        {tipo.nombre} ({tipo.codigo})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Código de Producto */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Código de Producto
+                  </label>
+                  <select
+                    value={itemFormData.codigoProducto || ''}
+                    onChange={(e) => setItemFormData({ ...itemFormData, codigoProducto: e.target.value })}
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    disabled={!itemFormData.tipoProducto}
+                  >
+                    <option value="">Seleccionar código...</option>
+                    {codigosProducto.map((codigo) => (
+                      <option key={codigo.id} value={codigo.codigo}>
+                        {codigo.nombre} ({codigo.codigo})
+                      </option>
+                    ))}
+                  </select>
+                  {!itemFormData.tipoProducto && (
+                    <p className="text-xs text-gray-500 mt-1">Primero selecciona un tipo de producto</p>
+                  )}
                 </div>
 
                 {/* Código de Dimensión */}
@@ -2105,13 +2341,18 @@ export default function ComprobantesPage() {
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     Código de Dimensión
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={itemFormData.codigoDimension || ''}
-                    onChange={(e) => setItemFormData({ ...itemFormData, codigoDimension: e.target.value })}
+                    onChange={(e) => handleCodigoDimensionChange(e.target.value)}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    placeholder="Código dimensión"
-                  />
+                  >
+                    <option value="">Seleccionar dimensión...</option>
+                    {codigosDimension.map((dim) => (
+                      <option key={dim.id} value={dim.codigo}>
+                        {dim.nombre} ({dim.codigo})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Subcuenta */}
@@ -2119,13 +2360,22 @@ export default function ComprobantesPage() {
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     Subcuenta
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={itemFormData.subcuenta || ''}
-                    onChange={(e) => setItemFormData({ ...itemFormData, subcuenta: e.target.value })}
+                    onChange={(e) => handleSubcuentaChange(e.target.value)}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    placeholder="Subcuenta"
-                  />
+                    disabled={!itemFormData.codigoDimension}
+                  >
+                    <option value="">Seleccionar subcuenta...</option>
+                    {subcuentas.map((sub) => (
+                      <option key={sub.id} value={sub.codigo}>
+                        {sub.nombre} ({sub.codigo})
+                      </option>
+                    ))}
+                  </select>
+                  {!itemFormData.codigoDimension && (
+                    <p className="text-xs text-gray-500 mt-1">Primero selecciona un código de dimensión</p>
+                  )}
                 </div>
 
                 {/* Cuenta Contable */}
@@ -2133,13 +2383,22 @@ export default function ComprobantesPage() {
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     Cuenta Contable
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={itemFormData.cuentaContable || ''}
                     onChange={(e) => setItemFormData({ ...itemFormData, cuentaContable: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    placeholder="Cuenta contable"
-                  />
+                    disabled={!itemFormData.subcuenta}
+                  >
+                    <option value="">Seleccionar cuenta...</option>
+                    {cuentasContables.map((cuenta) => (
+                      <option key={cuenta.id} value={cuenta.codigo}>
+                        {cuenta.nombre} ({cuenta.codigo})
+                      </option>
+                    ))}
+                  </select>
+                  {!itemFormData.subcuenta && (
+                    <p className="text-xs text-gray-500 mt-1">Primero selecciona una subcuenta</p>
+                  )}
                 </div>
 
                 {/* Tipo de Orden de Compra */}
@@ -2147,13 +2406,18 @@ export default function ComprobantesPage() {
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     Tipo de Orden de Compra
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={itemFormData.tipoOrdenCompra || ''}
                     onChange={(e) => setItemFormData({ ...itemFormData, tipoOrdenCompra: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    placeholder="Tipo OC"
-                  />
+                  >
+                    <option value="">Seleccionar tipo OC...</option>
+                    {tiposOrdenCompra.map((tipo) => (
+                      <option key={tipo.id} value={tipo.codigo}>
+                        {tipo.nombre} ({tipo.codigo})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Orden de Compra */}
@@ -2313,22 +2577,25 @@ export default function ComprobantesPage() {
                 </div>
 
                 {/* Separador para campos contables */}
-                <div className="col-span-2 border-t border-gray-300 pt-4 mt-2">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Información Contable</h3>
-                </div>
+                <div className="col-span-2 border-t border-gray-300 pt-4 mt-2"></div>
 
                 {/* Código de Dimensión */}
                 <div>
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     Código de Dimensión
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={impuestoFormData.codigoDimension || ''}
-                    onChange={(e) => setImpuestoFormData({ ...impuestoFormData, codigoDimension: e.target.value })}
+                    onChange={(e) => handleCodigoDimensionChangeImpuesto(e.target.value)}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    placeholder="Código dimensión"
-                  />
+                  >
+                    <option value="">Seleccionar dimensión...</option>
+                    {codigosDimension.map((dim) => (
+                      <option key={dim.id} value={dim.codigo}>
+                        {dim.nombre} ({dim.codigo})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Subcuenta */}
@@ -2336,13 +2603,22 @@ export default function ComprobantesPage() {
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     Subcuenta
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={impuestoFormData.subcuenta || ''}
-                    onChange={(e) => setImpuestoFormData({ ...impuestoFormData, subcuenta: e.target.value })}
+                    onChange={(e) => handleSubcuentaChangeImpuesto(e.target.value)}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    placeholder="Subcuenta"
-                  />
+                    disabled={!impuestoFormData.codigoDimension}
+                  >
+                    <option value="">Seleccionar subcuenta...</option>
+                    {subcuentas.map((sub) => (
+                      <option key={sub.id} value={sub.codigo}>
+                        {sub.nombre} ({sub.codigo})
+                      </option>
+                    ))}
+                  </select>
+                  {!impuestoFormData.codigoDimension && (
+                    <p className="text-xs text-gray-500 mt-1">Primero selecciona un código de dimensión</p>
+                  )}
                 </div>
 
                 {/* Cuenta Contable */}
@@ -2350,13 +2626,18 @@ export default function ComprobantesPage() {
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     Cuenta Contable
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={impuestoFormData.cuentaContable || ''}
                     onChange={(e) => setImpuestoFormData({ ...impuestoFormData, cuentaContable: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    placeholder="Cuenta contable"
-                  />
+                  >
+                    <option value="">Seleccionar cuenta...</option>
+                    {cuentasContables.map((cuenta) => (
+                      <option key={cuenta.id} value={cuenta.codigo}>
+                        {cuenta.nombre} ({cuenta.codigo})
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>

@@ -36,7 +36,8 @@ export default function PlanesPage() {
     descripcion: '',
     precio: '',
     activo: true,
-    orden: 0
+    orden: 0,
+    color: '#9333ea'
   });
 
   // Form state for new feature
@@ -79,7 +80,8 @@ export default function PlanesPage() {
       descripcion: '',
       precio: '',
       activo: true,
-      orden: 0
+      orden: 0,
+      color: '#9333ea'
     });
     setShowPlanModal(true);
   };
@@ -92,7 +94,8 @@ export default function PlanesPage() {
       descripcion: plan.descripcion || '',
       precio: plan.precio?.toString() || '',
       activo: plan.activo,
-      orden: plan.orden
+      orden: plan.orden,
+      color: plan.color || '#9333ea'
     });
     setShowPlanModal(true);
   };
@@ -123,7 +126,8 @@ export default function PlanesPage() {
         descripcion: planFormData.descripcion || undefined,
         precio: planFormData.precio ? parseFloat(planFormData.precio) : undefined,
         activo: planFormData.activo,
-        orden: planFormData.orden
+        orden: planFormData.orden,
+        color: planFormData.color || undefined
       };
 
       if (editingPlan) {
@@ -242,7 +246,7 @@ export default function PlanesPage() {
         </div>
         <button
           onClick={handleOpenCreatePlan}
-          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+          className="px-4 py-2 bg-purple-800 text-white rounded-lg hover:bg-purple-900 transition-colors flex items-center gap-2"
         >
           <Plus className="h-4 w-4" />
           Nuevo Plan
@@ -310,9 +314,11 @@ export default function PlanesPage() {
                         </td>
                         <td className="px-6 py-4 text-sm">
                           <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${getPlanBadgeColor(
-                              plan.codigo
-                            )}`}
+                            className="px-2 py-1 rounded-full text-xs font-medium text-white"
+                            style={{
+                              backgroundColor: plan.color || '#9333ea',
+                              color: 'white'
+                            }}
                           >
                             {plan.codigo}
                           </span>
@@ -486,18 +492,42 @@ export default function PlanesPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Precio (USD)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={planFormData.precio}
-                  onChange={(e) => setPlanFormData({ ...planFormData, precio: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="0.00"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Precio (USD)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={planFormData.precio}
+                    onChange={(e) => setPlanFormData({ ...planFormData, precio: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Color
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="color"
+                      value={planFormData.color}
+                      onChange={(e) => setPlanFormData({ ...planFormData, color: e.target.value })}
+                      className="h-10 w-20 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={planFormData.color}
+                      onChange={(e) => setPlanFormData({ ...planFormData, color: e.target.value })}
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm"
+                      placeholder="#9333ea"
+                      pattern="^#[0-9A-Fa-f]{6}$"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="flex items-center gap-2">

@@ -550,7 +550,24 @@ router.put('/lineas/:id', authWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
     const tenantId = req.tenantId;
-    const { numero, descripcion, codigoProducto, cantidad, unidad, precioUnitario, subtotal, alicuotaIva, importeIva, totalLinea } = req.body;
+    const {
+      numero,
+      descripcion,
+      codigoProducto,
+      cantidad,
+      unidad,
+      precioUnitario,
+      subtotal,
+      alicuotaIva,
+      importeIva,
+      totalLinea,
+      tipoProducto,
+      codigoDimension,
+      subcuenta,
+      cuentaContable,
+      tipoOrdenCompra,
+      ordenCompra
+    } = req.body;
 
     // Verificar que el line item pertenece al tenant
     const lineItem = await prisma.documento_lineas.findFirst({
@@ -577,7 +594,13 @@ router.put('/lineas/:id', authWithTenant, async (req, res) => {
         subtotal: subtotal !== undefined ? parseFloat(subtotal) : undefined,
         alicuotaIva: alicuotaIva !== undefined ? (alicuotaIva ? parseFloat(alicuotaIva) : null) : undefined,
         importeIva: importeIva !== undefined ? (importeIva ? parseFloat(importeIva) : null) : undefined,
-        totalLinea: totalLinea !== undefined ? parseFloat(totalLinea) : undefined
+        totalLinea: totalLinea !== undefined ? parseFloat(totalLinea) : undefined,
+        tipoProducto: tipoProducto !== undefined ? tipoProducto : undefined,
+        codigoDimension: codigoDimension !== undefined ? codigoDimension : undefined,
+        subcuenta: subcuenta !== undefined ? subcuenta : undefined,
+        cuentaContable: cuentaContable !== undefined ? cuentaContable : undefined,
+        tipoOrdenCompra: tipoOrdenCompra !== undefined ? tipoOrdenCompra : undefined,
+        ordenCompra: ordenCompra !== undefined ? ordenCompra : undefined
       }
     });
 
@@ -600,7 +623,7 @@ router.put('/impuestos/:id', authWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
     const tenantId = req.tenantId;
-    const { tipo, descripcion, alicuota, baseImponible, importe } = req.body;
+    const { tipo, descripcion, alicuota, baseImponible, importe, codigoDimension, subcuenta, cuentaContable } = req.body;
 
     // Verificar que el impuesto pertenece al tenant
     const impuesto = await prisma.documento_impuestos.findFirst({
@@ -622,7 +645,10 @@ router.put('/impuestos/:id', authWithTenant, async (req, res) => {
         descripcion: descripcion !== undefined ? descripcion : undefined,
         alicuota: alicuota !== undefined ? (alicuota ? parseFloat(alicuota) : null) : undefined,
         baseImponible: baseImponible !== undefined ? (baseImponible ? parseFloat(baseImponible) : null) : undefined,
-        importe: importe !== undefined ? parseFloat(importe) : undefined
+        importe: importe !== undefined ? parseFloat(importe) : undefined,
+        codigoDimension: codigoDimension !== undefined ? codigoDimension : undefined,
+        subcuenta: subcuenta !== undefined ? subcuenta : undefined,
+        cuentaContable: cuentaContable !== undefined ? cuentaContable : undefined
       }
     });
 
@@ -655,7 +681,13 @@ router.post('/:id/lineas', authWithTenant, async (req, res) => {
       subtotal,
       alicuotaIva,
       importeIva,
-      totalLinea
+      totalLinea,
+      tipoProducto,
+      codigoDimension,
+      subcuenta,
+      cuentaContable,
+      tipoOrdenCompra,
+      ordenCompra
     } = req.body;
 
     // Verificar que el documento existe y pertenece al tenant
@@ -686,6 +718,12 @@ router.post('/:id/lineas', authWithTenant, async (req, res) => {
         alicuotaIva: alicuotaIva ? parseFloat(alicuotaIva) : null,
         importeIva: importeIva ? parseFloat(importeIva) : null,
         totalLinea: parseFloat(totalLinea),
+        tipoProducto: tipoProducto || null,
+        codigoDimension: codigoDimension || null,
+        subcuenta: subcuenta || null,
+        cuentaContable: cuentaContable || null,
+        tipoOrdenCompra: tipoOrdenCompra || null,
+        ordenCompra: ordenCompra || null,
         tenantId: tenantId
       }
     });
@@ -751,7 +789,10 @@ router.post('/:id/impuestos', authWithTenant, async (req, res) => {
       descripcion,
       alicuota,
       baseImponible,
-      importe
+      importe,
+      codigoDimension,
+      subcuenta,
+      cuentaContable
     } = req.body;
 
     // Verificar que el documento existe y pertenece al tenant
@@ -777,6 +818,9 @@ router.post('/:id/impuestos', authWithTenant, async (req, res) => {
         alicuota: alicuota ? parseFloat(alicuota) : null,
         baseImponible: baseImponible ? parseFloat(baseImponible) : null,
         importe: parseFloat(importe),
+        codigoDimension: codigoDimension || null,
+        subcuenta: subcuenta || null,
+        cuentaContable: cuentaContable || null,
         tenantId: tenantId
       }
     });

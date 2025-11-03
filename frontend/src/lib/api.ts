@@ -190,6 +190,7 @@ export interface ProcessingJob {
 export interface ParametroMaestro {
   id: string;
   codigo: string;
+  nombre: string;
   descripcion: string;
   orden: number;
 }
@@ -554,9 +555,13 @@ export const dktApi = {
 // Funciones de parámetros
 export const parametrosApi = {
   getPorCampo: async (campo: string, padreId?: string): Promise<{ parametros: ParametroMaestro[] }> => {
-    const url = padreId ? `/parametros/campo/${campo}?padreId=${padreId}` : `/parametros/campo/${campo}`;
-    const response = await api.get(url);
-    return response.data;
+    const params = new URLSearchParams({ tipo_campo: campo });
+    if (padreId) {
+      params.append('valor_padre', padreId);
+    }
+    const response = await api.get(`/parametros/maestros?${params.toString()}`);
+    // El endpoint devuelve el array directamente cuando no hay paginación
+    return { parametros: Array.isArray(response.data) ? response.data : response.data.data || [] };
   },
   
   getHijos: async (padreId: string) => {
@@ -1069,6 +1074,7 @@ export interface Plan {
   precio?: number;
   activo: boolean;
   orden: number;
+  color?: string;
   createdAt: string;
   updatedAt: string;
   features?: PlanFeature[];

@@ -266,6 +266,7 @@ model planes {
   precio        Decimal?        @db.Decimal(10, 2)
   activo        Boolean         @default(true)
   orden         Int             @default(0)
+  color         String?         @db.VarChar(20)
   createdAt     DateTime        @default(now())
   updatedAt     DateTime
   plan_features plan_features[]

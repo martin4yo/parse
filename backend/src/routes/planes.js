@@ -98,7 +98,7 @@ router.get('/:id', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
-    const { codigo, nombre, descripcion, precio, activo, orden } = req.body;
+    const { codigo, nombre, descripcion, precio, activo, orden, color } = req.body;
 
     // Validaciones
     if (!codigo || !nombre) {
@@ -125,7 +125,8 @@ router.post('/', async (req, res) => {
         descripcion: descripcion || null,
         precio: precio ? parseFloat(precio) : null,
         activo: activo !== undefined ? activo : true,
-        orden: orden || 0
+        orden: orden || 0,
+        color: color || null
       },
       include: {
         plan_features: true
@@ -160,7 +161,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, descripcion, precio, activo, orden } = req.body;
+    const { nombre, descripcion, precio, activo, orden, color } = req.body;
 
     // Verificar que el plan existe
     const planExistente = await prisma.planes.findUnique({
@@ -179,6 +180,7 @@ router.put('/:id', async (req, res) => {
         precio: precio !== undefined ? (precio ? parseFloat(precio) : null) : planExistente.precio,
         activo: activo !== undefined ? activo : planExistente.activo,
         orden: orden !== undefined ? orden : planExistente.orden,
+        color: color !== undefined ? color : planExistente.color,
         updatedAt: new Date()
       },
       include: {
