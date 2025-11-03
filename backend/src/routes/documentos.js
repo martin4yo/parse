@@ -2957,53 +2957,148 @@ router.post('/exportar', authWithTenant, async (req, res) => {
       });
     }
 
-    // Verificar que todos los documentos pertenecen al tenant
+    // Verificar que todos los documentos pertenecen al tenant y NO están exportados
+    // Cargar documentos con líneas e impuestos para aplicar reglas completas
     const documentos = await prisma.documentos_procesados.findMany({
       where: {
         id: { in: documentoIds },
-        tenantId: tenantId
+        tenantId: tenantId,
+        exportado: false  // Solo documentos NO exportados
+      },
+      include: {
+        documento_lineas: true,
+        documento_impuestos: true
       }
     });
 
-    if (documentos.length !== documentoIds.length) {
-      return res.status(404).json({
+    if (documentos.length === 0) {
+      return res.status(400).json({
         success: false,
-        error: 'Algunos documentos no fueron encontrados o no pertenecen a su organización'
+        error: 'No se encontraron documentos no exportados para procesar'
       });
     }
 
-    // Inicializar motor de reglas de negocio para transformaciones pre-exportación
+    if (documentos.length !== documentoIds.length) {
+      // Algunos documentos ya están exportados o no existen
+      const documentosEncontrados = documentos.map(d => d.id);
+      const documentosNoEncontrados = documentoIds.filter(id => !documentosEncontrados.includes(id));
+
+      console.warn(`⚠️ ${documentosNoEncontrados.length} documento(s) ya exportado(s) o no encontrado(s):`, documentosNoEncontrados);
+
+      // Continuar con los documentos válidos pero advertir al usuario
+      if (documentos.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Todos los documentos seleccionados ya están exportados o no existen'
+        });
+      }
+    }
+
+    // Inicializar motor de reglas de negocio para transformaciones y validaciones pre-exportación
     const rulesEngine = new BusinessRulesEngine();
-    await rulesEngine.loadRules('TRANSFORMACION_DOCUMENTO', false, prisma);
 
     let documentosTransformados = 0;
+    let lineasTransformadas = 0;
+    let impuestosTransformados = 0;
+    const allValidationErrors = [];
 
-    // Aplicar reglas de negocio a cada documento antes de exportar
+    // Aplicar reglas de negocio a cada documento completo antes de exportar
     for (const documento of documentos) {
       try {
-        // Aplicar reglas de transformación
-        const ruleResult = await rulesEngine.applyRules(
-          documento,
-          {},
-          {
-            tipo: 'TRANSFORMACION_DOCUMENTO',
-            contexto: 'PRE_EXPORT',
-            logExecution: true
-          }
-        );
+        // Aplicar reglas al documento completo (documento + líneas + impuestos + validaciones)
+        const ruleResult = await rulesEngine.applyRulesToDocument(documento, {
+          logExecution: true,
+          contexto: 'PRE_EXPORT'
+        });
 
-        // Si se aplicaron reglas y hay datos transformados, actualizar el documento
-        if (ruleResult.rulesApplied > 0) {
-          await prisma.documentos_procesados.update({
-            where: { id: documento.id },
-            data: {
-              razonSocialExtraida: ruleResult.data.razonSocialExtraida,
-              cuitExtraido: ruleResult.data.cuitExtraido,
-              // Agregar otros campos que puedan ser transformados
-            }
+        // Verificar validaciones
+        if (ruleResult.hasValidationErrors) {
+          allValidationErrors.push({
+            documentoId: documento.id,
+            nombreArchivo: documento.nombreArchivo,
+            errores: ruleResult.validationErrors,
+            summary: ruleResult.validationSummary
           });
-          documentosTransformados++;
-          console.log(`✅ Documento ${documento.id}: ${ruleResult.rulesApplied} regla(s) aplicada(s)`);
+
+          // Si hay errores BLOQUEANTES, detener el proceso
+          if (ruleResult.validationSummary.bloqueantes > 0) {
+            console.error(`❌ Validaciones bloqueantes en documento ${documento.nombreArchivo}`);
+            return res.status(400).json({
+              success: false,
+              error: 'Existen validaciones bloqueantes que impiden la exportación',
+              validationErrors: allValidationErrors,
+              totalErrors: allValidationErrors.reduce((sum, doc) => sum + doc.summary.bloqueantes, 0),
+              documentosConErrores: allValidationErrors.length
+            });
+          }
+        }
+
+        // Si se aplicaron reglas, actualizar el documento y sus líneas/impuestos
+        if (ruleResult.totalReglasAplicadas > 0) {
+          const docTransformado = ruleResult.documento;
+
+          // Actualizar documento principal
+          if (ruleResult.reglasAplicadas.documento > 0) {
+            await prisma.documentos_procesados.update({
+              where: { id: documento.id },
+              data: {
+                razonSocialExtraida: docTransformado.razonSocialExtraida,
+                cuitExtraido: docTransformado.cuitExtraido,
+                codigoProveedor: docTransformado.codigoProveedor,
+                tipoComprobanteExtraido: docTransformado.tipoComprobanteExtraido,
+                numeroComprobanteExtraido: docTransformado.numeroComprobanteExtraido,
+                fechaExtraida: docTransformado.fechaExtraida,
+                importeExtraido: docTransformado.importeExtraido,
+                updatedAt: new Date()
+              }
+            });
+            documentosTransformados++;
+          }
+
+          // Actualizar líneas transformadas
+          if (ruleResult.reglasAplicadas.lineas > 0) {
+            for (const linea of docTransformado.documento_lineas) {
+              await prisma.documento_lineas.update({
+                where: { id: linea.id },
+                data: {
+                  descripcion: linea.descripcion,
+                  codigoProducto: linea.codigoProducto,
+                  tipoProducto: linea.tipoProducto,
+                  codigoDimension: linea.codigoDimension,
+                  subcuenta: linea.subcuenta,
+                  cuentaContable: linea.cuentaContable,
+                  tipoOrdenCompra: linea.tipoOrdenCompra,
+                  ordenCompra: linea.ordenCompra,
+                  cantidad: linea.cantidad,
+                  precioUnitario: linea.precioUnitario,
+                  subtotal: linea.subtotal
+                }
+              });
+            }
+            lineasTransformadas += docTransformado.documento_lineas.length;
+          }
+
+          // Actualizar impuestos transformados
+          if (ruleResult.reglasAplicadas.impuestos > 0) {
+            for (const impuesto of docTransformado.documento_impuestos) {
+              await prisma.documento_impuestos.update({
+                where: { id: impuesto.id },
+                data: {
+                  tipo: impuesto.tipo,
+                  descripcion: impuesto.descripcion,
+                  codigoDimension: impuesto.codigoDimension,
+                  subcuenta: impuesto.subcuenta,
+                  cuentaContable: impuesto.cuentaContable,
+                  alicuota: impuesto.alicuota,
+                  baseImponible: impuesto.baseImponible,
+                  importe: impuesto.importe
+                }
+              });
+            }
+            impuestosTransformados += docTransformado.documento_impuestos.length;
+          }
+
+          console.log(`✅ Documento ${documento.id}: ${ruleResult.totalReglasAplicadas} regla(s) aplicada(s) (Doc: ${ruleResult.reglasAplicadas.documento}, Líneas: ${ruleResult.reglasAplicadas.lineas}, Impuestos: ${ruleResult.reglasAplicadas.impuestos})`);
         }
       } catch (ruleError) {
         console.error(`Error aplicando reglas al documento ${documento.id}:`, ruleError);
@@ -3023,15 +3118,119 @@ router.post('/exportar', authWithTenant, async (req, res) => {
       }
     });
 
-    res.json({
+    // Preparar mensaje de respuesta
+    let message = `${resultado.count} documento(s) marcado(s) como exportado(s)`;
+    const documentosIgnorados = documentoIds.length - documentos.length;
+
+    if (documentosIgnorados > 0) {
+      message += `. ${documentosIgnorados} documento(s) ya estaban exportados`;
+    }
+
+    // Agregar información de validaciones si hay warnings o errores no bloqueantes
+    const totalWarnings = allValidationErrors.reduce((sum, doc) => sum + doc.summary.warnings, 0);
+    const totalErrors = allValidationErrors.reduce((sum, doc) => sum + doc.summary.errores, 0);
+
+    if (totalWarnings > 0 || totalErrors > 0) {
+      message += `. ${totalWarnings} warning(s), ${totalErrors} error(es) de validación`;
+    }
+
+    const response = {
       success: true,
-      message: `${resultado.count} documento(s) marcado(s) como exportado(s)`,
+      message,
       count: resultado.count,
-      transformados: documentosTransformados
-    });
+      procesados: documentos.length,
+      ignorados: documentosIgnorados,
+      transformados: {
+        documentos: documentosTransformados,
+        lineas: lineasTransformadas,
+        impuestos: impuestosTransformados
+      },
+      validaciones: {
+        documentosConErrores: allValidationErrors.length,
+        totalWarnings,
+        totalErrors,
+        detalles: allValidationErrors
+      }
+    };
+
+    // Si hay validaciones, agregar al response
+    if (allValidationErrors.length > 0) {
+      console.log(`⚠️ Se encontraron ${allValidationErrors.length} documento(s) con validaciones`);
+    }
+
+    res.json(response);
 
   } catch (error) {
     console.error('Error marcando documentos como exportados:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// POST /api/documentos/desmarcar-exportados - Desmarcar documentos como exportados (revertir a pendiente)
+router.post('/desmarcar-exportados', authWithTenant, async (req, res) => {
+  try {
+    const { documentoIds } = req.body;
+    const tenantId = req.tenantId;
+
+    if (!documentoIds || !Array.isArray(documentoIds) || documentoIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Debe proporcionar al menos un ID de documento'
+      });
+    }
+
+    console.log(`🔄 Desmarcando ${documentoIds.length} documento(s) como exportados...`);
+
+    // Verificar que los documentos existen, pertenecen al tenant y están exportados
+    const documentos = await prisma.documentos_procesados.findMany({
+      where: {
+        id: { in: documentoIds },
+        tenantId: tenantId,
+        exportado: true  // Solo documentos que SÍ están exportados
+      }
+    });
+
+    if (documentos.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No se encontraron documentos exportados para desmarcar'
+      });
+    }
+
+    // Desmarcar como exportados
+    const resultado = await prisma.documentos_procesados.updateMany({
+      where: {
+        id: { in: documentos.map(d => d.id) },
+        tenantId: tenantId
+      },
+      data: {
+        exportado: false,
+        fechaExportacion: null
+      }
+    });
+
+    const documentosIgnorados = documentoIds.length - documentos.length;
+    let message = `${resultado.count} documento(s) desmarcado(s) como exportados`;
+
+    if (documentosIgnorados > 0) {
+      message += `. ${documentosIgnorados} documento(s) no estaban exportados o no existen`;
+    }
+
+    console.log(`✅ ${resultado.count} documento(s) revertidos a estado pendiente`);
+
+    res.json({
+      success: true,
+      message,
+      count: resultado.count,
+      procesados: documentos.length,
+      ignorados: documentosIgnorados
+    });
+
+  } catch (error) {
+    console.error('Error desmarcando documentos como exportados:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -3088,66 +3287,110 @@ router.post('/aplicar-reglas', authWithTenant, async (req, res) => {
       });
     }
 
-    console.log(`📐 Cargadas ${rulesEngine.rules.length} reglas de transformación`);
+    console.log(`📐 Cargadas reglas de transformación`);
 
     let documentosTransformados = 0;
     let documentosProcesados = 0;
+    let lineasTransformadas = 0;
+    let impuestosTransformados = 0;
 
-    // Aplicar reglas de negocio a cada documento
+    // Aplicar reglas de negocio a cada documento completo
     for (const documento of documentos) {
       try {
         documentosProcesados++;
 
-        // Aplicar reglas de transformación/completado
-        const ruleResult = await rulesEngine.applyRules(
-          documento,
-          {},
-          {
-            tipo: 'TRANSFORMACION',
-            contexto: 'APLICACION_REGLAS',
-            logExecution: false  // Deshabilitado por error de schema en reglas_ejecuciones
-          }
-        );
+        // Aplicar reglas al documento completo (documento + líneas + impuestos)
+        const ruleResult = await rulesEngine.applyRulesToDocument(documento, {
+          logExecution: false,  // Deshabilitado por error de schema en reglas_ejecuciones
+          contexto: 'APLICACION_REGLAS'
+        });
 
-        // Si se aplicaron reglas y hay datos transformados, actualizar el documento
-        if (ruleResult.rulesApplied > 0) {
-          // Preparar datos para actualizar y detectar cambios
-          const updateData = {
-            razonSocialExtraida: ruleResult.data.razonSocialExtraida || documento.razonSocialExtraida,
-            cuitExtraido: ruleResult.data.cuitExtraido || documento.cuitExtraido,
-            numeroComprobanteExtraido: ruleResult.data.numeroComprobanteExtraido || documento.numeroComprobanteExtraido,
-            fechaExtraida: ruleResult.data.fechaExtraida || documento.fechaExtraida,
-            importeExtraido: ruleResult.data.importeExtraido || documento.importeExtraido,
-            netoGravadoExtraido: ruleResult.data.netoGravadoExtraido || documento.netoGravadoExtraido,
-            exentoExtraido: ruleResult.data.exentoExtraido || documento.exentoExtraido,
-            impuestosExtraido: ruleResult.data.impuestosExtraido || documento.impuestosExtraido,
-            updatedAt: new Date()
-          };
+        // Si se aplicaron reglas, actualizar el documento y sus líneas/impuestos
+        if (ruleResult.totalReglasAplicadas > 0) {
+          const docTransformado = ruleResult.documento;
 
-          // Detectar cambios específicos
-          const cambios = [];
-          if (updateData.razonSocialExtraida !== documento.razonSocialExtraida) {
-            cambios.push(`razonSocial: "${documento.razonSocialExtraida || 'null'}" → "${updateData.razonSocialExtraida}"`);
-          }
-          if (updateData.cuitExtraido !== documento.cuitExtraido) {
-            cambios.push(`CUIT: "${documento.cuitExtraido || 'null'}" → "${updateData.cuitExtraido}"`);
-          }
-          if (updateData.numeroComprobanteExtraido !== documento.numeroComprobanteExtraido) {
-            cambios.push(`nroComprobante: "${documento.numeroComprobanteExtraido || 'null'}" → "${updateData.numeroComprobanteExtraido}"`);
+          // Actualizar documento principal
+          if (ruleResult.reglasAplicadas.documento > 0) {
+            const updateData = {
+              razonSocialExtraida: docTransformado.razonSocialExtraida || documento.razonSocialExtraida,
+              cuitExtraido: docTransformado.cuitExtraido || documento.cuitExtraido,
+              codigoProveedor: docTransformado.codigoProveedor || documento.codigoProveedor,
+              numeroComprobanteExtraido: docTransformado.numeroComprobanteExtraido || documento.numeroComprobanteExtraido,
+              tipoComprobanteExtraido: docTransformado.tipoComprobanteExtraido || documento.tipoComprobanteExtraido,
+              fechaExtraida: docTransformado.fechaExtraida || documento.fechaExtraida,
+              importeExtraido: docTransformado.importeExtraido || documento.importeExtraido,
+              netoGravadoExtraido: docTransformado.netoGravadoExtraido || documento.netoGravadoExtraido,
+              exentoExtraido: docTransformado.exentoExtraido || documento.exentoExtraido,
+              impuestosExtraido: docTransformado.impuestosExtraido || documento.impuestosExtraido,
+              updatedAt: new Date()
+            };
+
+            // Detectar cambios específicos en documento
+            const cambios = [];
+            if (updateData.razonSocialExtraida !== documento.razonSocialExtraida) {
+              cambios.push(`razonSocial: "${documento.razonSocialExtraida || 'null'}" → "${updateData.razonSocialExtraida}"`);
+            }
+            if (updateData.cuitExtraido !== documento.cuitExtraido) {
+              cambios.push(`CUIT: "${documento.cuitExtraido || 'null'}" → "${updateData.cuitExtraido}"`);
+            }
+            if (updateData.codigoProveedor !== documento.codigoProveedor) {
+              cambios.push(`codigoProveedor: "${documento.codigoProveedor || 'null'}" → "${updateData.codigoProveedor}"`);
+            }
+
+            await prisma.documentos_procesados.update({
+              where: { id: documento.id },
+              data: updateData
+            });
+
+            documentosTransformados++;
+
+            if (cambios.length > 0) {
+              console.log(`   🔄 Cambios en documento:`);
+              cambios.forEach(cambio => console.log(`      - ${cambio}`));
+            }
           }
 
-          await prisma.documentos_procesados.update({
-            where: { id: documento.id },
-            data: updateData
-          });
+          // Actualizar líneas transformadas
+          if (ruleResult.reglasAplicadas.lineas > 0 && docTransformado.documento_lineas) {
+            for (const linea of docTransformado.documento_lineas) {
+              await prisma.documento_lineas.update({
+                where: { id: linea.id },
+                data: {
+                  descripcion: linea.descripcion,
+                  codigoProducto: linea.codigoProducto,
+                  tipoProducto: linea.tipoProducto,
+                  codigoDimension: linea.codigoDimension,
+                  subcuenta: linea.subcuenta,
+                  cuentaContable: linea.cuentaContable,
+                  tipoOrdenCompra: linea.tipoOrdenCompra,
+                  ordenCompra: linea.ordenCompra
+                }
+              });
+            }
+            lineasTransformadas += docTransformado.documento_lineas.length;
+            console.log(`   📋 ${docTransformado.documento_lineas.length} línea(s) transformada(s)`);
+          }
 
-          documentosTransformados++;
+          // Actualizar impuestos transformados
+          if (ruleResult.reglasAplicadas.impuestos > 0 && docTransformado.documento_impuestos) {
+            for (const impuesto of docTransformado.documento_impuestos) {
+              await prisma.documento_impuestos.update({
+                where: { id: impuesto.id },
+                data: {
+                  tipo: impuesto.tipo,
+                  descripcion: impuesto.descripcion,
+                  codigoDimension: impuesto.codigoDimension,
+                  subcuenta: impuesto.subcuenta,
+                  cuentaContable: impuesto.cuentaContable
+                }
+              });
+            }
+            impuestosTransformados += docTransformado.documento_impuestos.length;
+            console.log(`   💰 ${docTransformado.documento_impuestos.length} impuesto(s) transformado(s)`);
+          }
+
           console.log(`✅ Documento ${documento.nombreArchivo} (${documento.id.substring(0, 8)}...):`);
-          console.log(`   📐 ${ruleResult.rulesApplied} regla(s) aplicada(s)`);
-          if (cambios.length > 0) {
-            console.log(`   🔄 Cambios realizados:`);
-            cambios.forEach(cambio => console.log(`      - ${cambio}`));
-          }
+          console.log(`   📐 ${ruleResult.totalReglasAplicadas} regla(s) aplicada(s) (Doc: ${ruleResult.reglasAplicadas.documento}, Líneas: ${ruleResult.reglasAplicadas.lineas}, Impuestos: ${ruleResult.reglasAplicadas.impuestos})`);
         }
       } catch (ruleError) {
         console.error(`❌ Error aplicando reglas al documento ${documento.id}:`, ruleError);
@@ -3155,14 +3398,18 @@ router.post('/aplicar-reglas', authWithTenant, async (req, res) => {
       }
     }
 
-    console.log(`✅ Reglas aplicadas: ${documentosProcesados} documentos procesados, ${documentosTransformados} transformados`);
+    console.log(`✅ Reglas aplicadas: ${documentosProcesados} documentos procesados, ${documentosTransformados} transformados, ${lineasTransformadas} líneas, ${impuestosTransformados} impuestos`);
 
     res.json({
       success: true,
       message: `Reglas aplicadas correctamente`,
       total: documentos.length,
       procesados: documentosProcesados,
-      transformados: documentosTransformados
+      transformados: {
+        documentos: documentosTransformados,
+        lineas: lineasTransformadas,
+        impuestos: impuestosTransformados
+      }
     });
 
   } catch (error) {

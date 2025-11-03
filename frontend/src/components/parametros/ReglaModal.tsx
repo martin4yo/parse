@@ -113,14 +113,16 @@ export default function ReglaModal({
     codigo: '',
     nombre: '',
     descripcion: '',
-    tipo: 'IMPORTACION_DKT',
+    tipo: 'TRANSFORMACION',
     activa: true,
     prioridad: 100,
     configuracion: {
       condiciones: [],
       acciones: [],
       logicOperator: 'AND',
-      stopOnMatch: false
+      stopOnMatch: false,
+      mensajeError: '',
+      severidad: 'ERROR'
     }
   });
 
@@ -146,7 +148,7 @@ export default function ReglaModal({
         codigo: '',
         nombre: '',
         descripcion: '',
-        tipo: 'IMPORTACION_DKT',
+        tipo: 'TRANSFORMACION',
         activa: true,
         prioridad: 100,
         configuracion: {
@@ -154,13 +156,22 @@ export default function ReglaModal({
           acciones: [],
           transformacionesCampo: [],
           logicOperator: 'AND',
-          stopOnMatch: false
+          stopOnMatch: false,
+          mensajeError: '',
+          severidad: 'ERROR'
         }
       });
     }
     setActiveTab('general');
     setErrores([]);
   }, [regla]);
+
+  // Si cambia a VALIDACION y está en tab de Acciones, cambiar a Condiciones
+  useEffect(() => {
+    if (formData.tipo === 'VALIDACION' && activeTab === 'acciones') {
+      setActiveTab('condiciones');
+    }
+  }, [formData.tipo, activeTab]);
 
   // Manejadores de cambios en el formulario
   const handleInputChange = (field: string, value: any) => {
@@ -306,39 +317,54 @@ export default function ReglaModal({
         if (!cond.operador) errores.push(`Condición ${i + 1}: Operador es obligatorio`);
       });
     }
-    
-    if (formData.configuracion.acciones.length === 0) {
-      errores.push('Debe agregar al menos una acción');
+
+    // Validación específica para reglas de VALIDACION
+    if (formData.tipo === 'VALIDACION') {
+      // Para reglas de validación, NO se requieren acciones
+      // Pero SÍ se requieren mensajeError y severidad
+      if (!formData.configuracion.mensajeError || !formData.configuracion.mensajeError.trim()) {
+        errores.push('Las reglas de validación deben tener un mensaje de error');
+      }
+      if (!formData.configuracion.severidad) {
+        errores.push('Las reglas de validación deben tener una severidad (BLOQUEANTE, ERROR o WARNING)');
+      } else if (!['BLOQUEANTE', 'ERROR', 'WARNING'].includes(formData.configuracion.severidad)) {
+        errores.push('La severidad debe ser BLOQUEANTE, ERROR o WARNING');
+      }
     } else {
-      formData.configuracion.acciones.forEach((acc, i) => {
-        if (!acc.campo.trim()) errores.push(`Acción ${i + 1}: Campo es obligatorio`);
-        if (!acc.operacion) errores.push(`Acción ${i + 1}: Operación es obligatoria`);
-        
-        if (acc.operacion === 'LOOKUP') {
-          if (!acc.tabla) errores.push(`Acción ${i + 1}: Tabla es obligatoria para LOOKUP`);
-          if (!acc.campoConsulta) errores.push(`Acción ${i + 1}: Campo de consulta es obligatorio para LOOKUP`);
-          if (!acc.valorConsulta) errores.push(`Acción ${i + 1}: Valor de consulta es obligatorio para LOOKUP`);
-          if (!acc.campoResultado) errores.push(`Acción ${i + 1}: Campo resultado es obligatorio para LOOKUP`);
-        } else if (acc.operacion === 'LOOKUP_JSON') {
-          if (!acc.tipoCampo) errores.push(`Acción ${i + 1}: Tipo de campo es obligatorio para LOOKUP_JSON`);
-          if (!acc.campoJSON) errores.push(`Acción ${i + 1}: Campo JSON es obligatorio para LOOKUP_JSON`);
-          if (!acc.valorConsulta) errores.push(`Acción ${i + 1}: Valor de consulta es obligatorio para LOOKUP_JSON`);
-          if (!acc.campoResultado) errores.push(`Acción ${i + 1}: Campo resultado es obligatorio para LOOKUP_JSON`);
-        } else if (acc.operacion === 'LOOKUP_CHAIN') {
-          if (!acc.valorConsulta) errores.push(`Acción ${i + 1}: Valor de consulta es obligatorio para LOOKUP_CHAIN`);
-          if (!acc.cadena || acc.cadena.length === 0) {
-            errores.push(`Acción ${i + 1}: Debe agregar al menos un paso en la cadena para LOOKUP_CHAIN`);
-          } else {
-            acc.cadena.forEach((paso, pIndex) => {
-              if (!paso.tabla) errores.push(`Acción ${i + 1}, Paso ${pIndex + 1}: Tabla es obligatoria`);
-              if (!paso.campoConsulta) errores.push(`Acción ${i + 1}, Paso ${pIndex + 1}: Campo de consulta es obligatorio`);
-              if (!paso.campoResultado) errores.push(`Acción ${i + 1}, Paso ${pIndex + 1}: Campo resultado es obligatorio`);
-            });
+      // Para reglas de transformación, SÍ se requieren acciones
+      if (formData.configuracion.acciones.length === 0) {
+        errores.push('Debe agregar al menos una acción');
+      } else {
+        formData.configuracion.acciones.forEach((acc, i) => {
+          if (!acc.campo.trim()) errores.push(`Acción ${i + 1}: Campo es obligatorio`);
+          if (!acc.operacion) errores.push(`Acción ${i + 1}: Operación es obligatoria`);
+
+          if (acc.operacion === 'LOOKUP') {
+            if (!acc.tabla) errores.push(`Acción ${i + 1}: Tabla es obligatoria para LOOKUP`);
+            if (!acc.campoConsulta) errores.push(`Acción ${i + 1}: Campo de consulta es obligatorio para LOOKUP`);
+            if (!acc.valorConsulta) errores.push(`Acción ${i + 1}: Valor de consulta es obligatorio para LOOKUP`);
+            if (!acc.campoResultado) errores.push(`Acción ${i + 1}: Campo resultado es obligatorio para LOOKUP`);
+          } else if (acc.operacion === 'LOOKUP_JSON') {
+            if (!acc.tipoCampo) errores.push(`Acción ${i + 1}: Tipo de campo es obligatorio para LOOKUP_JSON`);
+            if (!acc.campoJSON) errores.push(`Acción ${i + 1}: Campo JSON es obligatorio para LOOKUP_JSON`);
+            if (!acc.valorConsulta) errores.push(`Acción ${i + 1}: Valor de consulta es obligatorio para LOOKUP_JSON`);
+            if (!acc.campoResultado) errores.push(`Acción ${i + 1}: Campo resultado es obligatorio para LOOKUP_JSON`);
+          } else if (acc.operacion === 'LOOKUP_CHAIN') {
+            if (!acc.valorConsulta) errores.push(`Acción ${i + 1}: Valor de consulta es obligatorio para LOOKUP_CHAIN`);
+            if (!acc.cadena || acc.cadena.length === 0) {
+              errores.push(`Acción ${i + 1}: Debe agregar al menos un paso en la cadena para LOOKUP_CHAIN`);
+            } else {
+              acc.cadena.forEach((paso, pIndex) => {
+                if (!paso.tabla) errores.push(`Acción ${i + 1}, Paso ${pIndex + 1}: Tabla es obligatoria`);
+                if (!paso.campoConsulta) errores.push(`Acción ${i + 1}, Paso ${pIndex + 1}: Campo de consulta es obligatorio`);
+                if (!paso.campoResultado) errores.push(`Acción ${i + 1}, Paso ${pIndex + 1}: Campo resultado es obligatorio`);
+              });
+            }
+          } else if (['SET', 'APPEND'].includes(acc.operacion)) {
+            if (!acc.valor) errores.push(`Acción ${i + 1}: Valor es obligatorio para ${acc.operacion}`);
           }
-        } else if (['SET', 'APPEND'].includes(acc.operacion)) {
-          if (!acc.valor) errores.push(`Acción ${i + 1}: Valor es obligatorio para ${acc.operacion}`);
-        }
-      });
+        });
+      }
     }
     
     return errores;
@@ -446,7 +472,7 @@ export default function ReglaModal({
               { id: 'general', name: 'General', icon: Settings },
               { id: 'transformaciones', name: 'Transformaciones', icon: Settings },
               { id: 'condiciones', name: 'Condiciones', icon: AlertCircle },
-              { id: 'acciones', name: 'Acciones', icon: Settings },
+              ...(formData.tipo !== 'VALIDACION' ? [{ id: 'acciones', name: 'Acciones', icon: Settings }] : []),
               { id: 'preview', name: 'Preview', icon: Eye }
             ].map((tab) => (
               <button
@@ -565,6 +591,57 @@ export default function ReglaModal({
                   placeholder="Descripción detallada de la regla"
                 />
               </div>
+
+              {/* Campos específicos para reglas de VALIDACION */}
+              {formData.tipo === 'VALIDACION' && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 space-y-4">
+                  <h4 className="font-medium text-gray-900 flex items-center">
+                    <AlertCircle className="w-5 h-5 text-yellow-600 mr-2" />
+                    Configuración de Validación
+                  </h4>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Mensaje de Error *
+                    </label>
+                    <textarea
+                      value={formData.configuracion.mensajeError || ''}
+                      onChange={(e) => handleConfigChange('mensajeError', e.target.value)}
+                      rows={2}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Mensaje claro que verá el usuario cuando falle la validación"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Ejemplo: "El CUIT es obligatorio y no puede estar vacío"
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Severidad *
+                    </label>
+                    <select
+                      value={formData.configuracion.severidad || 'ERROR'}
+                      onChange={(e) => handleConfigChange('severidad', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="BLOQUEANTE">🔴 BLOQUEANTE - Detiene la exportación</option>
+                      <option value="ERROR">🟠 ERROR - Permite exportar pero advierte</option>
+                      <option value="WARNING">🟡 WARNING - Solo informa</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      BLOQUEANTE: Impide exportar | ERROR: Exporta con aviso | WARNING: Solo notifica
+                    </p>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded p-3">
+                    <p className="text-sm text-blue-800">
+                      <strong>ℹ️ Nota:</strong> Las reglas de validación NO requieren acciones.
+                      Solo defina las condiciones que deben cumplirse para que sea válido.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
@@ -758,11 +835,26 @@ export default function ReglaModal({
           {/* Tab Condiciones */}
           {activeTab === 'condiciones' && (
             <div className="space-y-6">
+              {formData.tipo === 'VALIDACION' && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <p className="text-sm text-yellow-900">
+                    <strong>⚠️ Importante para Validaciones:</strong> Las condiciones definen lo que <strong>DEBE cumplirse</strong> para que sea válido.
+                    <br />
+                    ✅ Si las condiciones se cumplen → <strong>VÁLIDO</strong> (todo OK)
+                    <br />
+                    ❌ Si las condiciones NO se cumplen → <strong>INVÁLIDO</strong> (se muestra el mensaje de error)
+                  </p>
+                </div>
+              )}
+
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-medium text-gray-900">Condiciones</h3>
                   <p className="text-sm text-gray-600">
-                    Define cuándo se debe ejecutar esta regla
+                    {formData.tipo === 'VALIDACION'
+                      ? 'Define lo que DEBE cumplirse para que sea válido'
+                      : 'Define cuándo se debe ejecutar esta regla'
+                    }
                   </p>
                 </div>
                 <Button onClick={agregarCondicion} className="bg-blue-600 hover:bg-blue-700">

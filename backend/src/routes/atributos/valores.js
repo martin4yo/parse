@@ -1,6 +1,7 @@
 const express = require('express');
 const { authWithTenant } = require('../../middleware/authWithTenant');
 const prisma = require('../../lib/prisma');
+const { v4: uuidv4 } = require('uuid');
 
 const router = express.Router();
 
@@ -9,7 +10,11 @@ router.get('/', authWithTenant, async (req, res) => {
   try {
     const { atributoId, activo, search } = req.query;
 
-    const where = {};
+    const where = {
+      atributos: {
+        tenantId: req.tenantId
+      }
+    };
 
     if (atributoId) {
       where.atributoId = atributoId;
@@ -52,8 +57,13 @@ router.get('/:id', authWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const valor = await prisma.valores_atributo.findUnique({
-      where: { id },
+    const valor = await prisma.valores_atributo.findFirst({
+      where: {
+        id,
+        atributos: {
+          tenantId: req.tenantId
+        }
+      },
       include: {
         atributos: true
       }
@@ -89,20 +99,24 @@ router.post('/', authWithTenant, async (req, res) => {
       });
     }
 
-    // Verificar que el atributo existe
-    const atributo = await prisma.atributos.findUnique({
-      where: { id: atributoId }
+    // Verificar que el atributo existe y pertenece al tenant del usuario
+    const atributo = await prisma.atributos.findFirst({
+      where: {
+        id: atributoId,
+        tenantId: req.tenantId
+      }
     });
 
     if (!atributo) {
       return res.status(404).json({
         error: 'Atributo no encontrado',
-        message: 'El atributo especificado no existe'
+        message: 'El atributo especificado no existe o no pertenece a su empresa'
       });
     }
 
     const nuevoValor = await prisma.valores_atributo.create({
       data: {
+        id: uuidv4(),
         atributoId,
         codigo: codigo.trim(),
         descripcion: descripcion.trim(),
@@ -145,8 +159,16 @@ router.put('/:id', authWithTenant, async (req, res) => {
       });
     }
 
-    const existingValor = await prisma.valores_atributo.findUnique({
-      where: { id }
+    const existingValor = await prisma.valores_atributo.findFirst({
+      where: {
+        id,
+        atributos: {
+          tenantId: req.tenantId
+        }
+      },
+      include: {
+        atributos: true
+      }
     });
 
     if (!existingValor) {
@@ -201,10 +223,16 @@ router.delete('/:id', authWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const existingValor = await prisma.valores_atributo.findUnique({
-      where: { id },
+    const existingValor = await prisma.valores_atributo.findFirst({
+      where: {
+        id,
+        atributos: {
+          tenantId: req.tenantId
+        }
+      },
       include: {
-        user_atributos: true
+        user_atributos: true,
+        atributos: true
       }
     });
 

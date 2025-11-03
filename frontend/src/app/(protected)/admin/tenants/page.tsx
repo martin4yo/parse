@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApiClient } from '@/hooks/useApiClient';
+import { useConfirmDialog } from '@/hooks/useConfirm';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import {
   Table,
@@ -23,6 +24,7 @@ interface Plan {
   codigo: string;
   nombre: string;
   precio: number;
+  color?: string;
 }
 
 interface Tenant {
@@ -41,6 +43,7 @@ interface Tenant {
 
 export default function TenantsPage() {
   const { user } = useAuth();
+  const { confirmDelete } = useConfirmDialog();
 
   // Solo superusers pueden gestionar tenants
   if (!user?.superuser) {
@@ -125,16 +128,6 @@ export default function TenantsPage() {
     setPagination(prev => ({ ...prev, page: 1 }));
   };
 
-  const getPlanBadgeColor = (planCodigo: string) => {
-    switch (planCodigo) {
-      case 'Common': return 'bg-gray-800 text-white';
-      case 'Uncommon': return 'bg-gray-400 text-white';
-      case 'Rare': return 'bg-yellow-500 text-black';
-      case 'Mythic': return 'bg-orange-500 text-white';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-ES');
   };
@@ -169,7 +162,7 @@ export default function TenantsPage() {
       nombre: '',
       slug: '',
       cuit: '',
-      plan: 'Common',
+      plan: planes.length > 0 ? planes[0].id : '',
       activo: true
     });
   };
@@ -213,15 +206,19 @@ export default function TenantsPage() {
   };
 
   const handleDelete = async (tenant: Tenant) => {
-    if (confirm(`¿Estás seguro de que deseas eliminar el tenant "${tenant.nombre}"?`)) {
-      try {
-        await del(`/api/tenants/${tenant.id}`);
-        console.log('Tenant eliminado exitosamente');
-        await fetchTenants(); // Recargar la lista
-      } catch (error) {
-        console.error('Error eliminando tenant:', error);
-        alert('Error eliminando tenant: ' + (error as Error).message);
-      }
+    const confirmed = await confirmDelete(tenant.nombre);
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await del(`/api/tenants/${tenant.id}`);
+      console.log('Tenant eliminado exitosamente');
+      await fetchTenants(); // Recargar la lista
+    } catch (error) {
+      console.error('Error eliminando tenant:', error);
+      alert('Error eliminando tenant: ' + (error as Error).message);
     }
   };
 
@@ -395,14 +392,14 @@ export default function TenantsPage() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {tenant.planes ? (
-                              <Badge
-                                className="text-white"
+                              <span
+                                className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full text-white"
                                 style={{
                                   backgroundColor: tenant.planes.color || '#9333ea'
                                 }}
                               >
                                 {tenant.planes.nombre}
-                              </Badge>
+                              </span>
                             ) : (
                               <span className="text-sm text-gray-400">Sin plan</span>
                             )}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FileDown, Search, Edit, CheckSquare, Square, FileText, X, Calendar, Receipt, Save, Plus, Pencil, Trash2, ExternalLink, Eye } from 'lucide-react';
+import { FileDown, Search, Edit, CheckSquare, Square, FileText, X, Calendar, Receipt, Save, Plus, Pencil, Trash2, ExternalLink, Eye, AlertCircle, AlertTriangle, XCircle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { api } from '@/lib/api';
@@ -69,6 +69,11 @@ export default function ExportarPage() {
   const [savingImpuesto, setSavingImpuesto] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(false);
 
+  // Estados para modal de validación
+  const [showValidationModal, setShowValidationModal] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<any[]>([]);
+  const [documentsWithErrors, setDocumentsWithErrors] = useState<Map<string, any>>(new Map());
+
   useEffect(() => {
     loadDocumentos();
   }, []);
@@ -132,16 +137,52 @@ export default function ExportarPage() {
 
     try {
       setExporting(true);
-      await api.post('/documentos/exportar', {
+      const response = await api.post('/documentos/exportar', {
         documentoIds: Array.from(selectedDocuments)
       });
 
-      toast.success(`${selectedDocuments.size} documento(s) exportado(s) correctamente`);
+      // Verificar si hay validaciones
+      if (response.data.validaciones && response.data.validaciones.documentosConErrores > 0) {
+        const detalles = response.data.validaciones.detalles;
+        setValidationErrors(detalles);
+        setShowValidationModal(true);
+
+        // Guardar documentos con errores en el Map
+        const errorsMap = new Map();
+        detalles.forEach((docError: any) => {
+          errorsMap.set(docError.documentoId, docError);
+        });
+        setDocumentsWithErrors(errorsMap);
+
+        // Toast con resumen
+        const { totalWarnings, totalErrors } = response.data.validaciones;
+        toast.warning(`Exportado con ${totalWarnings} warning(s) y ${totalErrors} error(es) de validación`);
+      } else {
+        toast.success(response.data.message || `${selectedDocuments.size} documento(s) exportado(s) correctamente`);
+      }
+
       setSelectedDocuments(new Set());
       await loadDocumentos();
     } catch (error: any) {
       console.error('Error exporting documents:', error);
-      toast.error(error.response?.data?.error || 'Error al exportar documentos');
+
+      // Si es un error de validaciones bloqueantes
+      if (error.response?.data?.validationErrors) {
+        const validationErrors = error.response.data.validationErrors;
+        setValidationErrors(validationErrors);
+        setShowValidationModal(true);
+
+        // Guardar documentos con errores en el Map
+        const errorsMap = new Map();
+        validationErrors.forEach((docError: any) => {
+          errorsMap.set(docError.documentoId, docError);
+        });
+        setDocumentsWithErrors(errorsMap);
+
+        toast.error('Existen validaciones bloqueantes que impiden la exportación');
+      } else {
+        toast.error(error.response?.data?.error || 'Error al exportar documentos');
+      }
     } finally {
       setExporting(false);
     }
@@ -351,9 +392,10 @@ export default function ExportarPage() {
         </div>
       </div>
 
-      {/* Filtros */}
+      {/* Filtros y Grilla */}
       <Card>
-        <CardContent className="p-4">
+        {/* Filtros */}
+        <CardContent className="p-4 border-b border-gray-200">
           <div className="flex items-center space-x-4">
             {/* Search box */}
             <div className="flex-1 relative">
@@ -379,11 +421,9 @@ export default function ExportarPage() {
             </select>
           </div>
         </CardContent>
-      </Card>
 
-      {/* Grilla */}
-      <Card>
-        <CardContent className="p-0">
+        {/* Grilla */}
+        <div className="p-0">
           {loading ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
@@ -440,9 +480,11 @@ export default function ExportarPage() {
                     const exento = doc.exentoExtraido || 0;
                     const total = doc.importeExtraido || 0;
                     const impuestos = doc.impuestosExtraido || (total - gravado - exento);
+                    const hasValidationErrors = documentsWithErrors.has(doc.id);
+                    const docErrors = hasValidationErrors ? documentsWithErrors.get(doc.id) : null;
 
                     return (
-                      <tr key={doc.id} className={`hover:bg-gray-50 ${doc.exportado ? 'bg-green-50' : ''}`}>
+                      <tr key={doc.id} className={`hover:bg-gray-50 ${doc.exportado ? 'bg-green-50' : ''} ${hasValidationErrors ? 'bg-red-50 border-l-4 border-l-red-500' : ''}`}>
                         <td className="px-4 py-4 whitespace-nowrap text-center">
                           {!doc.exportado ? (
                             <button
@@ -494,15 +536,39 @@ export default function ExportarPage() {
                           {doc.caeExtraido || '-'}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-center">
-                          {doc.exportado ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              Exportado
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                              Pendiente
-                            </span>
-                          )}
+                          <div className="flex flex-col items-center space-y-1">
+                            {doc.exportado ? (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                Exportado
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                Pendiente
+                              </span>
+                            )}
+                            {hasValidationErrors && docErrors && (
+                              <div className="flex items-center space-x-1">
+                                {docErrors.summary.bloqueantes > 0 && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-600 text-white" title="Errores bloqueantes">
+                                    <XCircle className="w-3 h-3 mr-1" />
+                                    {docErrors.summary.bloqueantes}
+                                  </span>
+                                )}
+                                {docErrors.summary.errores > 0 && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-600 text-white" title="Errores">
+                                    <AlertCircle className="w-3 h-3 mr-1" />
+                                    {docErrors.summary.errores}
+                                  </span>
+                                )}
+                                {docErrors.summary.warnings > 0 && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-600 text-white" title="Advertencias">
+                                    <AlertTriangle className="w-3 h-3 mr-1" />
+                                    {docErrors.summary.warnings}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-center">
                           <div className="flex items-center justify-center space-x-2">
@@ -626,7 +692,7 @@ export default function ExportarPage() {
               </div>
             </div>
           </div>
-        </CardContent>
+        </div>
       </Card>
 
       {/* Modal de Edición/Visualización */}
@@ -1095,6 +1161,174 @@ export default function ExportarPage() {
                   )}
                 </Button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Validaciones */}
+      {showValidationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-xl">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                    <FileText className="w-6 h-6 text-red-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">
+                      Errores de Validación
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Se encontraron {validationErrors.length} documento(s) con errores de validación
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowValidationModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {validationErrors.map((docError, docIdx) => {
+                const { bloqueantes, errores, warnings } = docError.summary || { bloqueantes: 0, errores: 0, warnings: 0 };
+
+                return (
+                  <div
+                    key={docIdx}
+                    className="border-l-4 border-red-500 bg-red-50 rounded-lg p-4 space-y-4"
+                  >
+                    {/* Header del Documento */}
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-semibold text-gray-900 flex items-center space-x-2">
+                          <FileText className="w-5 h-5 text-red-600" />
+                          <span>{docError.nombreArchivo}</span>
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {bloqueantes > 0 && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-600 text-white mr-2">
+                              {bloqueantes} Bloqueante{bloqueantes !== 1 ? 's' : ''}
+                            </span>
+                          )}
+                          {errores > 0 && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-600 text-white mr-2">
+                              {errores} Error{errores !== 1 ? 'es' : ''}
+                            </span>
+                          )}
+                          {warnings > 0 && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-600 text-white">
+                              {warnings} Warning{warnings !== 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Lista de Errores */}
+                    <div className="space-y-3">
+                      {docError.errores && docError.errores.map((error: any, errorIdx: number) => {
+                        const bgColor =
+                          error.severidad === 'BLOQUEANTE' ? 'bg-red-100 border-red-300' :
+                          error.severidad === 'ERROR' ? 'bg-orange-100 border-orange-300' :
+                          'bg-yellow-100 border-yellow-300';
+
+                        const iconColor =
+                          error.severidad === 'BLOQUEANTE' ? 'text-red-600' :
+                          error.severidad === 'ERROR' ? 'text-orange-600' :
+                          'text-yellow-600';
+
+                        return (
+                          <div
+                            key={errorIdx}
+                            className={`${bgColor} border rounded-lg p-3 space-y-2`}
+                          >
+                            {/* Header del Error */}
+                            <div className="flex items-start space-x-2">
+                              <div className={`flex-shrink-0 mt-0.5 ${iconColor}`}>
+                                {error.severidad === 'BLOQUEANTE' && <XCircle className="w-5 h-5" />}
+                                {error.severidad === 'ERROR' && <AlertCircle className="w-5 h-5" />}
+                                {error.severidad === 'WARNING' && <AlertTriangle className="w-5 h-5" />}
+                              </div>
+                              <div className="flex-1">
+                                <p className="font-semibold text-gray-900">
+                                  {error.nombre}
+                                </p>
+                                <p className="text-sm text-gray-700 mt-1">
+                                  {error.mensaje}
+                                </p>
+
+                                {/* Origen */}
+                                {error.origen && (
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Origen: <span className="font-mono">{error.origen}</span>
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Condiciones Fallidas */}
+                            {error.condicionesFallidas && error.condicionesFallidas.length > 0 && (
+                              <div className="pl-7">
+                                <p className="text-xs font-semibold text-gray-600 mb-1">
+                                  Detalles:
+                                </p>
+                                <div className="space-y-1">
+                                  {error.condicionesFallidas.map((cond: any, condIdx: number) => (
+                                    <div key={condIdx} className="text-xs font-mono bg-white bg-opacity-50 rounded px-2 py-1">
+                                      <span className="font-semibold">{cond.campo}:</span>{' '}
+                                      <span className="text-gray-600">
+                                        {cond.operador} →
+                                      </span>{' '}
+                                      <span className="text-red-600">
+                                        Actual: {cond.valorActual !== null && cond.valorActual !== undefined
+                                          ? JSON.stringify(cond.valorActual)
+                                          : 'null'}
+                                      </span>
+                                      {cond.valorEsperado && (
+                                        <>
+                                          {' | '}
+                                          <span className="text-green-600">
+                                            Esperado: {JSON.stringify(cond.valorEsperado)}
+                                          </span>
+                                        </>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Código de Regla */}
+                            <div className="pl-7">
+                              <p className="text-xs text-gray-500">
+                                Regla: <span className="font-mono font-semibold">{error.reglaCodigo}</span>
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer */}
+            <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 p-6 rounded-b-xl">
+              <div className="flex justify-end space-x-3">
+                <Button
+                  onClick={() => setShowValidationModal(false)}
+                  className="bg-gray-600 hover:bg-gray-700 text-white"
+                >
+                  Cerrar
+                </Button>
+              </div>
             </div>
           </div>
         </div>

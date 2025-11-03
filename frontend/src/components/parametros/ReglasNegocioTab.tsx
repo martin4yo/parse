@@ -7,6 +7,7 @@ import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
 import ReglaModal from './ReglaModal';
 import { useAuth } from '@/contexts/AuthContext';
+import { useConfirmDialog } from '@/hooks/useConfirm';
 
 interface ReglaNegocio {
   id: string;
@@ -55,6 +56,9 @@ export default function ReglasNegocioTab() {
   const [reglaEditando, setReglaEditando] = useState<ReglaNegocio | null>(null);
   const [modalVisualizacion, setModalVisualizacion] = useState(false);
   const [reglaVisualizando, setReglaVisualizando] = useState<ReglaNegocio | null>(null);
+
+  // Hook de confirmación personalizado
+  const { confirmDelete } = useConfirmDialog();
 
   // Cargar datos iniciales y cuando cambia el tenant
   useEffect(() => {
@@ -136,7 +140,9 @@ export default function ReglasNegocioTab() {
   };
 
   const handleEliminarRegla = async (regla: ReglaNegocio) => {
-    if (!confirm(`¿Estás seguro de eliminar la regla "${regla.nombre}"?`)) {
+    const confirmed = await confirmDelete(regla.nombre);
+
+    if (!confirmed) {
       return;
     }
 

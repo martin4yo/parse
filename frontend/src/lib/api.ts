@@ -1455,3 +1455,51 @@ export const aiModelsApi = {
     return response.data;
   }
 };
+
+// API para gestión de documentos
+export const documentosApi = {
+  // Marcar documentos como exportados
+  exportar: async (documentoIds: string[]): Promise<{
+    success: boolean;
+    message: string;
+    count: number;
+    procesados: number;
+    ignorados: number;
+    transformados: {
+      documentos: number;
+      lineas: number;
+      impuestos: number;
+    };
+  }> => {
+    const response = await api.post('/documentos/exportar', { documentoIds });
+    return response.data;
+  },
+
+  // Desmarcar documentos como exportados (revertir a pendiente)
+  desmarcarExportados: async (documentoIds: string[]): Promise<{
+    success: boolean;
+    message: string;
+    count: number;
+    procesados: number;
+    ignorados: number;
+  }> => {
+    const response = await api.post('/documentos/desmarcar-exportados', { documentoIds });
+    return response.data;
+  },
+
+  // Aplicar reglas de negocio a documentos pendientes
+  aplicarReglas: async (): Promise<{
+    success: boolean;
+    message: string;
+    total: number;
+    procesados: number;
+    transformados: {
+      documentos: number;
+      lineas: number;
+      impuestos: number;
+    };
+  }> => {
+    const response = await api.post('/documentos/aplicar-reglas');
+    return response.data;
+  }
+};

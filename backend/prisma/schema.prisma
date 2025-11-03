@@ -504,7 +504,7 @@ model valores_atributo {
   atributoId     String
   activo         Boolean          @default(true)
   createdAt      DateTime         @default(now())
-  updatedAt      DateTime
+  updatedAt      DateTime         @updatedAt
   user_atributos user_atributos[]
   atributos      atributos        @relation(fields: [atributoId], references: [id], onDelete: Cascade)
 

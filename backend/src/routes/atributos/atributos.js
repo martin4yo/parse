@@ -35,7 +35,7 @@ router.get('/', authWithTenant, async (req, res) => {
       }
     });
 
-    res.json(atributos);
+    res.json({ atributos });
 
   } catch (error) {
     console.error('Error fetching atributos:', error);

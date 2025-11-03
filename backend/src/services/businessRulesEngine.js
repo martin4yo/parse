@@ -1,10 +1,12 @@
 const { PrismaClient } = require('@prisma/client');
+const { v4: uuidv4 } = require('uuid');
 const prisma = new PrismaClient();
 
 class BusinessRulesEngine {
   constructor() {
     this.rules = [];
-    this.lastLoadTime = null;
+    this.rulesCache = new Map(); // Cache de reglas por tipo
+    this.lastLoadTime = new Map(); // Último tiempo de carga por tipo
     this.cacheTimeout = 5 * 60 * 1000; // 5 minutos de cache
     this.lookupCache = new Map(); // Cache para lookups repetidos
   }
@@ -14,15 +16,17 @@ class BusinessRulesEngine {
    */
   async loadRules(tipo = 'IMPORTACION_DKT', forceReload = false, prismaInstance = null) {
     const now = Date.now();
-    
-    // Usar cache si está disponible y no ha expirado
-    if (!forceReload && this.lastLoadTime && (now - this.lastLoadTime) < this.cacheTimeout) {
+
+    // Usar cache si está disponible y no ha expirado PARA ESTE TIPO
+    const lastLoad = this.lastLoadTime.get(tipo);
+    if (!forceReload && lastLoad && (now - lastLoad) < this.cacheTimeout) {
+      this.rules = this.rulesCache.get(tipo) || [];
       return this.rules;
     }
 
     try {
       const db = prismaInstance || prisma;
-      this.rules = await db.reglas_negocio.findMany({
+      const rules = await db.reglas_negocio.findMany({
         where: {
           tipo,
           activa: true,
@@ -37,7 +41,11 @@ class BusinessRulesEngine {
         ]
       });
 
-      this.lastLoadTime = now;
+      // Guardar en cache por tipo
+      this.rulesCache.set(tipo, rules);
+      this.lastLoadTime.set(tipo, now);
+      this.rules = rules;
+
       console.log(`Cargadas ${this.rules.length} reglas de tipo ${tipo}`);
       return this.rules;
     } catch (error) {
@@ -251,12 +259,14 @@ class BusinessRulesEngine {
 
     const result = { ...itemData };
     const executedRules = [];
+    const validationErrors = [];  // Array para errores de validación
     const startTime = Date.now();
 
     // Aplicar cada regla en orden de prioridad
     for (const rule of this.rules) {
       try {
         const config = rule.configuracion;
+        const isValidationRule = rule.tipo === 'VALIDACION';
         
         // 1. Aplicar transformaciones de campo si existen
         let transformedData = fullData;
@@ -289,51 +299,97 @@ class BusinessRulesEngine {
 
         // Si la regla aplica, ejecutar las acciones
         if (shouldApply) {
-          // Aplicar acciones
-          if (config.acciones) {
-            for (const accion of config.acciones) {
-              const { campo, valor, valorCampo, operacion } = accion;
-              
-              if (operacion === 'SET') {
-                // Establecer valor directo o desde otro campo
-                const newValue = valorCampo 
-                  ? this.getNestedValue(transformedData, valorCampo)
-                  : valor;
-                
-                this.setNestedValue(result, campo, newValue);
-              } else if (operacion === 'APPEND') {
-                // Agregar al valor existente
-                const currentValue = this.getNestedValue(result, campo) || '';
-                const appendValue = valorCampo 
-                  ? this.getNestedValue(transformedData, valorCampo)
-                  : valor;
-                
-                this.setNestedValue(result, campo, currentValue + appendValue);
-              } else if (operacion === 'CALCULATE') {
-                // Realizar cálculos simples
-                this.applyCalculation(result, transformedData, accion);
-              } else if (operacion === 'LOOKUP') {
-                // Realizar lookup dinámico desde tablas
-                await this.applyLookup(result, fullData, accion, transformedData);
-              } else if (operacion === 'LOOKUP_JSON') {
-                // Realizar lookup en campos JSON
-                await this.applyLookupJSON(result, fullData, accion, transformedData);
-              } else if (operacion === 'LOOKUP_CHAIN') {
-                // Realizar lookup encadenado entre múltiples tablas
-                await this.applyLookupChain(result, fullData, accion, transformedData);
+          // Si es una regla de VALIDACION, significa que la validación PASÓ
+          if (isValidationRule) {
+            executedRules.push({
+              reglaId: rule.id,
+              nombre: rule.nombre,
+              tipo: 'VALIDACION',
+              aplicada: true,
+              resultado: 'VALIDO'
+            });
+          } else {
+            // Reglas de transformación: aplicar acciones
+            if (config.acciones) {
+              for (const accion of config.acciones) {
+                const { campo, valor, valorCampo, operacion } = accion;
+
+                if (operacion === 'SET') {
+                  // Establecer valor directo o desde otro campo
+                  const newValue = valorCampo
+                    ? this.getNestedValue(transformedData, valorCampo)
+                    : valor;
+
+                  this.setNestedValue(result, campo, newValue);
+                } else if (operacion === 'APPEND') {
+                  // Agregar al valor existente
+                  const currentValue = this.getNestedValue(result, campo) || '';
+                  const appendValue = valorCampo
+                    ? this.getNestedValue(transformedData, valorCampo)
+                    : valor;
+
+                  this.setNestedValue(result, campo, currentValue + appendValue);
+                } else if (operacion === 'CALCULATE') {
+                  // Realizar cálculos simples
+                  this.applyCalculation(result, transformedData, accion);
+                } else if (operacion === 'LOOKUP') {
+                  // Realizar lookup dinámico desde tablas
+                  await this.applyLookup(result, fullData, accion, transformedData);
+                } else if (operacion === 'LOOKUP_JSON') {
+                  // Realizar lookup en campos JSON
+                  await this.applyLookupJSON(result, fullData, accion, transformedData);
+                } else if (operacion === 'LOOKUP_CHAIN') {
+                  // Realizar lookup encadenado entre múltiples tablas
+                  await this.applyLookupChain(result, fullData, accion, transformedData);
+                }
               }
             }
-          }
 
-          executedRules.push({
-            reglaId: rule.id,
-            nombre: rule.nombre,
-            aplicada: true
-          });
+            executedRules.push({
+              reglaId: rule.id,
+              nombre: rule.nombre,
+              tipo: rule.tipo,
+              aplicada: true
+            });
+          }
 
           // Si la regla indica que debe detener el procesamiento
           if (config.stopOnMatch) {
             break;
+          }
+        } else {
+          // Si NO aplica y es una regla de VALIDACION, significa que FALLÓ
+          if (isValidationRule) {
+            const errorMessage = config.mensajeError || `Validación fallida: ${rule.nombre}`;
+            const errorDetails = {
+              reglaId: rule.id,
+              reglaCodigo: rule.codigo,
+              nombre: rule.nombre,
+              mensaje: errorMessage,
+              severidad: config.severidad || 'ERROR',
+              condicionesFallidas: config.condiciones.map(cond => ({
+                campo: cond.campo,
+                operador: cond.operador,
+                valorEsperado: cond.valor,
+                valorActual: this.getNestedValue(fullData, cond.campo)
+              }))
+            };
+
+            validationErrors.push(errorDetails);
+
+            executedRules.push({
+              reglaId: rule.id,
+              nombre: rule.nombre,
+              tipo: 'VALIDACION',
+              aplicada: true,
+              resultado: 'INVALIDO',
+              mensaje: errorMessage
+            });
+
+            // Si la severidad es BLOQUEANTE y stopOnMatch está activo, detener
+            if (config.severidad === 'BLOQUEANTE' && config.stopOnMatch) {
+              break;
+            }
           }
         }
       } catch (error) {
@@ -355,6 +411,7 @@ class BusinessRulesEngine {
         try {
           await prisma.reglas_ejecuciones.create({
             data: {
+              id: uuidv4(),
               reglaId: executed.reglaId,
               contexto,
               entrada: fullData,
@@ -373,7 +430,10 @@ class BusinessRulesEngine {
       data: result,
       rulesApplied: executedRules.filter(r => r.aplicada).length,
       executedRules,
-      duracionMs
+      duracionMs,
+      validationErrors,
+      hasValidationErrors: validationErrors.length > 0,
+      isValid: validationErrors.filter(e => e.severidad !== 'WARNING').length === 0
     };
   }
 
@@ -929,6 +989,288 @@ class BusinessRulesEngine {
       console.error('Error evaluando expresión:', error);
       return null;
     }
+  }
+
+  /**
+   * Aplicar reglas a un documento completo incluyendo líneas e impuestos
+   */
+  async applyRulesToDocument(documento, options = {}) {
+    const {
+      logExecution = false,
+      contexto = 'DOCUMENTO_COMPLETO'
+    } = options;
+
+    console.log(`🔄 Aplicando reglas al documento ${documento.id}...`);
+
+    const resultado = {
+      documentoTransformado: null,
+      lineasTransformadas: [],
+      impuestosTransformados: [],
+      reglasAplicadas: {
+        documento: 0,
+        lineas: 0,
+        impuestos: 0,
+        validaciones: 0
+      },
+      validationErrors: [],
+      allValidationErrors: {
+        documento: [],
+        lineas: [],
+        impuestos: []
+      }
+    };
+
+    try {
+      // 1. Aplicar reglas al documento principal (TRANSFORMACION_DOCUMENTO)
+      await this.loadRules('TRANSFORMACION_DOCUMENTO', false);
+      if (this.rules.length > 0) {
+        console.log(`  📄 Aplicando ${this.rules.length} reglas de transformación al documento...`);
+        const docResult = await this.applyRules(
+          documento,
+          {},
+          {
+            tipo: 'TRANSFORMACION_DOCUMENTO',
+            contexto,
+            logExecution
+          }
+        );
+        resultado.documentoTransformado = docResult.data;
+        resultado.reglasAplicadas.documento = docResult.rulesApplied;
+        console.log(`  ✅ Documento: ${docResult.rulesApplied} reglas aplicadas`);
+      } else {
+        resultado.documentoTransformado = documento;
+        console.log(`  ℹ️ No hay reglas TRANSFORMACION_DOCUMENTO activas`);
+      }
+
+      // 1.5. Aplicar reglas de VALIDACION al documento
+      await this.loadRules('VALIDACION', false);
+      if (this.rules.length > 0) {
+        console.log(`  🔍 Aplicando ${this.rules.length} reglas de validación al documento...`);
+        const validationResult = await this.applyRules(
+          resultado.documentoTransformado,
+          {},
+          {
+            tipo: 'VALIDACION',
+            contexto,
+            logExecution
+          }
+        );
+
+        if (validationResult.hasValidationErrors) {
+          resultado.allValidationErrors.documento = validationResult.validationErrors;
+          resultado.validationErrors.push(...validationResult.validationErrors.map(err => ({
+            ...err,
+            origen: 'documento',
+            documentoId: documento.id,
+            nombreArchivo: documento.nombreArchivo
+          })));
+          console.log(`  ⚠️ Documento: ${validationResult.validationErrors.length} validación(es) fallida(s)`);
+        } else {
+          console.log(`  ✅ Documento: todas las validaciones pasaron`);
+        }
+        resultado.reglasAplicadas.validaciones += this.rules.length;
+      }
+
+      // 2. Aplicar reglas a cada línea individual (TRANSFORMACION)
+      if (documento.documento_lineas && documento.documento_lineas.length > 0) {
+        await this.loadRules('TRANSFORMACION', false);
+        if (this.rules.length > 0) {
+          console.log(`  📋 Aplicando reglas a ${documento.documento_lineas.length} líneas...`);
+
+          for (const linea of documento.documento_lineas) {
+            const lineaResult = await this.applyRules(
+              linea,
+              { documento: resultado.documentoTransformado }, // Contexto del documento padre
+              {
+                tipo: 'TRANSFORMACION',
+                contexto: 'LINEA_DOCUMENTO',
+                logExecution
+              }
+            );
+            resultado.lineasTransformadas.push(lineaResult.data);
+            resultado.reglasAplicadas.lineas += lineaResult.rulesApplied;
+          }
+
+          console.log(`  ✅ Líneas: ${resultado.reglasAplicadas.lineas} reglas aplicadas en total`);
+        } else {
+          resultado.lineasTransformadas = documento.documento_lineas;
+          console.log(`  ℹ️ No hay reglas TRANSFORMACION activas para líneas`);
+        }
+
+        // 2.5. Aplicar reglas de VALIDACION a cada línea
+        await this.loadRules('VALIDACION', false);
+        if (this.rules.length > 0) {
+          console.log(`  🔍 Aplicando ${this.rules.length} reglas de validación a cada línea...`);
+
+          for (let i = 0; i < resultado.lineasTransformadas.length; i++) {
+            const linea = resultado.lineasTransformadas[i];
+            const validationResult = await this.applyRules(
+              linea,
+              { documento: resultado.documentoTransformado },
+              {
+                tipo: 'VALIDACION',
+                contexto: 'LINEA_DOCUMENTO',
+                logExecution
+              }
+            );
+
+            if (validationResult.hasValidationErrors) {
+              resultado.allValidationErrors.lineas.push(...validationResult.validationErrors);
+              resultado.validationErrors.push(...validationResult.validationErrors.map(err => ({
+                ...err,
+                origen: `linea ${i + 1}`,
+                lineaIndex: i,
+                documentoId: documento.id,
+                nombreArchivo: documento.nombreArchivo
+              })));
+            }
+          }
+
+          const lineasConErrores = resultado.allValidationErrors.lineas.length;
+          if (lineasConErrores > 0) {
+            console.log(`  ⚠️ Líneas: ${lineasConErrores} validación(es) fallida(s)`);
+          } else {
+            console.log(`  ✅ Líneas: todas las validaciones pasaron`);
+          }
+        }
+      }
+
+      // 3. Aplicar reglas a cada impuesto individual (TRANSFORMACION)
+      if (documento.documento_impuestos && documento.documento_impuestos.length > 0) {
+        await this.loadRules('TRANSFORMACION', false);
+        if (this.rules.length > 0) {
+          console.log(`  💰 Aplicando reglas a ${documento.documento_impuestos.length} impuestos...`);
+
+          for (const impuesto of documento.documento_impuestos) {
+            const impuestoResult = await this.applyRules(
+              impuesto,
+              { documento: resultado.documentoTransformado }, // Contexto del documento padre
+              {
+                tipo: 'TRANSFORMACION',
+                contexto: 'IMPUESTO_DOCUMENTO',
+                logExecution
+              }
+            );
+            resultado.impuestosTransformados.push(impuestoResult.data);
+            resultado.reglasAplicadas.impuestos += impuestoResult.rulesApplied;
+          }
+
+          console.log(`  ✅ Impuestos: ${resultado.reglasAplicadas.impuestos} reglas aplicadas en total`);
+        } else {
+          resultado.impuestosTransformados = documento.documento_impuestos;
+          console.log(`  ℹ️ No hay reglas TRANSFORMACION activas para impuestos`);
+        }
+
+        // 3.5. Aplicar reglas de VALIDACION a cada impuesto
+        await this.loadRules('VALIDACION', false);
+        if (this.rules.length > 0) {
+          console.log(`  🔍 Aplicando ${this.rules.length} reglas de validación a cada impuesto...`);
+
+          for (let i = 0; i < resultado.impuestosTransformados.length; i++) {
+            const impuesto = resultado.impuestosTransformados[i];
+            const validationResult = await this.applyRules(
+              impuesto,
+              { documento: resultado.documentoTransformado },
+              {
+                tipo: 'VALIDACION',
+                contexto: 'IMPUESTO_DOCUMENTO',
+                logExecution
+              }
+            );
+
+            if (validationResult.hasValidationErrors) {
+              resultado.allValidationErrors.impuestos.push(...validationResult.validationErrors);
+              resultado.validationErrors.push(...validationResult.validationErrors.map(err => ({
+                ...err,
+                origen: `impuesto ${i + 1}`,
+                impuestoIndex: i,
+                documentoId: documento.id,
+                nombreArchivo: documento.nombreArchivo
+              })));
+            }
+          }
+
+          const impuestosConErrores = resultado.allValidationErrors.impuestos.length;
+          if (impuestosConErrores > 0) {
+            console.log(`  ⚠️ Impuestos: ${impuestosConErrores} validación(es) fallida(s)`);
+          } else {
+            console.log(`  ✅ Impuestos: todas las validaciones pasaron`);
+          }
+        }
+      }
+
+      // Reconstruir el documento completo con datos transformados
+      const documentoCompleto = {
+        ...resultado.documentoTransformado,
+        documento_lineas: resultado.lineasTransformadas,
+        documento_impuestos: resultado.impuestosTransformados
+      };
+
+      // Resumen de validaciones
+      const totalValidationErrors = resultado.validationErrors.length;
+      const bloqueantes = resultado.validationErrors.filter(e => e.severidad === 'BLOQUEANTE').length;
+      const errores = resultado.validationErrors.filter(e => e.severidad === 'ERROR').length;
+      const warnings = resultado.validationErrors.filter(e => e.severidad === 'WARNING').length;
+
+      if (totalValidationErrors > 0) {
+        console.log(`⚠️ Documento ${documento.id}: ${totalValidationErrors} validación(es) fallida(s) (${bloqueantes} bloqueantes, ${errores} errores, ${warnings} warnings)`);
+      }
+
+      console.log(`✅ Documento ${documento.id} procesado: ${resultado.reglasAplicadas.documento} reglas doc, ${resultado.reglasAplicadas.lineas} reglas líneas, ${resultado.reglasAplicadas.impuestos} reglas impuestos, ${resultado.reglasAplicadas.validaciones} validaciones`);
+
+      return {
+        documento: documentoCompleto,
+        reglasAplicadas: resultado.reglasAplicadas,
+        totalReglasAplicadas:
+          resultado.reglasAplicadas.documento +
+          resultado.reglasAplicadas.lineas +
+          resultado.reglasAplicadas.impuestos +
+          resultado.reglasAplicadas.validaciones,
+        validationErrors: resultado.validationErrors,
+        allValidationErrors: resultado.allValidationErrors,
+        hasValidationErrors: totalValidationErrors > 0,
+        isValid: bloqueantes === 0 && errores === 0,
+        validationSummary: {
+          total: totalValidationErrors,
+          bloqueantes,
+          errores,
+          warnings
+        }
+      };
+
+    } catch (error) {
+      console.error(`❌ Error aplicando reglas al documento ${documento.id}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Aplicar reglas a múltiples documentos en batch
+   */
+  async applyRulesToDocuments(documentos, options = {}) {
+    console.log(`🔄 Aplicando reglas a ${documentos.length} documentos...`);
+
+    const resultados = [];
+    let totalReglasAplicadas = 0;
+
+    for (const documento of documentos) {
+      const resultado = await this.applyRulesToDocument(documento, options);
+      resultados.push(resultado);
+      totalReglasAplicadas += resultado.totalReglasAplicadas;
+    }
+
+    console.log(`✅ Procesamiento completado: ${totalReglasAplicadas} reglas aplicadas en total`);
+
+    return {
+      documentos: resultados.map(r => r.documento),
+      totalReglasAplicadas,
+      detallesPorDocumento: resultados.map(r => ({
+        documento: r.reglasAplicadas.documento,
+        lineas: r.reglasAplicadas.lineas,
+        impuestos: r.reglasAplicadas.impuestos,
+        total: r.totalReglasAplicadas
+      }))
+    };
   }
 
   /**

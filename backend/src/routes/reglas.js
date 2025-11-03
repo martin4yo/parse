@@ -73,7 +73,7 @@ router.post('/',
   [
     body('codigo').notEmpty().withMessage('Código es requerido'),
     body('nombre').notEmpty().withMessage('Nombre es requerido'),
-    body('tipo').isIn(['IMPORTACION_DKT', 'VALIDACION', 'TRANSFORMACION', 'TRANSFORMACION_DOCUMENTO', 'GRID_AUTOCOMPLETE']).withMessage('Tipo inválido'),
+    body('tipo').isIn(['VALIDACION', 'TRANSFORMACION', 'TRANSFORMACION_DOCUMENTO', 'GRID_AUTOCOMPLETE']).withMessage('Tipo inválido'),
     body('configuracion').isObject().withMessage('Configuración debe ser un objeto válido'),
     body('prioridad').optional().isInt({ min: 1 }).withMessage('Prioridad debe ser un número entero positivo')
   ],
@@ -96,11 +96,31 @@ router.post('/',
         return res.status(400).json({ error: 'Ya existe una regla con ese código' });
       }
 
-      // Validar configuración básica
-      if (!configuracion.condiciones && !configuracion.acciones) {
-        return res.status(400).json({ 
-          error: 'La configuración debe tener al menos condiciones o acciones' 
-        });
+      // Validar configuración según tipo de regla
+      if (tipo === 'VALIDACION') {
+        // Reglas de validación requieren condiciones, mensaje y severidad
+        if (!configuracion.condiciones || configuracion.condiciones.length === 0) {
+          return res.status(400).json({
+            error: 'Las reglas de validación deben tener al menos una condición'
+          });
+        }
+        if (!configuracion.mensajeError) {
+          return res.status(400).json({
+            error: 'Las reglas de validación deben tener un mensajeError'
+          });
+        }
+        if (!configuracion.severidad || !['BLOQUEANTE', 'ERROR', 'WARNING'].includes(configuracion.severidad)) {
+          return res.status(400).json({
+            error: 'Las reglas de validación deben tener una severidad válida (BLOQUEANTE, ERROR o WARNING)'
+          });
+        }
+      } else {
+        // Reglas de transformación requieren condiciones o acciones
+        if (!configuracion.condiciones && !configuracion.acciones) {
+          return res.status(400).json({
+            error: 'La configuración debe tener al menos condiciones o acciones'
+          });
+        }
       }
 
       const regla = await prisma.reglas_negocio.create({
@@ -115,7 +135,8 @@ router.post('/',
           fechaVigencia: fechaVigencia ? new Date(fechaVigencia) : null,
           activa: activa !== undefined ? activa : true,
           createdBy: userId,
-          tenantId: req.tenantId
+          tenantId: req.tenantId,
+          updatedAt: new Date()
         }
       });
 
@@ -138,7 +159,7 @@ router.put('/:id',
     param('id').isLength({ min: 1 }).withMessage('ID inválido'),
     body('codigo').optional().notEmpty().withMessage('Código no puede estar vacío'),
     body('nombre').optional().notEmpty().withMessage('Nombre no puede estar vacío'),
-    body('tipo').optional().isIn(['IMPORTACION_DKT', 'VALIDACION', 'TRANSFORMACION', 'TRANSFORMACION_DOCUMENTO', 'GRID_AUTOCOMPLETE']).withMessage('Tipo inválido'),
+    body('tipo').optional().isIn(['VALIDACION', 'TRANSFORMACION', 'TRANSFORMACION_DOCUMENTO', 'GRID_AUTOCOMPLETE']).withMessage('Tipo inválido'),
     body('configuracion').optional().isObject().withMessage('Configuración debe ser un objeto válido'),
     body('prioridad').optional().isInt({ min: 1 }).withMessage('Prioridad debe ser un número entero positivo')
   ],
@@ -173,9 +194,41 @@ router.put('/:id',
         }
       }
 
+      // Validar configuración si se está actualizando
+      if (configuracion !== undefined) {
+        const tipoRegla = tipo || existingRule.tipo;
+
+        if (tipoRegla === 'VALIDACION') {
+          // Reglas de validación requieren condiciones, mensaje y severidad
+          if (!configuracion.condiciones || configuracion.condiciones.length === 0) {
+            return res.status(400).json({
+              error: 'Las reglas de validación deben tener al menos una condición'
+            });
+          }
+          if (!configuracion.mensajeError) {
+            return res.status(400).json({
+              error: 'Las reglas de validación deben tener un mensajeError'
+            });
+          }
+          if (!configuracion.severidad || !['BLOQUEANTE', 'ERROR', 'WARNING'].includes(configuracion.severidad)) {
+            return res.status(400).json({
+              error: 'Las reglas de validación deben tener una severidad válida (BLOQUEANTE, ERROR o WARNING)'
+            });
+          }
+        } else {
+          // Reglas de transformación requieren condiciones o acciones
+          if (!configuracion.condiciones && !configuracion.acciones) {
+            return res.status(400).json({
+              error: 'La configuración debe tener al menos condiciones o acciones'
+            });
+          }
+        }
+      }
+
       const updateData = {
         updatedBy: userId,
-        version: existingRule.version + 1
+        version: existingRule.version + 1,
+        updatedAt: new Date()
       };
 
       if (codigo !== undefined) updateData.codigo = codigo;
@@ -312,7 +365,6 @@ router.get('/:id/ejecuciones', authWithTenant, async (req, res) => {
 // GET /reglas/tipos - Obtener tipos de reglas disponibles
 router.get('/meta/tipos', authWithTenant, async (req, res) => {
   res.json([
-    { codigo: 'IMPORTACION_DKT', nombre: 'Importación de DKT', descripcion: 'Reglas aplicadas durante la importación de archivos DKT' },
     { codigo: 'VALIDACION', nombre: 'Validación', descripcion: 'Reglas de validación de datos' },
     { codigo: 'TRANSFORMACION', nombre: 'Transformación', descripcion: 'Reglas de transformación de datos' },
     { codigo: 'TRANSFORMACION_DOCUMENTO', nombre: 'Transformación Pre-Exportación', descripcion: 'Reglas aplicadas a documentos antes de exportarlos' },

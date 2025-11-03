@@ -43,7 +43,8 @@ router.get('/', async (req, res) => {
             id: true,
             codigo: true,
             nombre: true,
-            precio: true
+            precio: true,
+            color: true
           }
         },
         _count: {
@@ -276,7 +277,8 @@ router.put('/:id', async (req, res) => {
             id: true,
             codigo: true,
             nombre: true,
-            precio: true
+            precio: true,
+            color: true
           }
         }
       }

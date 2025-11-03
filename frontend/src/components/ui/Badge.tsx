@@ -2,9 +2,10 @@ interface BadgeProps {
   children: React.ReactNode;
   className?: string;
   variant?: 'default' | 'secondary' | 'outline' | 'destructive';
+  style?: React.CSSProperties;
 }
 
-export function Badge({ children, className = '', variant = 'default' }: BadgeProps) {
+export function Badge({ children, className = '', variant = 'default', style }: BadgeProps) {
   const baseStyles = 'inline-flex items-center px-2 py-1 text-xs font-medium rounded-full';
 
   const variants = {
@@ -17,7 +18,7 @@ export function Badge({ children, className = '', variant = 'default' }: BadgePr
   const combinedClassName = `${baseStyles} ${variants[variant]} ${className}`.trim();
 
   return (
-    <span className={combinedClassName}>
+    <span className={combinedClassName} style={style}>
       {children}
     </span>
   );
