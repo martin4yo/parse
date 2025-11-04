@@ -9,10 +9,12 @@ const DocumentProcessor = require('../lib/documentProcessor');
 const { authWithTenant } = require('../middleware/authWithTenant');
 const orchestrator = require('../services/documentExtractionOrchestrator');
 const BusinessRulesEngine = require('../services/businessRulesEngine');
+const ImageProcessor = require('../services/imageProcessor');
 
 const router = express.Router();
 const prisma = new PrismaClient();
 const documentProcessor = new DocumentProcessor();
+const imageProcessor = new ImageProcessor();
 
 // Función helper para validar y completar campos en la asociación
 async function validateAndUpdateAssociation(documento, resumen_tarjeta, userId) {
@@ -2185,6 +2187,21 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo) {
       if (tipoArchivo === 'pdf') {
         return await documentProcessor.processPDF(filePath);
       } else {
+        // Pre-procesar imagen con ImageProcessor para optimizar tamaño y mejorar OCR
+        try {
+          console.log('🔧 Pre-procesando imagen con ImageProcessor...');
+          const imageResult = await imageProcessor.processImage(filePath);
+
+          if (imageResult.success && imageResult.processed) {
+            console.log(`✅ Imagen optimizada: ${imageResult.sizeReduction}% reducción, OCR enhanced: ${imageResult.ocrEnhanced}`);
+          } else if (imageResult.success && !imageResult.processed) {
+            console.log('ℹ️  Imagen mantenida sin cambios (tamaño original mejor)');
+          }
+        } catch (imageError) {
+          console.warn('⚠️  Error en pre-procesamiento de imagen, continuando con original:', imageError.message);
+          // No fallar si el pre-procesamiento tiene un error, continuar con imagen original
+        }
+
         return await documentProcessor.processImage(filePath);
       }
     };
