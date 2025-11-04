@@ -2489,6 +2489,17 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo) {
       }
     }
 
+    // Limpiar archivos temporales de optimización
+    try {
+      const imageOptimizationService = require('../services/imageOptimizationService');
+      const uploadsDir = path.dirname(filePath);
+      imageOptimizationService.cleanTempFiles(uploadsDir, 5); // Limpiar archivos temporales más viejos de 5 minutos
+      console.log('🧹 Limpieza de archivos temporales completada');
+    } catch (cleanupError) {
+      console.warn('⚠️  Error limpiando archivos temporales:', cleanupError.message);
+      // No fallar el procesamiento por error de limpieza
+    }
+
     // Documento procesado correctamente
     console.log('✅ Documento procesado correctamente');
 

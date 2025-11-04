@@ -5,6 +5,7 @@ const { createWorker } = require('tesseract.js');
 const sharp = require('sharp');
 const promptManager = require('../services/promptManager');
 const documentAIProcessor = require('../services/documentAIProcessor');
+const imageOptimizationService = require('../services/imageOptimizationService');
 
 class DocumentProcessor {
   constructor() {
@@ -48,20 +49,23 @@ class DocumentProcessor {
 
   async processImage(filePath) {
     try {
-      // Optimizar imagen para OCR
-      const processedImagePath = path.join(path.dirname(filePath), 'processed_' + path.basename(filePath));
-      
-      await sharp(filePath)
-        .resize({ width: 2000, height: 2000, fit: 'inside', withoutEnlargement: true })
-        .greyscale()
-        .normalize()
-        .sharpen()
-        .png()
-        .toFile(processedImagePath);
+      console.log('🖼️  Procesando imagen con optimización avanzada...');
 
+      // Usar el nuevo servicio de optimización para OCR
+      const optimizationResult = await imageOptimizationService.smartProcess(filePath, 'ocr');
+
+      if (!optimizationResult.success) {
+        throw new Error(`Fallo en optimización: ${optimizationResult.error}`);
+      }
+
+      const processedImagePath = optimizationResult.path;
+
+      // OCR con Tesseract
       const worker = await this.initTesseract();
       const { data: { text } } = await worker.recognize(processedImagePath);
-      
+
+      console.log(`✅ OCR completado: ${text.length} caracteres extraídos`);
+
       // Limpiar archivo temporal
       if (fs.existsSync(processedImagePath)) {
         fs.unlinkSync(processedImagePath);
@@ -242,7 +246,8 @@ class DocumentProcessor {
       if (filePath && process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY !== 'tu-api-key-aqui' && process.env.USE_CLAUDE_VISION === 'true') {
         try {
           console.log('🎯 Intentando extracción con Claude Vision (PRIORIDAD - lee imágenes embebidas)...');
-          const data = await this.extractWithClaudeVision(filePath, tenantId);
+          // Pasar el texto del documento para clasificación
+          const data = await this.extractWithClaudeVision(filePath, tenantId, text);
           if (data) {
             console.log('✅ Extracción exitosa con Claude Vision');
             // Validar y corregir valores
@@ -423,14 +428,21 @@ class DocumentProcessor {
   }
 
   /**
-   * Extraer datos con Claude (con visión)
-   * Lee PDFs directamente, incluyendo imágenes embebidas
+   * Extraer datos con Claude Vision usando PIPELINE de 2 pasos
+   * PASO 1: Clasifica el documento
+   * PASO 2: Extrae con prompt especializado según el tipo
+   *
+   * Lee PDFs e imágenes directamente
    */
-  async extractWithClaudeVision(pdfPath, tenantId = null) {
+  async extractWithClaudeVision(pdfPath, tenantId = null, documentText = null) {
+    let optimizedPath = null;
+
     try {
-      console.log('🎯 Intentando extracción con Claude Vision...');
+      console.log('\n📊 ===== CLAUDE VISION CON PIPELINE =====');
+      console.log('🎯 Intentando extracción con Claude Vision (Pipeline 2 pasos)...');
 
       const aiConfigService = require('../services/aiConfigService');
+      const classifierService = require('../services/classifierService');
 
       // Obtener configuración del proveedor (incluye API key y modelo)
       const config = await aiConfigService.getProviderConfig('anthropic', tenantId);
@@ -440,48 +452,128 @@ class DocumentProcessor {
         apiKey: config.apiKey,
       });
 
-      // Leer PDF directamente
-      console.log('📄 Leyendo PDF...');
-      const pdfBuffer = fs.readFileSync(pdfPath);
-      const pdfSizeKB = (pdfBuffer.length / 1024).toFixed(2);
-      console.log(`   Tamaño del PDF: ${pdfSizeKB} KB`);
+      // Detectar tipo de archivo
+      const ext = path.extname(pdfPath).toLowerCase();
+      const isImage = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'].includes(ext);
+      const isPDF = ext === '.pdf';
 
-      const base64PDF = pdfBuffer.toString('base64');
+      let fileBuffer;
+      let mediaType;
+      let originalSizeKB;
 
-      // Verificar si el PDF es muy grande (> 10MB puede causar timeout)
-      if (pdfBuffer.length > 10 * 1024 * 1024) {
-        console.warn(`⚠️  PDF grande (${pdfSizeKB} KB). Puede tardar más de lo normal.`);
+      if (isImage) {
+        // Optimizar imagen para IA
+        console.log('🖼️  Optimizando imagen para Claude Vision...');
+        const optimizationResult = await imageOptimizationService.smartProcess(pdfPath, 'ai');
+
+        if (optimizationResult.success) {
+          optimizedPath = optimizationResult.path;
+          fileBuffer = fs.readFileSync(optimizedPath);
+          originalSizeKB = (optimizationResult.originalSize / 1024).toFixed(2);
+          const optimizedSizeKB = (fileBuffer.length / 1024).toFixed(2);
+          console.log(`   ✅ Imagen optimizada: ${originalSizeKB} KB → ${optimizedSizeKB} KB (${optimizationResult.reduction}% reducción)`);
+
+          // Determinar media type según la extensión del archivo optimizado
+          const optimizedExt = path.extname(optimizedPath).toLowerCase();
+          mediaType = optimizedExt === '.png' ? 'image/png' : 'image/jpeg';
+        } else {
+          console.warn('⚠️  Fallo en optimización, usando imagen original');
+          fileBuffer = fs.readFileSync(pdfPath);
+          mediaType = ext === '.png' ? 'image/png' : 'image/jpeg';
+          originalSizeKB = (fileBuffer.length / 1024).toFixed(2);
+        }
+      } else if (isPDF) {
+        // Leer PDF directamente
+        console.log('📄 Leyendo PDF...');
+        fileBuffer = fs.readFileSync(pdfPath);
+        originalSizeKB = (fileBuffer.length / 1024).toFixed(2);
+        console.log(`   Tamaño del PDF: ${originalSizeKB} KB`);
+
+        // Verificar si el PDF es muy grande (> 10MB puede causar timeout)
+        if (fileBuffer.length > 10 * 1024 * 1024) {
+          console.warn(`⚠️  PDF grande (${originalSizeKB} KB). Puede tardar más de lo normal.`);
+        }
+
+        mediaType = 'application/pdf';
+      } else {
+        throw new Error(`Tipo de archivo no soportado: ${ext}`);
       }
 
-      // Obtener prompt
+      const base64Data = fileBuffer.toString('base64');
+
+      // ===== PASO 1: CLASIFICAR DOCUMENTO =====
+      console.log('\n┌─────────────────────────────────────────┐');
+      console.log('│  PASO 1: CLASIFICACIÓN DE DOCUMENTO    │');
+      console.log('└─────────────────────────────────────────┘');
+
+      let clasificacion = null;
+      let promptKey = 'EXTRACCION_FACTURA_CLAUDE'; // Fallback por defecto
+
+      // Intentar clasificar si tenemos texto del documento
+      if (documentText) {
+        try {
+          clasificacion = await classifierService.classify(documentText, tenantId);
+          console.log(`📋 Tipo detectado: ${clasificacion.tipoDocumento}`);
+          console.log(`📊 Confianza: ${(clasificacion.confianza * 100).toFixed(1)}%`);
+          console.log(`🤖 Motor clasificador: ${clasificacion.motorUsado || 'N/A'}`);
+
+          // Mapear tipo a prompt especializado
+          promptKey = this.getPromptKeyForClaudeVision(clasificacion.tipoDocumento);
+          console.log(`📝 Prompt mapeado: ${promptKey}`);
+        } catch (classifyError) {
+          console.warn('⚠️  Error en clasificación, usando prompt genérico:', classifyError.message);
+        }
+      } else {
+        console.log('ℹ️  No hay texto del documento, usando prompt genérico de Claude');
+      }
+
+      // ===== PASO 2: EXTRAER CON PROMPT ESPECIALIZADO =====
+      console.log('\n┌─────────────────────────────────────────┐');
+      console.log('│  PASO 2: EXTRACCIÓN DE DATOS           │');
+      console.log('└─────────────────────────────────────────┘');
+
+      // Obtener prompt especializado
       const promptTemplate = await promptManager.getPromptText(
-        'EXTRACCION_FACTURA_CLAUDE',
+        promptKey,
         {},
         tenantId,
         'anthropic'
       );
 
       if (!promptTemplate) {
-        console.error('❌ Prompt EXTRACCION_FACTURA_CLAUDE no encontrado');
-        return null;
+        console.error(`❌ Prompt ${promptKey} no encontrado, usando fallback`);
+        // Último fallback: usar prompt universal si existe
+        const fallbackPrompt = await promptManager.getPromptText(
+          'EXTRACCION_UNIVERSAL',
+          {},
+          tenantId,
+          'anthropic'
+        );
+
+        if (!fallbackPrompt) {
+          throw new Error('No se encontró ningún prompt disponible para extracción');
+        }
+
+        promptTemplate = fallbackPrompt;
       }
 
-      // Llamar a Claude con PDF (lee texto e imágenes)
-      console.log(`🤖 Llamando a Claude (${config.modelo}) con PDF...`);
+      // Llamar a Claude Vision con documento y prompt especializado
+      console.log(`🤖 Llamando a Claude Vision (${config.modelo}) con ${isImage ? 'imagen' : 'PDF'}...`);
+      console.log(`📝 Usando prompt: ${promptKey}`);
       const startTime = Date.now();
 
       const response = await anthropic.messages.create({
-        model: config.modelo, // Modelo configurado por el tenant o default
-        max_tokens: 4096, // Tokens suficientes para respuesta completa
+        model: config.modelo,
+        max_tokens: 4096,
         messages: [{
           role: 'user',
           content: [
             {
-              type: 'document',
+              type: isImage ? 'image' : 'document',
               source: {
                 type: 'base64',
-                media_type: 'application/pdf',
-                data: base64PDF
+                media_type: mediaType,
+                data: base64Data
               }
             },
             {
@@ -508,14 +600,66 @@ class DocumentProcessor {
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(1);
       console.log(`✅ Claude Vision extracción exitosa en ${duration}s`);
-      await promptManager.registrarResultado('EXTRACCION_FACTURA_CLAUDE', true, tenantId, 'anthropic');
+      console.log(`   Tipo documento: ${clasificacion?.tipoDocumento || 'Genérico'}`);
+      console.log(`   Prompt usado: ${promptKey}`);
+
+      await promptManager.registrarResultado(promptKey, true, tenantId, 'anthropic');
+
+      // Agregar metadata de clasificación al resultado
+      if (clasificacion) {
+        result._metadata = {
+          tipoDocumento: clasificacion.tipoDocumento,
+          confianzaClasificacion: clasificacion.confianza,
+          promptUtilizado: promptKey
+        };
+      }
+
+      console.log('✅ ===== PIPELINE CLAUDE VISION COMPLETADO =====\n');
 
       return result;
     } catch (error) {
-      console.error('❌ Error con Claude Vision:', error.message);
-      await promptManager.registrarResultado('EXTRACCION_FACTURA_CLAUDE', false, tenantId, 'anthropic').catch(() => {});
+      console.error('❌ Error con Claude Vision (Pipeline):', error.message);
+      const promptKey = 'EXTRACCION_FACTURA_CLAUDE'; // Para logging
+      await promptManager.registrarResultado(promptKey, false, tenantId, 'anthropic').catch(() => {});
       return null;
+    } finally {
+      // Limpiar archivo optimizado temporal
+      if (optimizedPath && fs.existsSync(optimizedPath)) {
+        try {
+          fs.unlinkSync(optimizedPath);
+          console.log('🧹 Archivo optimizado temporal eliminado');
+        } catch (cleanupError) {
+          console.warn('⚠️  Error limpiando archivo temporal:', cleanupError.message);
+        }
+      }
     }
+  }
+
+  /**
+   * Mapea el tipo de documento detectado a la clave de prompt de Claude Vision
+   * Similar a getPromptKeyForType pero para prompts de Claude
+   *
+   * @param {string} tipoDocumento - Tipo detectado por el clasificador
+   * @returns {string} - Clave del prompt a usar
+   */
+  getPromptKeyForClaudeVision(tipoDocumento) {
+    const mapping = {
+      'FACTURA_A': 'EXTRACCION_FACTURA_A',
+      'FACTURA_B': 'EXTRACCION_FACTURA_B',
+      'FACTURA_C': 'EXTRACCION_FACTURA_C',
+      'DESPACHO_ADUANA': 'EXTRACCION_DESPACHO_ADUANA',
+      'COMPROBANTE_IMPORTACION': 'EXTRACCION_COMPROBANTE_IMPORTACION',
+      'NOTA_CREDITO': 'EXTRACCION_FACTURA_A', // Usar mismo que Factura A
+      'NOTA_DEBITO': 'EXTRACCION_FACTURA_A',
+      'TICKET': 'EXTRACCION_FACTURA_C', // Usar mismo que Factura C
+      'RECIBO': 'EXTRACCION_FACTURA_C'
+    };
+
+    const promptKey = mapping[tipoDocumento] || 'EXTRACCION_FACTURA_CLAUDE';
+
+    console.log(`   🗺️  Mapeo: ${tipoDocumento} → ${promptKey}`);
+
+    return promptKey;
   }
 
   async extractWithAnthropic(text, retries = 2) {

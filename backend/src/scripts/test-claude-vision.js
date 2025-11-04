@@ -55,16 +55,29 @@ async function testClaudeVision() {
   console.log(`   ✅ PDF encontrado: ${path.basename(testPDF)}`);
   console.log(`   Tamaño: ${(fs.statSync(testPDF).size / 1024).toFixed(2)} KB\n`);
 
-  // 3. Probar Claude Vision
-  console.log('📋 PASO 3: Probar extracción con Claude Vision\n');
+  // 3. Extraer texto del PDF (para clasificación)
+  console.log('📋 PASO 3: Extraer texto del PDF para clasificación\n');
+
+  const processor = new DocumentProcessor();
+  const pdfResult = await processor.processPDF(testPDF);
+
+  if (!pdfResult.success) {
+    console.error('   ❌ Error extrayendo texto del PDF:', pdfResult.error);
+    console.log('   ℹ️  Continuando sin texto (usará prompt genérico)...');
+  } else {
+    console.log(`   ✅ Texto extraído: ${pdfResult.text.length} caracteres\n`);
+  }
+
+  // 4. Probar Claude Vision con Pipeline
+  console.log('📋 PASO 4: Probar extracción con Claude Vision (Pipeline 2 pasos)\n');
   console.log('   ⏳ Procesando (esto puede tomar 10-30 segundos)...\n');
 
   try {
-    const processor = new DocumentProcessor();
     const startTime = Date.now();
 
-    // Llamar directamente al método extractWithClaudeVision
-    const result = await processor.extractWithClaudeVision(testPDF, null);
+    // Llamar a extractWithClaudeVision con texto para pipeline completo
+    const documentText = pdfResult.success ? pdfResult.text : null;
+    const result = await processor.extractWithClaudeVision(testPDF, null, documentText);
     const duration = Date.now() - startTime;
 
     if (result) {
