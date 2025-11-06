@@ -113,8 +113,7 @@ router.post('/', [
   body('nombre').isLength({ min: 1 }).trim(),
   body('apellido').isLength({ min: 1 }).trim(),
   body('profileId').optional().isString(),
-  body('recibeNotificacionesEmail').optional().isBoolean(),
-  body('esUsuarioTesoreria').optional().isBoolean()
+  body('recibeNotificacionesEmail').optional().isBoolean()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -122,7 +121,7 @@ router.post('/', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { email, password, nombre, apellido, profileId, recibeNotificacionesEmail, esUsuarioTesoreria } = req.body;
+    const { email, password, nombre, apellido, profileId, recibeNotificacionesEmail } = req.body;
 
     // Verificar que el email no esté en uso dentro del tenant
     const existingUser = await prisma.users.findUnique({
@@ -158,7 +157,6 @@ router.post('/', [
       nombre,
       apellido,
       recibeNotificacionesEmail: recibeNotificacionesEmail || false,
-      esUsuarioTesoreria: esUsuarioTesoreria || false,
       updatedAt: now
     };
 
@@ -210,8 +208,7 @@ router.put('/:id', [
   body('nombre').optional().isLength({ min: 1 }).trim(),
   body('apellido').optional().isLength({ min: 1 }).trim(),
   body('profileId').optional().isString(),
-  body('recibeNotificacionesEmail').optional().isBoolean(),
-  body('esUsuarioTesoreria').optional().isBoolean()
+  body('recibeNotificacionesEmail').optional().isBoolean()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -220,7 +217,7 @@ router.put('/:id', [
     }
 
     const { id } = req.params;
-    const { email, password, nombre, apellido, profileId, activo, recibeNotificacionesEmail, esUsuarioTesoreria } = req.body;
+    const { email, password, nombre, apellido, profileId, activo, recibeNotificacionesEmail } = req.body;
 
     // Verificar que el usuario existe en el tenant
     const existingUser = await prisma.users.findUnique({
@@ -276,7 +273,6 @@ router.put('/:id', [
 
     if (activo !== undefined) updateData.activo = activo;
     if (recibeNotificacionesEmail !== undefined) updateData.recibeNotificacionesEmail = recibeNotificacionesEmail;
-    if (esUsuarioTesoreria !== undefined) updateData.esUsuarioTesoreria = esUsuarioTesoreria;
 
     // Hashear la nueva contraseña si se proporciona
     if (password) {
