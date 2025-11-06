@@ -196,7 +196,25 @@ router.post('/', [
 
   } catch (error) {
     console.error('Create user error:', error);
-    res.status(500).json({ error: 'Error del servidor' });
+    console.error('Error code:', error.code);
+    console.error('Error meta:', JSON.stringify(error.meta));
+
+    // Manejar error de email duplicado (Prisma unique constraint)
+    if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
+      console.log('Enviando mensaje de email duplicado');
+      return res.status(400).json({
+        error: 'El email ya está siendo utilizado por otro usuario. Por favor, usa un email diferente.'
+      });
+    }
+
+    // Manejar error de Google ID duplicado
+    if (error.code === 'P2002' && error.meta?.target?.includes('googleId')) {
+      return res.status(400).json({
+        error: 'Esta cuenta de Google ya está vinculada a otro usuario.'
+      });
+    }
+
+    res.status(500).json({ error: 'Error al crear el usuario' });
   }
 });
 
@@ -305,7 +323,22 @@ router.put('/:id', [
 
   } catch (error) {
     console.error('Update user error:', error);
-    res.status(500).json({ error: 'Error del servidor' });
+
+    // Manejar error de email duplicado (Prisma unique constraint)
+    if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
+      return res.status(400).json({
+        error: 'El email ya está siendo utilizado por otro usuario. Por favor, usa un email diferente.'
+      });
+    }
+
+    // Manejar error de Google ID duplicado
+    if (error.code === 'P2002' && error.meta?.target?.includes('googleId')) {
+      return res.status(400).json({
+        error: 'Esta cuenta de Google ya está vinculada a otro usuario.'
+      });
+    }
+
+    res.status(500).json({ error: 'Error al actualizar el usuario' });
   }
 });
 

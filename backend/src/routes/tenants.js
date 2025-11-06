@@ -194,6 +194,23 @@ router.post('/', async (req, res) => {
     });
   } catch (error) {
     console.error('Error al crear tenant:', error);
+
+    // Manejar error de slug duplicado (Prisma unique constraint)
+    if (error.code === 'P2002' && error.meta?.target?.includes('slug')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Ya existe un tenant con ese slug. Por favor, elige un slug diferente.'
+      });
+    }
+
+    // Manejar error de CUIT duplicado
+    if (error.code === 'P2002' && error.meta?.target?.includes('cuit')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Ya existe un tenant con ese CUIT. Por favor, verifica los datos.'
+      });
+    }
+
     res.status(500).json({
       success: false,
       error: error.message,
@@ -300,6 +317,23 @@ router.put('/:id', async (req, res) => {
     });
   } catch (error) {
     console.error('Error al actualizar tenant:', error);
+
+    // Manejar error de slug duplicado (Prisma unique constraint)
+    if (error.code === 'P2002' && error.meta?.target?.includes('slug')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Ya existe un tenant con ese slug. Por favor, elige un slug diferente.'
+      });
+    }
+
+    // Manejar error de CUIT duplicado
+    if (error.code === 'P2002' && error.meta?.target?.includes('cuit')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Ya existe un tenant con ese CUIT. Por favor, verifica los datos.'
+      });
+    }
+
     res.status(500).json({
       success: false,
       error: error.message,

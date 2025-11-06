@@ -271,8 +271,10 @@ export default function UsuariosPage() {
           setSelectedUser(updatedUser);
         }
       }
-    } catch (error) {
-      toast.error('Error al guardar usuario');
+    } catch (error: any) {
+      // Extraer mensaje de error específico del backend
+      const errorMessage = error.response?.data?.error || 'Error al guardar usuario';
+      toast.error(errorMessage);
       console.error('Error saving user:', error);
     } finally {
       setLoading(false);
@@ -301,8 +303,9 @@ export default function UsuariosPage() {
       setShowAtributoModal(false);
       atributoForm.reset();
       await loadUserAtributos(selectedUser.id);
-    } catch (error) {
-      toast.error('Error al guardar atributo del usuario');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Error al guardar atributo del usuario';
+      toast.error(errorMessage);
       console.error('Error saving user atributo:', error);
     } finally {
       setLoading(false);
@@ -324,8 +327,9 @@ export default function UsuariosPage() {
         const remainingUsers = users.filter(u => u.id !== user.id);
         setSelectedUser(remainingUsers.length > 0 ? remainingUsers[0] : null);
       }
-    } catch (error) {
-      toast.error('Error al eliminar usuario');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Error al eliminar usuario';
+      toast.error(errorMessage);
       console.error('Error deleting user:', error);
     } finally {
       setLoading(false);
@@ -344,8 +348,9 @@ export default function UsuariosPage() {
         await loadUserAtributos(selectedUser.id);
       }
       toast.success('Atributo removido del usuario correctamente');
-    } catch (error) {
-      toast.error('Error al eliminar atributo');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Error al eliminar atributo';
+      toast.error(errorMessage);
       console.error('Error deleting user atributo:', error);
     } finally {
       setLoading(false);
@@ -367,8 +372,9 @@ export default function UsuariosPage() {
       if (selectedUser && selectedUser.id === user.id) {
         setSelectedUser(prev => prev ? { ...prev, activo: response.user.activo } : null);
       }
-    } catch (error) {
-      toast.error('Error al cambiar estado del usuario');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Error al cambiar estado del usuario';
+      toast.error(errorMessage);
       console.error('Error toggling user status:', error);
     } finally {
       setLoading(false);
