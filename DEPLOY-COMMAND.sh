@@ -263,7 +263,7 @@ log_info "Esperando a que los servidores inicien..."
 sleep 5
 
 # Verificar backend
-BACKEND_PORT=${PORT:-5050}
+BACKEND_PORT=${PORT:-5100}
 if curl -s "http://localhost:$BACKEND_PORT/health" > /dev/null 2>&1; then
     log_success "Backend respondiendo en puerto $BACKEND_PORT"
 else
@@ -272,7 +272,7 @@ else
 fi
 
 # Verificar frontend
-FRONTEND_PORT=8084
+FRONTEND_PORT=8087
 if curl -s "http://localhost:$FRONTEND_PORT" > /dev/null 2>&1; then
     log_success "Frontend respondiendo en puerto $FRONTEND_PORT"
 else
@@ -292,15 +292,15 @@ echo ""
 log_success "El despliegue ha finalizado"
 echo ""
 echo "Servicios desplegados:"
-echo "  - Backend:  http://localhost:5050 (parse-backend)"
-echo "  - Frontend: http://localhost:8084 (parse-frontend)"
+echo "  - Backend:  http://localhost:5100 (parse-backend)"
+echo "  - Frontend: http://localhost:8087 (parse-frontend)"
 echo ""
 echo "Próximos pasos:"
 echo "  1. Verificar logs backend:  pm2 logs parse-backend"
 echo "  2. Verificar logs frontend: pm2 logs parse-frontend"
 echo "  3. Monitorear recursos:     pm2 monit"
 echo "  4. Test manual de upload de documento"
-echo "  5. Verificar UI en http://localhost:8084"
+echo "  5. Verificar UI en http://localhost:8087"
 echo "  6. Revisar métricas en las próximas 2 horas"
 echo ""
 echo "Archivos importantes:"

@@ -1,10 +1,22 @@
 # Claude Code - Rendiciones App
 
-## 🚨 IMPORTANTE - CONFIGURACIÓN DE PUERTOS
-**PUERTOS CONFIGURADOS:**
-- Backend: **5050** (API)
+## 🚨 IMPORTANTE - CONFIGURACIÓN DE PUERTOS Y DOMINIOS
+
+**PUERTOS LOCALES:**
+- Backend: **5100** (API) - Configurado en `backend/.env` con `PORT=5100`
 - Frontend Desarrollo: **3000** (npm run dev)
-- Frontend Producción: **8084** (servidor con PM2)
+- Frontend Producción: **8087** (servidor con PM2)
+
+**DOMINIOS DE PRODUCCIÓN:**
+- Frontend: **https://parsedemo.axiomacloud.com** (Nginx → localhost:8087)
+- Backend API: **https://api.parsedemo.axiomacloud.com** (Nginx → localhost:5100)
+
+**Archivos de Configuración:**
+- `backend/.env` → `PORT=5100`, `FRONTEND_URL=https://parsedemo.axiomacloud.com`
+- `frontend/.env` → `NEXT_PUBLIC_API_URL=https://api.parsedemo.axiomacloud.com`
+- `ecosystem.config.js` → Lee variables de los archivos .env
+- `nginx-parse-frontend.conf` → Configuración Nginx para frontend
+- `nginx-parse-backend.conf` → Configuración Nginx para backend API
 
 ## Configuración y Notas de Desarrollo
 
