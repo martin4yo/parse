@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Users, UserPlus, Edit, Trash2, Settings, X, Search, UserX, UserCheck2, Mail, CheckCircle2 } from 'lucide-react';
+import { Users, UserPlus, Edit, Trash2, Settings, X, Search, UserX, UserCheck2, Mail, CheckCircle2, Banknote } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { usersApi, userAtributosApi, atributosApi, valoresAtributoApi, authApi, type User, type Profile, type UserAtributo, type Atributo, type ValorAtributo } from '@/lib/api';
 import { useForm } from 'react-hook-form';
@@ -593,7 +593,7 @@ export default function UsuariosPage() {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-text-secondary">
-                                {user.tenants ? user.tenants.nombre : 'Sin empresa'}
+                                {user.tenant ? user.tenant.nombre : 'Sin empresa'}
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">

@@ -156,7 +156,10 @@ export default function ExportarPage() {
 
         // Toast con resumen
         const { totalWarnings, totalErrors } = response.data.validaciones;
-        toast.warning(`Exportado con ${totalWarnings} warning(s) y ${totalErrors} error(es) de validación`);
+        toast(`Exportado con ${totalWarnings} warning(s) y ${totalErrors} error(es) de validación`, {
+          icon: '⚠️',
+          duration: 5000,
+        });
       } else {
         toast.success(response.data.message || `${selectedDocuments.size} documento(s) exportado(s) correctamente`);
       }

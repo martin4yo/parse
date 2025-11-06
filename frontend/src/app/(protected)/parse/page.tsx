@@ -16,6 +16,7 @@ interface DashboardMetrics {
   pendientes: number;
   exportados: number;
   conError: number;
+  asociados?: number;
 }
 
 interface DocumentoProcessado {
@@ -36,11 +37,13 @@ interface DocumentoProcessado {
   impuestosExtraido?: number;
   descuentoGlobalExtraido?: number;
   descuentoGlobalTipo?: string;
+  codigoProveedor?: string;
   monedaExtraida?: string;
   cuponExtraido?: string;
   caeExtraido?: string;
   tipoComprobanteExtraido?: string;
   observaciones?: string;
+  exportado?: boolean;
   documentosAsociados: any[];
   datosExtraidos?: any;
 }
@@ -692,7 +695,7 @@ export default function ComprobantesPage() {
       // Actualizar métricas
       setMetrics(prev => ({
         ...prev,
-        asociados: Math.max(0, prev.asociados - 1),
+        asociados: Math.max(0, (prev.asociados || 0) - 1),
         pendientes: prev.pendientes + 1
       }));
       
