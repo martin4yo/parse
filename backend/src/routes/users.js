@@ -2,6 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const { authWithTenant } = require('../middleware/authWithTenant');
 
 const router = express.Router();
@@ -146,8 +147,12 @@ router.post('/', [
     // Hashear la contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Generar ID único para el usuario
+    const userId = crypto.randomUUID();
+
     const user = await prisma.users.create({
       data: {
+        id: userId,
         email,
         password: hashedPassword,
         nombre,
