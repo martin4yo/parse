@@ -29,7 +29,7 @@ const planesRoutes = require('./routes/planes');
 const menuRoutes = require('./routes/menu');
 
 const app = express();
-const PORT = process.env.PORT || 5050;
+const PORT = process.env.PORT || 5100;
 
 // Configurar trust proxy para producción
 if (process.env.NODE_ENV === 'production') {
