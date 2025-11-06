@@ -6,7 +6,7 @@ const passport = require('passport');
 
 // Cargar variables de entorno con ruta explícita
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 // Validar variables críticas al iniciar
 if (!process.env.JWT_SECRET) {
