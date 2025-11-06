@@ -174,6 +174,7 @@ router.post('/', async (req, res) => {
 
     // Generar ID único para el tenant
     const tenantId = crypto.randomUUID();
+    const now = new Date();
 
     const tenant = await prisma.tenants.create({
       data: {
@@ -183,6 +184,7 @@ router.post('/', async (req, res) => {
         cuit,
         planId,
         activo,
+        updatedAt: now,
       },
     });
 
@@ -272,6 +274,9 @@ router.put('/:id', async (req, res) => {
     }
 
     if (activo !== undefined) updateData.activo = activo;
+
+    // Actualizar timestamp
+    updateData.updatedAt = new Date();
 
     const tenant = await prisma.tenants.update({
       where: { id },
