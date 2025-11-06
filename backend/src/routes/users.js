@@ -149,6 +149,7 @@ router.post('/', [
 
     // Generar ID único para el usuario
     const userId = crypto.randomUUID();
+    const now = new Date();
 
     const user = await prisma.users.create({
       data: {
@@ -160,7 +161,8 @@ router.post('/', [
         profileId: profileId && profileId !== '' ? profileId : null,
         recibeNotificacionesEmail: recibeNotificacionesEmail || false,
         esUsuarioTesoreria: esUsuarioTesoreria || false,
-        tenantId: req.tenantId
+        tenantId: req.tenantId,
+        updatedAt: now
       },
       include: {
         profiles: {
@@ -255,6 +257,9 @@ router.put('/:id', [
       updateData.password = await bcrypt.hash(password, 10);
     }
 
+    // Actualizar timestamp
+    updateData.updatedAt = new Date();
+
     const user = await prisma.users.update({
       where: req.filterByTenant({ id }),
       data: updateData,
@@ -297,7 +302,10 @@ router.patch('/:id/toggle-status', authWithTenant, async (req, res) => {
 
     const updatedUser = await prisma.users.update({
       where: req.filterByTenant({ id }),
-      data: { activo: !user.activo }
+      data: {
+        activo: !user.activo,
+        updatedAt: new Date()
+      }
     });
 
     res.json({ 
