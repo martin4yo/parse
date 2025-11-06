@@ -151,19 +151,33 @@ router.post('/', [
     const userId = crypto.randomUUID();
     const now = new Date();
 
+    const createData = {
+      id: userId,
+      email,
+      password: hashedPassword,
+      nombre,
+      apellido,
+      recibeNotificacionesEmail: recibeNotificacionesEmail || false,
+      esUsuarioTesoreria: esUsuarioTesoreria || false,
+      updatedAt: now
+    };
+
+    // Conectar profile si se proporciona
+    if (profileId && profileId !== '') {
+      createData.profiles = {
+        connect: { id: profileId }
+      };
+    }
+
+    // Conectar tenant si se proporciona
+    if (req.tenantId) {
+      createData.tenants = {
+        connect: { id: req.tenantId }
+      };
+    }
+
     const user = await prisma.users.create({
-      data: {
-        id: userId,
-        email,
-        password: hashedPassword,
-        nombre,
-        apellido,
-        profileId: profileId && profileId !== '' ? profileId : null,
-        recibeNotificacionesEmail: recibeNotificacionesEmail || false,
-        esUsuarioTesoreria: esUsuarioTesoreria || false,
-        tenantId: req.tenantId,
-        updatedAt: now
-      },
+      data: createData,
       include: {
         profiles: {
           select: {
@@ -244,14 +258,26 @@ router.put('/:id', [
     if (email !== undefined) updateData.email = email;
     if (nombre !== undefined) updateData.nombre = nombre;
     if (apellido !== undefined) updateData.apellido = apellido;
+
+    // Manejar perfil con sintaxis de relación
     if (profileId !== undefined) {
-      // Si profileId es una cadena vacía, establecerlo como null
-      updateData.profileId = profileId === '' ? null : profileId;
+      if (profileId === '' || profileId === null) {
+        // Desconectar perfil
+        updateData.profiles = {
+          disconnect: true
+        };
+      } else {
+        // Conectar nuevo perfil
+        updateData.profiles = {
+          connect: { id: profileId }
+        };
+      }
     }
+
     if (activo !== undefined) updateData.activo = activo;
     if (recibeNotificacionesEmail !== undefined) updateData.recibeNotificacionesEmail = recibeNotificacionesEmail;
     if (esUsuarioTesoreria !== undefined) updateData.esUsuarioTesoreria = esUsuarioTesoreria;
-    
+
     // Hashear la nueva contraseña si se proporciona
     if (password) {
       updateData.password = await bcrypt.hash(password, 10);
