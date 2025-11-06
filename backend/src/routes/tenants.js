@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
+const crypto = require('crypto');
 const prisma = new PrismaClient();
 
 /**
@@ -171,8 +172,12 @@ router.post('/', async (req, res) => {
       }
     }
 
+    // Generar ID único para el tenant
+    const tenantId = crypto.randomUUID();
+
     const tenant = await prisma.tenants.create({
       data: {
+        id: tenantId,
         nombre,
         slug,
         cuit,
