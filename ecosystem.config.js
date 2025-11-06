@@ -10,9 +10,11 @@ module.exports = {
       exec_mode: 'fork',
       env: {
         NODE_ENV: 'production',
-        // El puerto se lee del backend/.env (por defecto: 5100)
-        // Si no existe, usa 5100 como fallback
+        // IMPORTANTE: En producción, configurar estas variables en el servidor
+        // Las API keys y credenciales deben estar en backend/.env, NO aquí
+        // Este archivo debe ser editado manualmente en el servidor con las credenciales reales
       },
+      env_file: './backend/.env',
       error_file: './logs/backend-error.log',
       out_file: './logs/backend-out.log',
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
