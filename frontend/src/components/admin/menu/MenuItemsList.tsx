@@ -120,7 +120,7 @@ export function MenuItemsList({ items, loading, onEdit, onRefetch }: MenuItemsLi
     if (!confirmed) return;
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5100';
       await axios.delete(`${apiUrl}/api/menu/${item.id}`, {
         withCredentials: true,
         headers: {
@@ -152,7 +152,7 @@ export function MenuItemsList({ items, loading, onEdit, onRefetch }: MenuItemsLi
     setReordering(true);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5100';
 
       // Determinar si es un item padre o hijo
       const isParent = source.droppableId === 'root';

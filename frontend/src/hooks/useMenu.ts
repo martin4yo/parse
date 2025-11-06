@@ -35,7 +35,7 @@ export function useMenu(): UseMenuResult {
       setLoading(true);
       setError(null);
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5100';
       const response = await axios.get<MenuItem[]>(`${apiUrl}/api/menu`, {
         withCredentials: true,
         headers: {

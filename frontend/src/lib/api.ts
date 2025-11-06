@@ -3,7 +3,7 @@ import Cookies from 'js-cookie';
 
 // Usar directamente la URL del backend tanto en cliente como servidor
 const getBaseURL = () => {
-  return `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050'}/api`;
+  return `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5100'}/api`;
 };
 
 // Crear instancia de axios

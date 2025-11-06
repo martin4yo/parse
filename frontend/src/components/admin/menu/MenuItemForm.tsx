@@ -114,7 +114,7 @@ export function MenuItemForm({ item, isOpen, onClose, onSuccess, isCreating }: M
   useEffect(() => {
     const fetchParentItems = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050';
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5100';
         const response = await axios.get<MenuItem[]>(`${apiUrl}/api/menu`, {
           withCredentials: true,
           headers: {
@@ -167,7 +167,7 @@ export function MenuItemForm({ item, isOpen, onClose, onSuccess, isCreating }: M
     setLoading(true);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5100';
 
       const payload = {
         ...formData,
