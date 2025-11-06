@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Users, UserPlus, Edit, Trash2, Settings, X, Search, UserX, UserCheck2, Mail, CheckCircle2, Banknote } from 'lucide-react';
+import { Users, UserPlus, Edit, Trash2, Settings, X, Search, UserX, UserCheck2, Mail, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { usersApi, userAtributosApi, atributosApi, valoresAtributoApi, authApi, type User, type Profile, type UserAtributo, type Atributo, type ValorAtributo } from '@/lib/api';
 import { useForm } from 'react-hook-form';
@@ -17,8 +17,6 @@ const userSchema = z.object({
   nombre: z.string().min(1, 'El nombre es requerido'),
   apellido: z.string().min(1, 'El apellido es requerido'),
   profileId: z.string().optional(),
-  recibeNotificacionesEmail: z.boolean().optional(),
-  esUsuarioTesoreria: z.boolean().optional(),
   tenantId: z.string().optional(),
 });
 
@@ -69,8 +67,6 @@ export default function UsuariosPage() {
       nombre: '',
       apellido: '',
       profileId: '',
-      recibeNotificacionesEmail: false,
-      esUsuarioTesoreria: false,
       tenantId: '',
     }
   });
@@ -197,7 +193,6 @@ export default function UsuariosPage() {
       nombre: '',
       apellido: '',
       profileId: '',
-      recibeNotificacionesEmail: false,
       tenantId: '',
     });
     setShowUserModal(true);
@@ -211,8 +206,6 @@ export default function UsuariosPage() {
       nombre: user.nombre,
       apellido: user.apellido,
       profileId: user.profileId || '',
-      recibeNotificacionesEmail: user.recibeNotificacionesEmail || false,
-      esUsuarioTesoreria: user.esUsuarioTesoreria || false,
       tenantId: user.tenantId || '',
     });
     setShowUserModal(true);
@@ -569,25 +562,17 @@ export default function UsuariosPage() {
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex flex-col space-y-1">
-                                <div className="flex items-center">
-                                  {user.activo ? (
-                                    <>
-                                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2" />
-                                      <span className="text-sm font-medium text-green-700">Activo</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <div className="w-2 h-2 bg-red-500 rounded-full mr-2" />
-                                      <span className="text-sm font-medium text-red-700">Inactivo</span>
-                                    </>
-                                  )}
-                                </div>
-                                {user.esUsuarioTesoreria && (
-                                  <div className="flex items-center">
-                                    <Banknote className="w-3 h-3 text-purple-500 mr-1" />
-                                    <span className="text-xs text-purple-700">Tesorería</span>
-                                  </div>
+                              <div className="flex items-center">
+                                {user.activo ? (
+                                  <>
+                                    <div className="w-2 h-2 bg-green-500 rounded-full mr-2" />
+                                    <span className="text-sm font-medium text-green-700">Activo</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="w-2 h-2 bg-red-500 rounded-full mr-2" />
+                                    <span className="text-sm font-medium text-red-700">Inactivo</span>
+                                  </>
                                 )}
                               </div>
                             </td>
@@ -894,38 +879,6 @@ export default function UsuariosPage() {
                     </option>
                   ))}
                 </select>
-              </div>
-
-              <div>
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    {...userForm.register('recibeNotificacionesEmail')}
-                    className="w-4 h-4 text-primary border-input rounded focus:ring-primary focus:ring-2"
-                  />
-                  <span className="text-sm text-text-primary">
-                    Recibir notificaciones por email
-                  </span>
-                </label>
-                <p className="text-xs text-text-secondary mt-1 ml-6">
-                  El usuario recibirá avisos de importación de DKT y autorizaciones pendientes
-                </p>
-              </div>
-
-              <div>
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    {...userForm.register('esUsuarioTesoreria')}
-                    className="w-4 h-4 text-primary border-input rounded focus:ring-primary focus:ring-2"
-                  />
-                  <span className="text-sm text-text-primary">
-                    Usuario de Tesorería
-                  </span>
-                </label>
-                <p className="text-xs text-text-secondary mt-1 ml-6">
-                  El usuario tendrá acceso a funcionalidades de tesorería como adelantos y pagos
-                </p>
               </div>
 
               <div className="flex justify-end gap-3 pt-4">
