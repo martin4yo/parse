@@ -317,6 +317,43 @@ FRONTEND_URL=https://parsedemo.axiomacloud.com
 pm2 restart parse-backend
 ```
 
+### Error: "EBADPLATFORM" al hacer npm install
+
+**Error completo:**
+```
+npm error code EBADPLATFORM
+npm error notsup Unsupported platform for @next/swc-win32-x64-msvc
+```
+
+**Causa:** El `package-lock.json` fue generado en Windows y contiene dependencias específicas de Windows que no funcionan en Linux.
+
+**Solución Rápida:**
+```bash
+cd /var/www/parse
+
+# Usar script automatizado
+bash fix-npm-platform.sh
+```
+
+**Solución Manual:**
+```bash
+# Frontend
+cd /var/www/parse/frontend
+rm -rf node_modules package-lock.json
+npm install --production
+npm run build
+
+# Backend (por si acaso)
+cd /var/www/parse/backend
+rm -rf node_modules package-lock.json
+npm install --production
+
+# Reiniciar servicios
+pm2 restart all
+```
+
+**Prevención:** El script `DEPLOY-COMMAND.sh` ahora detecta y limpia automáticamente `package-lock.json` de Windows.
+
 ---
 
 ## 📊 Monitoreo

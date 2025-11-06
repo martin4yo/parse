@@ -136,6 +136,14 @@ fi
 log_info "Instalando dependencias del frontend..."
 cd ../frontend
 
+# Limpiar package-lock.json si fue generado en Windows
+if [ -f "package-lock.json" ]; then
+    if grep -q "win32" package-lock.json; then
+        log_warning "Detectado package-lock.json de Windows, limpiando..."
+        rm -rf node_modules package-lock.json
+    fi
+fi
+
 if [ ! -d "node_modules" ]; then
     log_info "node_modules no existe, instalando desde cero..."
     npm install --production
