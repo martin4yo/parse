@@ -2,7 +2,7 @@
 
 ###############################################################################
 # SCRIPT DE DESPLIEGUE AUTOMATIZADO
-# Parse - Sistema de Rendiciones v1.1.0
+# Parse - Sistema de Procesamiento de Documentos v1.1.0
 #
 # Este script automatiza el proceso de despliegue a producción
 # Ejecutar: bash DEPLOY-COMMAND.sh
@@ -21,7 +21,7 @@ NC='\033[0m' # No Color
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
 echo "║         PARSE - DESPLIEGUE A PRODUCCIÓN v1.1.0               ║"
-echo "║         Sistema de Rendiciones                                ║"
+echo "║         Sistema de Procesamiento de Documentos                ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
 
@@ -102,6 +102,8 @@ fi
 echo ""
 log_info "PASO 2/6: Instalando dependencias de npm..."
 
+# Backend dependencies
+log_info "Instalando dependencias del backend..."
 cd backend
 
 if [ ! -d "node_modules" ]; then
@@ -112,7 +114,7 @@ else
     npm install --production
 fi
 
-log_success "Dependencias instaladas"
+log_success "Dependencias del backend instaladas"
 
 # Verificar Sharp específicamente
 log_info "Verificando Sharp..."
@@ -129,6 +131,33 @@ else
         exit 1
     fi
 fi
+
+# Frontend dependencies
+log_info "Instalando dependencias del frontend..."
+cd ../frontend
+
+if [ ! -d "node_modules" ]; then
+    log_info "node_modules no existe, instalando desde cero..."
+    npm install --production
+else
+    log_info "Actualizando dependencias..."
+    npm install --production
+fi
+
+log_success "Dependencias del frontend instaladas"
+
+# Build frontend
+log_info "Compilando frontend para producción..."
+npm run build
+
+if [ $? -eq 0 ]; then
+    log_success "Frontend compilado exitosamente"
+else
+    log_error "Error compilando frontend"
+    exit 1
+fi
+
+cd ..
 
 ###############################################################################
 # PASO 3: Migraciones de Prisma
@@ -172,7 +201,7 @@ else
 fi
 
 ###############################################################################
-# PASO 5: Detener Servicios
+# PASO 5: Gestionar Servicios (Backend + Frontend)
 ###############################################################################
 
 echo ""
@@ -182,37 +211,44 @@ log_info "PASO 5/6: Gestionando servicios..."
 if command -v pm2 &> /dev/null; then
     log_info "Detectado PM2"
 
-    # Ver si el proceso existe
-    if pm2 list | grep -q "parse-backend"; then
-        log_info "Reiniciando parse-backend..."
+    # Ver si los procesos existen
+    if pm2 list | grep -q "parse"; then
+        log_info "Reiniciando servicios existentes..."
         pm2 restart parse-backend
+        pm2 restart parse-frontend
         pm2 save
     else
-        log_info "Iniciando parse-backend..."
+        log_info "Iniciando servicios desde ecosystem.config.js..."
         pm2 start ecosystem.config.js
         pm2 save
     fi
 
     log_success "Servicios actualizados con PM2"
 
+    # Mostrar status
+    echo ""
+    pm2 status
+
     # Mostrar logs
     echo ""
     log_info "Mostrando logs (Ctrl+C para salir)..."
     sleep 2
-    pm2 logs parse-backend --lines 50
+    pm2 logs --lines 50
 
 elif command -v systemctl &> /dev/null; then
     log_info "Detectado systemd"
 
     sudo systemctl restart parse-backend
-    log_success "Servicio reiniciado con systemd"
+    sudo systemctl restart parse-frontend
+    log_success "Servicios reiniciados con systemd"
 
     # Mostrar status
     sudo systemctl status parse-backend
+    sudo systemctl status parse-frontend
 
 else
     log_warning "No se detectó PM2 ni systemd"
-    log_warning "Debes reiniciar el servicio manualmente"
+    log_warning "Debes reiniciar los servicios manualmente"
 fi
 
 ###############################################################################
@@ -222,17 +258,26 @@ fi
 echo ""
 log_info "PASO 6/6: Verificación post-deploy..."
 
-# Esperar a que el servidor inicie
-log_info "Esperando a que el servidor inicie..."
+# Esperar a que los servidores inicien
+log_info "Esperando a que los servidores inicien..."
 sleep 5
 
-# Verificar endpoint de health
-PORT=${PORT:-5050}
-if curl -s "http://localhost:$PORT/health" > /dev/null 2>&1; then
-    log_success "Servidor respondiendo en puerto $PORT"
+# Verificar backend
+BACKEND_PORT=${PORT:-5050}
+if curl -s "http://localhost:$BACKEND_PORT/health" > /dev/null 2>&1; then
+    log_success "Backend respondiendo en puerto $BACKEND_PORT"
 else
-    log_warning "Servidor no responde en puerto $PORT"
-    log_warning "Verifica los logs manualmente"
+    log_warning "Backend no responde en puerto $BACKEND_PORT"
+    log_warning "Verifica los logs: pm2 logs parse-backend"
+fi
+
+# Verificar frontend
+FRONTEND_PORT=8084
+if curl -s "http://localhost:$FRONTEND_PORT" > /dev/null 2>&1; then
+    log_success "Frontend respondiendo en puerto $FRONTEND_PORT"
+else
+    log_warning "Frontend no responde en puerto $FRONTEND_PORT"
+    log_warning "Verifica los logs: pm2 logs parse-frontend"
 fi
 
 ###############################################################################
@@ -246,15 +291,21 @@ echo "╚═══════════════════════�
 echo ""
 log_success "El despliegue ha finalizado"
 echo ""
+echo "Servicios desplegados:"
+echo "  - Backend:  http://localhost:5050 (parse-backend)"
+echo "  - Frontend: http://localhost:8084 (parse-frontend)"
+echo ""
 echo "Próximos pasos:"
-echo "  1. Verificar logs: pm2 logs parse-backend"
-echo "  2. Monitorear recursos: pm2 monit"
-echo "  3. Test manual de upload de documento"
-echo "  4. Revisar métricas en las próximas 2 horas"
+echo "  1. Verificar logs backend:  pm2 logs parse-backend"
+echo "  2. Verificar logs frontend: pm2 logs parse-frontend"
+echo "  3. Monitorear recursos:     pm2 monit"
+echo "  4. Test manual de upload de documento"
+echo "  5. Verificar UI en http://localhost:8084"
+echo "  6. Revisar métricas en las próximas 2 horas"
 echo ""
 echo "Archivos importantes:"
 echo "  - Backup BD: $BACKUP_FILE"
-echo "  - Logs: pm2 logs parse-backend"
+echo "  - Logs: pm2 logs (ver ambos servicios)"
 echo "  - Documentación: CHECKLIST-PRODUCCION.md"
 echo ""
 

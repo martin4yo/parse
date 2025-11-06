@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'rendiciones-backend',
+      name: 'parse-backend',
       cwd: './backend',
       script: 'src/index.js',
       instances: 1,
@@ -19,8 +19,8 @@ module.exports = {
       watch: false
     },
     {
-      name: 'rendiciones-frontend',
-      cwd: './packages/web',
+      name: 'parse-frontend',
+      cwd: './frontend',
       script: 'node_modules/.bin/next',
       args: 'start -p 8084',
       instances: 1,
