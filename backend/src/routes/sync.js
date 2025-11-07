@@ -1143,17 +1143,32 @@ function normalizeBoolean(value, defaultValue = true) {
 
 async function insertIntoMaestrosParametros(data, tenantId, tipoTabla, isIncremental = true) {
   // Mapear datos del cliente a maestros_parametros
-  const registros = data.map(item => ({
-    codigo: item.codigo || item.id,
-    nombre: item.nombre || item.descripcion,
-    descripcion: item.descripcion || null,
-    tipo_campo: item.tipo_campo || tipoTabla, // Usar el valor del registro, no el nombre de la tabla
-    valor_padre: item.valor_padre || null,
-    orden: item.orden || 1,
-    activo: normalizeBoolean(item.activo, true),
-    tenantId,
-    parametros_json: item.parametros_json || null
-  }));
+  const registros = data.map((item, index) => {
+    // Validar y parsear parametros_json si viene como string
+    let parametrosJson = item.parametros_json || null;
+
+    if (parametrosJson && typeof parametrosJson === 'string') {
+      try {
+        parametrosJson = JSON.parse(parametrosJson);
+      } catch (e) {
+        console.error(`[SYNC] Error parseando parametros_json en registro ${index} (${item.codigo}):`, e.message);
+        console.error(`[SYNC] Valor recibido:`, parametrosJson);
+        parametrosJson = null; // Ignorar el JSON inválido
+      }
+    }
+
+    return {
+      codigo: item.codigo || item.id,
+      nombre: item.nombre || item.descripcion,
+      descripcion: item.descripcion || null,
+      tipo_campo: item.tipo_campo || tipoTabla,
+      valor_padre: item.valor_padre || null,
+      orden: item.orden || 1,
+      activo: normalizeBoolean(item.activo, true),
+      tenantId,
+      parametros_json: parametrosJson
+    };
+  });
 
   if (registros.length === 0) {
     return { insertedCount: 0, updatedCount: 0, deletedCount: 0 };
@@ -1165,40 +1180,70 @@ async function insertIntoMaestrosParametros(data, tenantId, tipoTabla, isIncreme
   let insertedCount = 0;
   let updatedCount = 0;
 
-  // Fase 1: Upsert (crear o actualizar)
-  for (const registro of registros) {
-    const existing = await prisma.parametros_maestros.findUnique({
-      where: {
-        tipo_campo_codigo: {
-          tipo_campo: registro.tipo_campo,
-          codigo: registro.codigo
-        }
+  // Fase 1: Obtener todos los registros existentes de una sola vez
+  const codigosRecibidos = registros.map(r => r.codigo);
+  const existingRecords = await prisma.parametros_maestros.findMany({
+    where: {
+      tipo_campo: tipoCampo,
+      codigo: {
+        in: codigosRecibidos
       }
-    });
+    },
+    select: {
+      codigo: true
+    }
+  });
 
-    await prisma.parametros_maestros.upsert({
-      where: {
-        tipo_campo_codigo: {
-          tipo_campo: registro.tipo_campo,
-          codigo: registro.codigo
-        }
-      },
-      update: {
-        nombre: registro.nombre,
-        descripcion: registro.descripcion,
-        valor_padre: registro.valor_padre,
-        orden: registro.orden,
-        activo: registro.activo,
-        parametros_json: registro.parametros_json,
-        updatedAt: new Date()
-      },
-      create: registro
-    });
+  const codigosExistentes = new Set(existingRecords.map(r => r.codigo));
 
-    if (existing) {
-      updatedCount++;
-    } else {
-      insertedCount++;
+  // Separar en nuevos y actualizaciones
+  const nuevos = registros.filter(r => !codigosExistentes.has(r.codigo));
+  const actualizaciones = registros.filter(r => codigosExistentes.has(r.codigo));
+
+  console.log(`[SYNC] ${tipoCampo}: ${nuevos.length} nuevos, ${actualizaciones.length} para actualizar`);
+
+  // Fase 2: Insertar nuevos en batch
+  if (nuevos.length > 0) {
+    try {
+      await prisma.parametros_maestros.createMany({
+        data: nuevos,
+        skipDuplicates: true
+      });
+      insertedCount = nuevos.length;
+    } catch (error) {
+      console.error(`[SYNC] Error insertando nuevos registros:`, error.message);
+      throw error;
+    }
+  }
+
+  // Fase 3: Actualizar existentes en batch (usando transacción)
+  if (actualizaciones.length > 0) {
+    try {
+      await prisma.$transaction(
+        actualizaciones.map(registro =>
+          prisma.parametros_maestros.update({
+            where: {
+              tipo_campo_codigo: {
+                tipo_campo: registro.tipo_campo,
+                codigo: registro.codigo
+              }
+            },
+            data: {
+              nombre: registro.nombre,
+              descripcion: registro.descripcion,
+              valor_padre: registro.valor_padre,
+              orden: registro.orden,
+              activo: registro.activo,
+              parametros_json: registro.parametros_json,
+              updatedAt: new Date()
+            }
+          })
+        )
+      );
+      updatedCount = actualizaciones.length;
+    } catch (error) {
+      console.error(`[SYNC] Error actualizando registros:`, error.message);
+      throw error;
     }
   }
 
