@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { v4: uuidv4 } = require('uuid');
 const { encryptPassword, decryptPassword } = require('../utils/syncEncryption');
 const { authenticateSyncClient, requireSyncPermission } = require('../middleware/syncAuth');
 const { authWithTenant } = require('../middleware/authWithTenant');
@@ -454,6 +455,7 @@ router.post('/configurations', authWithTenant, async (req, res) => {
 
     const config = await prisma.sync_configurations.create({
       data: {
+        id: uuidv4(),
         tenantId,
         sqlServerHost,
         sqlServerPort: sqlServerPort || 1433,
@@ -461,7 +463,10 @@ router.post('/configurations', authWithTenant, async (req, res) => {
         sqlServerUser,
         sqlServerPassword: encryptedPassword,
         configuracionTablas: configuracionTablas || { tablasSubida: [], tablasBajada: [] },
-        activo: activo !== undefined ? activo : true
+        ultimaModificacion: new Date(),
+        activo: activo !== undefined ? activo : true,
+        createdAt: new Date(),
+        updatedAt: new Date()
       },
       include: {
         tenants: {
@@ -546,6 +551,10 @@ router.put('/configurations/:id', authWithTenant, async (req, res) => {
     }
     if (configuracionTablas) updateData.configuracionTablas = configuracionTablas;
     if (activo !== undefined) updateData.activo = activo;
+
+    // Actualizar timestamps de modificación
+    updateData.ultimaModificacion = new Date();
+    updateData.updatedAt = new Date();
 
     const config = await prisma.sync_configurations.update({
       where: { id },
