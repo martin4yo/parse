@@ -358,6 +358,7 @@ router.post('/logs/:tenantId', requireSyncPermission('sync'), async (req, res) =
     // Insertar logs
     const insertedLogs = await prisma.sync_logs.createMany({
       data: logs.map(log => ({
+        id: uuidv4(),
         tenantId: tenant.id,
         configId: config?.id || null,
         direccion: log.direccion,
@@ -371,7 +372,8 @@ router.post('/logs/:tenantId', requireSyncPermission('sync'), async (req, res) =
         duracionMs: log.duracionMs,
         metadatos: log.metadatos || null,
         fechaInicio: new Date(log.fechaInicio),
-        fechaFin: log.fechaFin ? new Date(log.fechaFin) : null
+        fechaFin: log.fechaFin ? new Date(log.fechaFin) : null,
+        createdAt: new Date()
       }))
     });
 
