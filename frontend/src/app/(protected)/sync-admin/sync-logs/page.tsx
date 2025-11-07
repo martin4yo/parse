@@ -40,9 +40,11 @@ import {
 } from 'lucide-react';
 import { SyncLog, SyncStats } from '@/types/sync';
 import { toast } from 'sonner';
+import { useApiClient } from '@/hooks/useApiClient';
 
 export default function SyncLogsPage() {
   const searchParams = useSearchParams();
+  const { get } = useApiClient();
   const [logs, setLogs] = useState<SyncLog[]>([]);
   const [stats, setStats] = useState<SyncStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -69,8 +71,7 @@ export default function SyncLogsPage() {
       if (estado) params.append('estado', estado);
       params.append('limit', limit.toString());
 
-      const response = await fetch(`/api/sync/logs?${params}`);
-      const data = await response.json();
+      const data = await get(`/api/sync/logs?${params}`);
 
       if (data.success) {
         setLogs(data.data);
@@ -87,8 +88,7 @@ export default function SyncLogsPage() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch(`/api/sync/stats/${tenantId}`);
-      const data = await response.json();
+      const data = await get(`/api/sync/stats/${tenantId}`);
 
       if (data.success) {
         setStats(data.data);

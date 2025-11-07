@@ -81,6 +81,7 @@ export interface User {
   recibeNotificacionesEmail?: boolean;
   esUsuarioTesoreria?: boolean;
   emailVerified?: boolean;
+  superuser?: boolean;
   tenantId?: string;
   tenant?: Tenant;
   createdAt: string;

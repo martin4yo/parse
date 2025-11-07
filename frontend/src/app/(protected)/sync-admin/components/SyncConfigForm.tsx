@@ -16,6 +16,7 @@ import { SyncConfigFormData, TablaSubida, TablaBajada, Tenant } from '@/types/sy
 import { toast } from 'sonner';
 import PhaseEditor from './PhaseEditor';
 import SimpleParamMaestroForm, { SimpleParamMaestroConfig } from './SimpleParamMaestroForm';
+import { useApiClient } from '@/hooks/useApiClient';
 
 interface SyncConfigFormProps {
   initialData?: SyncConfigFormData;
@@ -24,6 +25,7 @@ interface SyncConfigFormProps {
 
 export default function SyncConfigForm({ initialData, configId }: SyncConfigFormProps) {
   const router = useRouter();
+  const { get, post, put } = useApiClient();
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -51,8 +53,7 @@ export default function SyncConfigForm({ initialData, configId }: SyncConfigForm
 
   const fetchTenants = async () => {
     try {
-      const response = await fetch('/api/tenants');
-      const data = await response.json();
+      const data = await get('/api/tenants');
 
       if (data.success) {
         setTenants(data.data);
@@ -68,21 +69,13 @@ export default function SyncConfigForm({ initialData, configId }: SyncConfigForm
   const handleTestConnection = async () => {
     setTesting(true);
     try {
-      const response = await fetch('/api/sync/test-connection', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          host: formData.sqlServerHost,
-          port: formData.sqlServerPort,
-          database: formData.sqlServerDatabase,
-          user: formData.sqlServerUser,
-          password: formData.sqlServerPassword,
-        }),
+      const data = await post('/api/sync/test-connection', {
+        host: formData.sqlServerHost,
+        port: formData.sqlServerPort,
+        database: formData.sqlServerDatabase,
+        user: formData.sqlServerUser,
+        password: formData.sqlServerPassword,
       });
-
-      const data = await response.json();
 
       if (data.success) {
         toast.success('Conexión exitosa');
@@ -102,21 +95,9 @@ export default function SyncConfigForm({ initialData, configId }: SyncConfigForm
     setLoading(true);
 
     try {
-      const url = configId
-        ? `/api/sync/configurations/${configId}`
-        : '/api/sync/configurations';
-
-      const method = configId ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
+      const data = configId
+        ? await put(`/api/sync/configurations/${configId}`, formData)
+        : await post('/api/sync/configurations', formData);
 
       if (data.success) {
         toast.success(

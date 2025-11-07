@@ -40,7 +40,7 @@ export function ConfirmDialog({
       default:
         return {
           icon: <AlertTriangle className="w-6 h-6 text-blue-500" />,
-          confirmButton: 'bg-primary hover:bg-primary-600 text-palette-dark'
+          confirmButton: 'bg-palette-dark text-primary hover:bg-palette-purple shadow-md'
         };
     }
   };

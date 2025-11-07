@@ -120,3 +120,128 @@ CONFIGURACION
 ### FUNCIONALIDADES DE GESTIÓN
 - **Eliminaciones masivas**: Botones para eliminación masiva en parámetros y datos DKT
 - **Limpieza de datos**: Herramientas para limpiar datos de prueba y registros obsoletos
+
+---
+
+## VERSION 2.0 - INTELIGENCIA ARTIFICIAL Y AUTOMATIZACIÓN
+
+### 🤖 SISTEMA DE REGLAS DE NEGOCIO CON IA
+
+**Objetivo**: Generación automática de reglas de negocio y validaciones usando modelos de IA.
+
+**Funcionalidades**:
+- **AI Rule Generator**: Sistema para crear y gestionar reglas de validación mediante prompts en lenguaje natural
+- **Validación automática**: Aplicar reglas de IA en tiempo real durante ingreso de datos
+- **Aprendizaje continuo**: Mejorar reglas basándose en correcciones manuales del usuario
+- **Editor visual**: Interfaz para crear, probar y ajustar reglas sin código
+- **Prompt Templates**: Plantillas predefinidas para casos comunes (validación CUIT, clasificación gastos, etc.)
+- **Testing integrado**: Suite de pruebas para validar reglas antes de activarlas en producción
+
+**Documentación**: Ver `AI-RULE-GENERATOR-GUIDE.md` para detalles de implementación
+
+**Prioridad**: Media
+**Estimación**: 4-5 días desarrollo
+**Estado**: Documentado
+
+---
+
+### 📧 SISTEMA DE PROCESAMIENTO DE EMAILS
+
+**Objetivo**: Automatizar la captura y procesamiento de facturas y documentos recibidos por correo electrónico.
+
+**Funcionalidades**:
+- **Multi-proveedor**: Soporte para Gmail, Outlook/Office 365, y IMAP genérico
+- **Sincronización automática**: Revisión periódica de correos (configurable cada X minutos)
+- **Extracción inteligente**:
+  - Procesamiento de adjuntos (PDFs, imágenes) con pipeline de IA existente
+  - Extracción de datos del cuerpo del email
+  - Detección automática de facturas y documentos fiscales
+- **Filtros avanzados**: Configuración por cuenta (remitentes, asuntos, carpetas)
+- **OAuth seguro**: Autenticación mediante OAuth 2.0 (sin guardar contraseñas)
+- **Gestión multi-cuenta**: Cada tenant puede configurar múltiples cuentas de email
+- **Trazabilidad**: Vincular documentos procesados con email origen
+- **UI de administración**: Panel para configurar cuentas, ver logs, estadísticas
+
+**Arquitectura**:
+```
+Email Accounts (Gmail/Outlook/IMAP)
+    ↓
+Email Service (conexión multi-proveedor)
+    ↓
+Email Parser (extrae adjuntos + contenido)
+    ↓
+Email Processor (guarda y vincula)
+    ↓
+Document Processor (Claude Vision, Gemini, Document AI)
+    ↓
+Base de Datos (EmailAccount, EmailDocument, Documento)
+```
+
+**Componentes Backend**:
+- `emailService.js`: Conexión a proveedores de email
+- `emailProcessor.js`: Lógica de procesamiento de correos
+- `emailSyncJob.js`: Cron job para sincronización automática
+- `/api/email/*`: Endpoints REST para gestión de cuentas
+
+**Componentes Frontend**:
+- `/email-config`: Página de configuración de cuentas
+- OAuth flows para Gmail y Outlook
+- Dashboard de sincronización y estadísticas
+
+**Base de Datos**:
+- `EmailAccount`: Cuentas de correo configuradas por tenant
+- `EmailDocument`: Emails procesados vinculados a documentos
+
+**Variables de entorno requeridas**:
+```env
+GMAIL_CLIENT_ID=...
+GMAIL_CLIENT_SECRET=...
+MICROSOFT_CLIENT_ID=...
+MICROSOFT_CLIENT_SECRET=...
+EMAIL_SYNC_ENABLED=true
+EMAIL_SYNC_INTERVAL=*/5 * * * *
+ENCRYPTION_KEY=...
+```
+
+**Dependencias NPM**:
+- `googleapis` - Gmail API
+- `@microsoft/microsoft-graph-client` - Outlook/Microsoft Graph
+- `imap-simple` - IMAP genérico
+- `mailparser` - Parser de emails
+- `node-cron` - Scheduler
+- `crypto-js` - Encriptación de tokens
+
+**Fases de Implementación**:
+
+**Fase 1 - MVP (2-3 días)**:
+- [ ] Soporte Gmail únicamente
+- [ ] Procesamiento de adjuntos PDF/imagen
+- [ ] Sincronización manual (sin cron)
+- [ ] UI básica de configuración
+- [ ] OAuth flow completo
+
+**Fase 2 - Multi-proveedor (1-2 días)**:
+- [ ] Agregar soporte Outlook/Microsoft 365
+- [ ] Agregar soporte IMAP genérico
+- [ ] Sincronización automática con cron job
+- [ ] Filtros y configuración avanzada por cuenta
+
+**Fase 3 - Avanzado (1 día)**:
+- [ ] Extracción de datos del cuerpo del email (sin adjuntos)
+- [ ] Webhooks para notificaciones en tiempo real
+- [ ] Queue system (Bull/BullMQ) para procesamiento asíncrono
+- [ ] Dashboard de estadísticas y logs detallados
+- [ ] Storage en S3 para adjuntos (opcional)
+
+**Beneficios esperados**:
+- ✅ Reducir tiempo de ingreso manual de facturas en 80%+
+- ✅ Procesamiento 24/7 automático
+- ✅ Mejor trazabilidad (vínculo email → documento)
+- ✅ Escalable a cientos de correos diarios
+- ✅ Multi-tenant con aislamiento de datos
+
+**Documentación completa**: Ver `SISTEMA-PROCESAMIENTO-EMAILS.md`
+
+**Prioridad**: Media-Alta
+**Estimación**: 5-7 días desarrollo + 2 días testing
+**Estado**: Documentado - Listo para implementación

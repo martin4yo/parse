@@ -9,6 +9,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
 import { useConfirmDialog } from '@/hooks/useConfirm';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Esquemas de validación
 const userSchema = z.object({
@@ -18,6 +19,7 @@ const userSchema = z.object({
   apellido: z.string().min(1, 'El apellido es requerido'),
   profileId: z.string().optional(),
   tenantId: z.string().optional(),
+  superuser: z.boolean().optional(),
 });
 
 const userAtributoSchema = z.object({
@@ -31,6 +33,7 @@ type UserAtributoFormData = z.infer<typeof userAtributoSchema>;
 type TabType = 'usuarios' | 'atributos';
 
 export default function UsuariosPage() {
+  const { isSuperuser } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('usuarios');
   const [users, setUsers] = useState<User[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -68,6 +71,7 @@ export default function UsuariosPage() {
       apellido: '',
       profileId: '',
       tenantId: '',
+      superuser: false,
     }
   });
 
@@ -83,7 +87,7 @@ export default function UsuariosPage() {
   const selectedAtributoId = atributoForm.watch('atributoId');
 
   // Hook para confirmación de eliminación
-  const { confirmDelete } = useConfirmDialog();
+  const { confirm, confirmDelete } = useConfirmDialog();
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -194,6 +198,7 @@ export default function UsuariosPage() {
       apellido: '',
       profileId: '',
       tenantId: '',
+      superuser: false,
     });
     setShowUserModal(true);
   };
@@ -207,6 +212,7 @@ export default function UsuariosPage() {
       apellido: user.apellido,
       profileId: user.profileId || '',
       tenantId: user.tenantId || '',
+      superuser: user.superuser || false,
     });
     setShowUserModal(true);
   };
@@ -273,8 +279,15 @@ export default function UsuariosPage() {
       }
     } catch (error: any) {
       // Extraer mensaje de error específico del backend
+      console.log('Error completo:', error);
+      console.log('Error response:', error.response);
+      console.log('Error response data:', error.response?.data);
+      console.log('Error message extraído:', error.response?.data?.error);
+
       const errorMessage = error.response?.data?.error || 'Error al guardar usuario';
+      console.log('🔴 Llamando toast.error con mensaje:', errorMessage);
       toast.error(errorMessage);
+      console.log('✅ Toast.error llamado');
       console.error('Error saving user:', error);
     } finally {
       setLoading(false);
@@ -396,7 +409,11 @@ export default function UsuariosPage() {
   };
 
   const handleVerifyEmailManually = async (user: User) => {
-    const confirmed = await confirmDelete(`verificar manualmente el email de ${user.apellido}, ${user.nombre}`);
+    const confirmed = await confirm(
+      `¿Estás seguro de que quieres verificar manualmente el email de ${user.apellido}, ${user.nombre}?`,
+      'Verificar email manualmente',
+      'info'
+    );
     if (!confirmed) return;
 
     try {
@@ -886,6 +903,21 @@ export default function UsuariosPage() {
                   ))}
                 </select>
               </div>
+
+              {/* Solo superusers pueden marcar a otros usuarios como superuser */}
+              {isSuperuser && (
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="superuser"
+                    {...userForm.register('superuser')}
+                    className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2"
+                  />
+                  <label htmlFor="superuser" className="text-sm font-medium text-text-primary">
+                    Usuario Super Administrador
+                  </label>
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 pt-4">
                 <Button

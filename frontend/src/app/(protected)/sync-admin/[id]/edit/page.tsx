@@ -7,10 +7,12 @@ import { Database, RefreshCw } from 'lucide-react';
 import SyncConfigForm from '../../components/SyncConfigForm';
 import { SyncConfiguration } from '@/types/sync';
 import { toast } from 'sonner';
+import { useApiClient } from '@/hooks/useApiClient';
 
 export default function EditSyncConfigPage() {
   const params = useParams();
   const id = params.id as string;
+  const { get } = useApiClient();
 
   const [config, setConfig] = useState<SyncConfiguration | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,8 +26,7 @@ export default function EditSyncConfigPage() {
   const fetchConfig = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/sync/configurations/${id}`);
-      const data = await response.json();
+      const data = await get(`/api/sync/configurations/${id}`);
 
       if (data.success) {
         setConfig(data.data);

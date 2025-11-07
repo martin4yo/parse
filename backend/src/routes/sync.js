@@ -4,6 +4,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { encryptPassword, decryptPassword } = require('../utils/syncEncryption');
 const { authenticateSyncClient, requireSyncPermission } = require('../middleware/syncAuth');
+const { authWithTenant } = require('../middleware/authWithTenant');
 
 /**
  * Endpoints para sincronización con cliente SQL Server
@@ -293,14 +294,27 @@ router.post('/logs/:tenantId', requireSyncPermission('sync'), async (req, res) =
  * GET /api/sync/configurations
  * Lista todas las configuraciones de sincronización
  */
-router.get('/configurations', async (req, res) => {
+router.get('/configurations', authWithTenant, async (req, res) => {
   try {
+    // Verificar que el usuario tenga un tenant asignado
+    if (!req.tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Debe tener un tenant asignado'
+      });
+    }
+
     const configs = await prisma.sync_configurations.findMany({
+      where: {
+        tenantId: req.tenantId // Solo configuraciones del tenant actual
+      },
       include: {
         tenants: {
           select: {
+            id: true,
             nombre: true,
-            cuit: true
+            cuit: true,
+            slug: true
           }
         }
       },
@@ -309,9 +323,15 @@ router.get('/configurations', async (req, res) => {
       }
     });
 
+    // Mapear tenants a tenant (singular) para consistencia con el frontend
+    const mappedConfigs = configs.map(config => ({
+      ...config,
+      tenant: config.tenants
+    }));
+
     res.json({
       success: true,
-      data: configs
+      data: mappedConfigs
     });
   } catch (error) {
     console.error('Error al listar configuraciones:', error);
@@ -324,16 +344,27 @@ router.get('/configurations', async (req, res) => {
 
 /**
  * GET /api/sync/configurations/:id
- * Obtiene una configuración por ID
+ * Obtiene una configuración por ID (solo del tenant actual)
  */
-router.get('/configurations/:id', async (req, res) => {
+router.get('/configurations/:id', authWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const config = await prisma.sync_configurations.findUnique({
-      where: { id },
+    // Verificar que el usuario tenga un tenant asignado
+    if (!req.tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Debe tener un tenant asignado'
+      });
+    }
+
+    const config = await prisma.sync_configurations.findFirst({
+      where: {
+        id,
+        tenantId: req.tenantId // Solo del tenant actual
+      },
       include: {
-        tenant: {
+        tenants: {
           select: {
             nombre: true,
             cuit: true,
@@ -350,9 +381,11 @@ router.get('/configurations/:id', async (req, res) => {
       });
     }
 
+    // Mapear tenants a tenant (singular) para consistencia con el frontend
     // No enviar password al frontend (por seguridad)
     const configWithoutPassword = {
       ...config,
+      tenant: config.tenants,
       sqlServerPassword: '***encrypted***',
     };
 
@@ -371,12 +404,11 @@ router.get('/configurations/:id', async (req, res) => {
 
 /**
  * POST /api/sync/configurations
- * Crea una nueva configuración
+ * Crea una nueva configuración (solo para el tenant actual)
  */
-router.post('/configurations', async (req, res) => {
+router.post('/configurations', authWithTenant, async (req, res) => {
   try {
     const {
-      tenantId,
       sqlServerHost,
       sqlServerPort,
       sqlServerDatabase,
@@ -386,23 +418,22 @@ router.post('/configurations', async (req, res) => {
       activo
     } = req.body;
 
-    // Validar campos requeridos
-    if (!tenantId || !sqlServerHost || !sqlServerDatabase || !sqlServerUser || !sqlServerPassword) {
+    // Verificar que el usuario tenga un tenant asignado
+    if (!req.tenantId) {
       return res.status(400).json({
         success: false,
-        error: 'Campos requeridos faltantes'
+        error: 'Debe tener un tenant asignado'
       });
     }
 
-    // Verificar que el tenant existe
-    const tenant = await prisma.tenants.findUnique({
-      where: { id: tenantId }
-    });
+    // Usar siempre el tenantId del usuario autenticado
+    const tenantId = req.tenantId;
 
-    if (!tenant) {
-      return res.status(404).json({
+    // Validar campos requeridos
+    if (!sqlServerHost || !sqlServerDatabase || !sqlServerUser || !sqlServerPassword) {
+      return res.status(400).json({
         success: false,
-        error: 'Tenant no encontrado'
+        error: 'Campos requeridos faltantes'
       });
     }
 
@@ -433,18 +464,26 @@ router.post('/configurations', async (req, res) => {
         activo: activo !== undefined ? activo : true
       },
       include: {
-        tenant: {
+        tenants: {
           select: {
+            id: true,
             nombre: true,
-            cuit: true
+            cuit: true,
+            slug: true
           }
         }
       }
     });
 
+    // Mapear tenants a tenant (singular) para consistencia con el frontend
+    const mappedConfig = {
+      ...config,
+      tenant: config.tenants
+    };
+
     res.status(201).json({
       success: true,
-      data: config
+      data: mappedConfig
     });
   } catch (error) {
     console.error('Error al crear configuración:', error);
@@ -457,9 +496,9 @@ router.post('/configurations', async (req, res) => {
 
 /**
  * PUT /api/sync/configurations/:id
- * Actualiza una configuración existente
+ * Actualiza una configuración existente (solo del tenant actual)
  */
-router.put('/configurations/:id', async (req, res) => {
+router.put('/configurations/:id', authWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -472,9 +511,20 @@ router.put('/configurations/:id', async (req, res) => {
       activo
     } = req.body;
 
-    // Verificar que existe
-    const existingConfig = await prisma.sync_configurations.findUnique({
-      where: { id }
+    // Verificar que el usuario tenga un tenant asignado
+    if (!req.tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Debe tener un tenant asignado'
+      });
+    }
+
+    // Verificar que existe y pertenece al tenant actual
+    const existingConfig = await prisma.sync_configurations.findFirst({
+      where: {
+        id,
+        tenantId: req.tenantId // Solo del tenant actual
+      }
     });
 
     if (!existingConfig) {
@@ -501,18 +551,26 @@ router.put('/configurations/:id', async (req, res) => {
       where: { id },
       data: updateData,
       include: {
-        tenant: {
+        tenants: {
           select: {
+            id: true,
             nombre: true,
-            cuit: true
+            cuit: true,
+            slug: true
           }
         }
       }
     });
 
+    // Mapear tenants a tenant (singular) para consistencia con el frontend
+    const mappedConfig = {
+      ...config,
+      tenant: config.tenants
+    };
+
     res.json({
       success: true,
-      data: config
+      data: mappedConfig
     });
   } catch (error) {
     console.error('Error al actualizar configuración:', error);
@@ -525,11 +583,34 @@ router.put('/configurations/:id', async (req, res) => {
 
 /**
  * DELETE /api/sync/configurations/:id
- * Elimina una configuración
+ * Elimina una configuración (solo del tenant actual)
  */
-router.delete('/configurations/:id', async (req, res) => {
+router.delete('/configurations/:id', authWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Verificar que el usuario tenga un tenant asignado
+    if (!req.tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Debe tener un tenant asignado'
+      });
+    }
+
+    // Verificar que existe y pertenece al tenant actual
+    const existingConfig = await prisma.sync_configurations.findFirst({
+      where: {
+        id,
+        tenantId: req.tenantId // Solo del tenant actual
+      }
+    });
+
+    if (!existingConfig) {
+      return res.status(404).json({
+        success: false,
+        error: 'Configuración no encontrada'
+      });
+    }
 
     await prisma.sync_configurations.delete({
       where: { id }
@@ -550,15 +631,24 @@ router.delete('/configurations/:id', async (req, res) => {
 
 /**
  * GET /api/sync/logs
- * Obtiene logs de sincronización con filtros
+ * Obtiene logs de sincronización con filtros (solo del tenant actual)
  */
-router.get('/logs', async (req, res) => {
+router.get('/logs', authWithTenant, async (req, res) => {
   try {
-    const { tenantId, tabla, estado, desde, hasta, limit = 100 } = req.query;
+    const { tabla, estado, desde, hasta, limit = 100 } = req.query;
 
-    const where = {};
+    // Verificar que el usuario tenga un tenant asignado
+    if (!req.tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Debe tener un tenant asignado'
+      });
+    }
 
-    if (tenantId) where.tenantId = tenantId;
+    const where = {
+      tenantId: req.tenantId // Solo logs del tenant actual
+    };
+
     if (tabla) where.tabla = tabla;
     if (estado) where.estado = estado;
 
@@ -575,7 +665,7 @@ router.get('/logs', async (req, res) => {
       },
       take: parseInt(limit),
       include: {
-        tenant: {
+        tenants: {
           select: {
             nombre: true
           }

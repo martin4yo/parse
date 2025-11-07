@@ -113,7 +113,8 @@ router.post('/', [
   body('nombre').isLength({ min: 1 }).trim(),
   body('apellido').isLength({ min: 1 }).trim(),
   body('profileId').optional().isString(),
-  body('recibeNotificacionesEmail').optional().isBoolean()
+  body('recibeNotificacionesEmail').optional().isBoolean(),
+  body('superuser').optional().isBoolean()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -121,7 +122,12 @@ router.post('/', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { email, password, nombre, apellido, profileId, recibeNotificacionesEmail } = req.body;
+    const { email, password, nombre, apellido, profileId, recibeNotificacionesEmail, superuser } = req.body;
+
+    // Solo superusers pueden crear otros superusers
+    if (superuser && !req.isSuperuser) {
+      return res.status(403).json({ error: 'Solo los super administradores pueden crear otros super administradores' });
+    }
 
     // Verificar que el email no esté en uso dentro del tenant
     const existingUser = await prisma.users.findUnique({
@@ -157,6 +163,7 @@ router.post('/', [
       nombre,
       apellido,
       recibeNotificacionesEmail: recibeNotificacionesEmail || false,
+      superuser: superuser || false,
       updatedAt: now
     };
 
@@ -196,22 +203,28 @@ router.post('/', [
 
   } catch (error) {
     console.error('Create user error:', error);
-    console.error('Error code:', error.code);
-    console.error('Error meta:', JSON.stringify(error.meta));
 
     // Manejar error de email duplicado (Prisma unique constraint)
-    if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
-      console.log('Enviando mensaje de email duplicado');
-      return res.status(400).json({
-        error: 'El email ya está siendo utilizado por otro usuario. Por favor, usa un email diferente.'
-      });
-    }
+    // target es un array: ['email'] o ['googleId']
+    if (error.code === 'P2002') {
+      const target = error.meta?.target;
+      console.log('CREATE - P2002 detectado. Target:', target);
+      console.log('CREATE - Es array?', Array.isArray(target));
+      console.log('CREATE - Incluye email?', Array.isArray(target) && target.includes('email'));
 
-    // Manejar error de Google ID duplicado
-    if (error.code === 'P2002' && error.meta?.target?.includes('googleId')) {
-      return res.status(400).json({
-        error: 'Esta cuenta de Google ya está vinculada a otro usuario.'
-      });
+      if (Array.isArray(target) && target.includes('email')) {
+        const errorResponse = {
+          error: 'El email ya está siendo utilizado por otro usuario. Por favor, usa un email diferente.'
+        };
+        console.log('CREATE - Enviando respuesta de error:', errorResponse);
+        return res.status(400).json(errorResponse);
+      }
+
+      if (Array.isArray(target) && target.includes('googleId')) {
+        return res.status(400).json({
+          error: 'Esta cuenta de Google ya está vinculada a otro usuario.'
+        });
+      }
     }
 
     res.status(500).json({ error: 'Error al crear el usuario' });
@@ -226,7 +239,8 @@ router.put('/:id', [
   body('nombre').optional().isLength({ min: 1 }).trim(),
   body('apellido').optional().isLength({ min: 1 }).trim(),
   body('profileId').optional().isString(),
-  body('recibeNotificacionesEmail').optional().isBoolean()
+  body('recibeNotificacionesEmail').optional().isBoolean(),
+  body('superuser').optional().isBoolean()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -235,7 +249,7 @@ router.put('/:id', [
     }
 
     const { id } = req.params;
-    const { email, password, nombre, apellido, profileId, activo, recibeNotificacionesEmail } = req.body;
+    const { email, password, nombre, apellido, profileId, activo, recibeNotificacionesEmail, superuser } = req.body;
 
     // Verificar que el usuario existe en el tenant
     const existingUser = await prisma.users.findUnique({
@@ -244,6 +258,11 @@ router.put('/:id', [
 
     if (!existingUser) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // Solo superusers pueden modificar el estado de superuser
+    if (superuser !== undefined && !req.isSuperuser) {
+      return res.status(403).json({ error: 'Solo los super administradores pueden modificar el estado de super administrador' });
     }
 
     // Si se cambia el email, verificar que no esté en uso dentro del tenant
@@ -291,6 +310,7 @@ router.put('/:id', [
 
     if (activo !== undefined) updateData.activo = activo;
     if (recibeNotificacionesEmail !== undefined) updateData.recibeNotificacionesEmail = recibeNotificacionesEmail;
+    if (superuser !== undefined) updateData.superuser = superuser;
 
     // Hashear la nueva contraseña si se proporciona
     if (password) {
@@ -325,17 +345,21 @@ router.put('/:id', [
     console.error('Update user error:', error);
 
     // Manejar error de email duplicado (Prisma unique constraint)
-    if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
-      return res.status(400).json({
-        error: 'El email ya está siendo utilizado por otro usuario. Por favor, usa un email diferente.'
-      });
-    }
+    // target es un array: ['email'] o ['googleId']
+    if (error.code === 'P2002') {
+      const target = error.meta?.target;
 
-    // Manejar error de Google ID duplicado
-    if (error.code === 'P2002' && error.meta?.target?.includes('googleId')) {
-      return res.status(400).json({
-        error: 'Esta cuenta de Google ya está vinculada a otro usuario.'
-      });
+      if (Array.isArray(target) && target.includes('email')) {
+        return res.status(400).json({
+          error: 'El email ya está siendo utilizado por otro usuario. Por favor, usa un email diferente.'
+        });
+      }
+
+      if (Array.isArray(target) && target.includes('googleId')) {
+        return res.status(400).json({
+          error: 'Esta cuenta de Google ya está vinculada a otro usuario.'
+        });
+      }
     }
 
     res.status(500).json({ error: 'Error al actualizar el usuario' });
