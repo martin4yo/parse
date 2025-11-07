@@ -7,41 +7,24 @@ const router = express.Router();
 
 /**
  * GET /api/prompts
- * Listar todos los prompts (con filtros opcionales)
+ * Listar todos los prompts del tenant actual
  */
 router.get('/', authWithTenant, async (req, res) => {
   try {
-    const { motor, activo, clave, tenantId } = req.query;
+    const { motor, activo, clave } = req.query;
 
-    const filters = {};
+    // Verificar que el usuario tenga un tenant asignado
+    if (!req.tenantId) {
+      return res.status(400).json({ error: 'Debe tener un tenant asignado' });
+    }
+
+    const filters = {
+      tenantId: req.tenantId // Solo prompts del tenant actual
+    };
 
     if (motor) filters.motor = motor;
     if (activo !== undefined) filters.activo = activo === 'true';
     if (clave) filters.clave = clave;
-
-    // Si el usuario no es superuser, solo puede ver prompts de su tenant o globales
-    if (!req.isSuperuser) {
-      // Buscar prompts globales y del tenant del usuario
-      const prompts = await promptManager.listPrompts({
-        ...filters,
-        tenantId: null // Globales
-      });
-
-      const promptsTenant = req.tenantId ? await promptManager.listPrompts({
-        ...filters,
-        tenantId: req.tenantId
-      }) : [];
-
-      return res.json({
-        prompts: [...prompts, ...promptsTenant],
-        count: prompts.length + promptsTenant.length
-      });
-    }
-
-    // Superuser puede ver todos
-    if (tenantId !== undefined) {
-      filters.tenantId = tenantId === 'null' ? null : tenantId;
-    }
 
     const prompts = await promptManager.listPrompts(filters);
 
@@ -249,26 +232,27 @@ router.post('/cache/clear', authWithTenant, async (req, res) => {
 
 /**
  * GET /api/prompts/:id
- * Obtener un prompt por ID
+ * Obtener un prompt por ID (solo del tenant actual)
  */
 router.get('/:id', authWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const prompt = await promptManager.listPrompts({ id });
+    // Verificar que el usuario tenga un tenant asignado
+    if (!req.tenantId) {
+      return res.status(400).json({ error: 'Debe tener un tenant asignado' });
+    }
+
+    const prompt = await promptManager.listPrompts({
+      id,
+      tenantId: req.tenantId // Solo del tenant actual
+    });
 
     if (!prompt || prompt.length === 0) {
       return res.status(404).json({ error: 'Prompt no encontrado' });
     }
 
-    // Verificar permisos
-    const promptData = prompt[0];
-
-    if (!req.isSuperuser && promptData.tenantId && promptData.tenantId !== req.tenantId) {
-      return res.status(403).json({ error: 'No tiene permisos para ver este prompt' });
-    }
-
-    res.json(promptData);
+    res.json(prompt[0]);
 
   } catch (error) {
     console.error('Error obteniendo prompt:', error);
@@ -278,7 +262,7 @@ router.get('/:id', authWithTenant, async (req, res) => {
 
 /**
  * POST /api/prompts
- * Crear un nuevo prompt
+ * Crear un nuevo prompt (siempre asociado al tenant del usuario)
  */
 router.post('/', [
   authWithTenant,
@@ -298,19 +282,13 @@ router.post('/', [
 
     const { clave, nombre, prompt, descripcion, variables, motor, activo } = req.body;
 
-    // Determinar tenantId
-    let tenantId = null;
-
-    // Si no es superuser, forzar tenantId del usuario
-    if (!req.isSuperuser) {
-      if (!req.tenantId) {
-        return res.status(400).json({ error: 'Debe tener un tenant asignado' });
-      }
-      tenantId = req.tenantId;
-    } else {
-      // Superuser puede crear prompts globales o para un tenant específico
-      tenantId = req.body.tenantId || null;
+    // Verificar que el usuario tenga un tenant asignado
+    if (!req.tenantId) {
+      return res.status(400).json({ error: 'Debe tener un tenant asignado' });
     }
+
+    // Siempre usar el tenantId del usuario autenticado
+    const tenantId = req.tenantId;
 
     const nuevoPrompt = await promptManager.upsertPrompt({
       clave,
@@ -343,7 +321,7 @@ router.post('/', [
 
 /**
  * PUT /api/prompts/:id
- * Actualizar un prompt existente
+ * Actualizar un prompt existente (solo del tenant actual)
  */
 router.put('/:id', [
   authWithTenant,
@@ -363,19 +341,22 @@ router.put('/:id', [
     const { id } = req.params;
     const { nombre, prompt, descripcion, variables, motor, activo } = req.body;
 
-    // Verificar que el prompt existe y el usuario tiene permisos
-    const promptExistente = await promptManager.listPrompts({ id });
+    // Verificar que el usuario tenga un tenant asignado
+    if (!req.tenantId) {
+      return res.status(400).json({ error: 'Debe tener un tenant asignado' });
+    }
+
+    // Verificar que el prompt existe y pertenece al tenant actual
+    const promptExistente = await promptManager.listPrompts({
+      id,
+      tenantId: req.tenantId // Solo del tenant actual
+    });
 
     if (!promptExistente || promptExistente.length === 0) {
       return res.status(404).json({ error: 'Prompt no encontrado' });
     }
 
     const promptData = promptExistente[0];
-
-    // Verificar permisos
-    if (!req.isSuperuser && promptData.tenantId && promptData.tenantId !== req.tenantId) {
-      return res.status(403).json({ error: 'No tiene permisos para editar este prompt' });
-    }
 
     // Actualizar usando upsert (para incrementar versión automáticamente)
     const promptActualizado = await promptManager.upsertPrompt({
@@ -403,24 +384,25 @@ router.put('/:id', [
 
 /**
  * DELETE /api/prompts/:id
- * Eliminar un prompt
+ * Eliminar un prompt (solo del tenant actual)
  */
 router.delete('/:id', authWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Verificar que el prompt existe y el usuario tiene permisos
-    const promptExistente = await promptManager.listPrompts({ id });
+    // Verificar que el usuario tenga un tenant asignado
+    if (!req.tenantId) {
+      return res.status(400).json({ error: 'Debe tener un tenant asignado' });
+    }
+
+    // Verificar que el prompt existe y pertenece al tenant actual
+    const promptExistente = await promptManager.listPrompts({
+      id,
+      tenantId: req.tenantId // Solo del tenant actual
+    });
 
     if (!promptExistente || promptExistente.length === 0) {
       return res.status(404).json({ error: 'Prompt no encontrado' });
-    }
-
-    const promptData = promptExistente[0];
-
-    // Verificar permisos
-    if (!req.isSuperuser && promptData.tenantId && promptData.tenantId !== req.tenantId) {
-      return res.status(403).json({ error: 'No tiene permisos para eliminar este prompt' });
     }
 
     await promptManager.deletePrompt(id);

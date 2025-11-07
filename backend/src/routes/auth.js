@@ -601,7 +601,8 @@ router.post('/switch-tenant', async (req, res) => {
         nombre: tenant.nombre,
         slug: tenant.slug,
         planId: tenant.planId,
-        plan: tenant.planes, // Objeto completo del plan
+        plan: tenant.planes?.codigo || 'Sin Plan', // Solo el código del plan como string
+        planes: tenant.planes, // Objeto completo del plan si se necesita
         configuracion: tenant.configuracion
       }
     });
@@ -650,14 +651,27 @@ router.get('/available-tenants', async (req, res) => {
           select: {
             users: true
           }
+        },
+        planes: {
+          select: {
+            codigo: true,
+            nombre: true,
+            color: true
+          }
         }
       },
       orderBy: { fechaCreacion: 'desc' }
     });
 
+    // Transformar para incluir plan como string
+    const tenantsWithPlan = tenants.map(tenant => ({
+      ...tenant,
+      plan: tenant.planes?.codigo || 'Sin Plan'
+    }));
+
     res.json({
       success: true,
-      tenants
+      tenants: tenantsWithPlan
     });
 
   } catch (error) {

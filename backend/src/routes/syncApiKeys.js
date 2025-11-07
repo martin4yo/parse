@@ -3,6 +3,7 @@ const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
+const { authWithTenant } = require('../middleware/authWithTenant');
 const prisma = new PrismaClient();
 
 /**
@@ -33,17 +34,23 @@ function createKeyPreview(apiKey) {
 
 /**
  * GET /api/sync/api-keys
- * Lista todas las API keys del tenant
+ * Lista todas las API keys del tenant actual
  */
-router.get('/', async (req, res) => {
+router.get('/', authWithTenant, async (req, res) => {
   try {
-    const { tenantId, activo } = req.query;
+    const { activo } = req.query;
 
-    const where = {};
-
-    if (tenantId) {
-      where.tenantId = tenantId;
+    // Verificar que el usuario tenga un tenant asignado
+    if (!req.tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Debe tener un tenant asignado'
+      });
     }
+
+    const where = {
+      tenantId: req.tenantId // Solo API keys del tenant actual
+    };
 
     if (activo !== undefined) {
       where.activo = activo === 'true';
@@ -91,14 +98,25 @@ router.get('/', async (req, res) => {
 
 /**
  * GET /api/sync/api-keys/:id
- * Obtiene una API key por ID
+ * Obtiene una API key por ID (solo del tenant actual)
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', authWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const apiKey = await prisma.sync_api_keys.findUnique({
-      where: { id },
+    // Verificar que el usuario tenga un tenant asignado
+    if (!req.tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Debe tener un tenant asignado'
+      });
+    }
+
+    const apiKey = await prisma.sync_api_keys.findFirst({
+      where: {
+        id,
+        tenantId: req.tenantId // Solo del tenant actual
+      },
       select: {
         id: true,
         nombre: true,
@@ -143,29 +161,28 @@ router.get('/:id', async (req, res) => {
 
 /**
  * POST /api/sync/api-keys
- * Crea una nueva API key
+ * Crea una nueva API key (solo para el tenant actual)
  */
-router.post('/', async (req, res) => {
+router.post('/', authWithTenant, async (req, res) => {
   try {
-    const { tenantId, nombre, permisos = {}, expiraEn, createdBy } = req.body;
+    const { nombre, permisos = {}, expiraEn } = req.body;
 
-    // Validar campos requeridos
-    if (!tenantId || !nombre) {
+    // Verificar que el usuario tenga un tenant asignado
+    if (!req.tenantId) {
       return res.status(400).json({
         success: false,
-        error: 'tenantId y nombre son requeridos',
+        error: 'Debe tener un tenant asignado'
       });
     }
 
-    // Verificar que el tenant existe
-    const tenant = await prisma.tenants.findUnique({
-      where: { id: tenantId },
-    });
+    // Usar siempre el tenantId del usuario autenticado
+    const tenantId = req.tenantId;
 
-    if (!tenant) {
-      return res.status(404).json({
+    // Validar campos requeridos
+    if (!nombre) {
+      return res.status(400).json({
         success: false,
-        error: 'Tenant no encontrado',
+        error: 'El nombre es requerido',
       });
     }
 
@@ -184,7 +201,7 @@ router.post('/', async (req, res) => {
         keyPreview: preview,
         permisos,
         expiraEn: expiraEn ? new Date(expiraEn) : null,
-        createdBy,
+        createdBy: req.user.id,
         updatedAt: new Date(),
       },
       include: {
@@ -217,16 +234,27 @@ router.post('/', async (req, res) => {
 
 /**
  * PUT /api/sync/api-keys/:id
- * Actualiza una API key
+ * Actualiza una API key (solo del tenant actual)
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', authWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre, permisos, activo, expiraEn } = req.body;
 
-    // Verificar que la API key existe
-    const existingKey = await prisma.sync_api_keys.findUnique({
-      where: { id },
+    // Verificar que el usuario tenga un tenant asignado
+    if (!req.tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Debe tener un tenant asignado'
+      });
+    }
+
+    // Verificar que la API key existe y pertenece al tenant actual
+    const existingKey = await prisma.sync_api_keys.findFirst({
+      where: {
+        id,
+        tenantId: req.tenantId // Solo del tenant actual
+      },
     });
 
     if (!existingKey) {
@@ -271,15 +299,26 @@ router.put('/:id', async (req, res) => {
 
 /**
  * DELETE /api/sync/api-keys/:id
- * Elimina una API key
+ * Elimina una API key (solo del tenant actual)
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Verificar que la API key existe
-    const existingKey = await prisma.sync_api_keys.findUnique({
-      where: { id },
+    // Verificar que el usuario tenga un tenant asignado
+    if (!req.tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Debe tener un tenant asignado'
+      });
+    }
+
+    // Verificar que la API key existe y pertenece al tenant actual
+    const existingKey = await prisma.sync_api_keys.findFirst({
+      where: {
+        id,
+        tenantId: req.tenantId // Solo del tenant actual
+      },
     });
 
     if (!existingKey) {
@@ -308,15 +347,26 @@ router.delete('/:id', async (req, res) => {
 
 /**
  * POST /api/sync/api-keys/:id/regenerate
- * Regenera una API key (crea una nueva key pero mantiene la configuración)
+ * Regenera una API key (crea una nueva key pero mantiene la configuración) (solo del tenant actual)
  */
-router.post('/:id/regenerate', async (req, res) => {
+router.post('/:id/regenerate', authWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Verificar que la API key existe
-    const existingKey = await prisma.sync_api_keys.findUnique({
-      where: { id },
+    // Verificar que el usuario tenga un tenant asignado
+    if (!req.tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Debe tener un tenant asignado'
+      });
+    }
+
+    // Verificar que la API key existe y pertenece al tenant actual
+    const existingKey = await prisma.sync_api_keys.findFirst({
+      where: {
+        id,
+        tenantId: req.tenantId // Solo del tenant actual
+      },
     });
 
     if (!existingKey) {

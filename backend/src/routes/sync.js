@@ -2,8 +2,10 @@ const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { v4: uuidv4 } = require('uuid');
 const { encryptPassword, decryptPassword } = require('../utils/syncEncryption');
 const { authenticateSyncClient, requireSyncPermission } = require('../middleware/syncAuth');
+const { authWithTenant } = require('../middleware/authWithTenant');
 
 /**
  * Endpoints para sincronización con cliente SQL Server
@@ -14,20 +16,43 @@ const { authenticateSyncClient, requireSyncPermission } = require('../middleware
  * Health check
  */
 router.get('/health', (req, res) => {
-  res.json({ success: true, status: 'ok' });
+  res.json({
+    success: true,
+    status: 'ok',
+    version: '2.0.0-slug-support', // Indica que el backend soporta slug
+    updated: '2025-11-07'
+  });
 });
 
 /**
  * GET /api/sync/config/:tenantId
  * Obtiene la configuración de sincronización del tenant
  * Requiere autenticación con API key
+ * @param tenantId - Puede ser el ID (UUID) o el slug del tenant
  */
 router.get('/config/:tenantId', requireSyncPermission('sync'), async (req, res) => {
   try {
-    const { tenantId } = req.params;
+    const { tenantId: tenantParam } = req.params;
+
+    // Buscar el tenant por ID o slug
+    const tenant = await prisma.tenants.findFirst({
+      where: {
+        OR: [
+          { id: tenantParam },
+          { slug: tenantParam }
+        ]
+      }
+    });
+
+    if (!tenant) {
+      return res.status(404).json({
+        success: false,
+        error: 'Tenant no encontrado'
+      });
+    }
 
     // Validar que el tenant del API key coincide con el solicitado
-    if (req.syncClient.tenantId !== tenantId) {
+    if (req.syncClient.tenantId !== tenant.id) {
       return res.status(403).json({
         success: false,
         error: 'No tienes permiso para acceder a este tenant'
@@ -35,7 +60,7 @@ router.get('/config/:tenantId', requireSyncPermission('sync'), async (req, res) 
     }
 
     const config = await prisma.sync_configurations.findUnique({
-      where: { tenantId }
+      where: { tenantId: tenant.id }
     });
 
     if (!config) {
@@ -74,10 +99,11 @@ router.get('/config/:tenantId', requireSyncPermission('sync'), async (req, res) 
 /**
  * POST /api/sync/upload/:tenantId
  * Recibe datos del cliente para insertar en PostgreSQL
+ * @param tenantId - Puede ser el ID (UUID) o el slug del tenant
  */
 router.post('/upload/:tenantId', requireSyncPermission('sync'), async (req, res) => {
   try {
-    const { tenantId } = req.params;
+    const { tenantId: tenantParam } = req.params;
     const { tabla, data, timestamp } = req.body;
 
     if (!tabla || !data || !Array.isArray(data)) {
@@ -87,11 +113,36 @@ router.post('/upload/:tenantId', requireSyncPermission('sync'), async (req, res)
       });
     }
 
-    console.log(`[SYNC UPLOAD] ${tenantId} - ${tabla}: ${data.length} registros`);
+    // Buscar el tenant por ID o slug
+    const tenant = await prisma.tenants.findFirst({
+      where: {
+        OR: [
+          { id: tenantParam },
+          { slug: tenantParam }
+        ]
+      }
+    });
+
+    if (!tenant) {
+      return res.status(404).json({
+        success: false,
+        error: 'Tenant no encontrado'
+      });
+    }
+
+    // Validar que el tenant del API key coincide con el solicitado
+    if (req.syncClient.tenantId !== tenant.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tienes permiso para acceder a este tenant'
+      });
+    }
+
+    console.log(`[SYNC UPLOAD] ${tenant.slug} - ${tabla}: ${data.length} registros`);
 
     // Obtener configuración para saber cómo procesar
     const config = await prisma.sync_configurations.findUnique({
-      where: { tenantId }
+      where: { tenantId: tenant.id }
     });
 
     if (!config) {
@@ -117,7 +168,7 @@ router.post('/upload/:tenantId', requireSyncPermission('sync'), async (req, res)
     // (Aquí deberías implementar la lógica de post_process si está configurado en "destino")
 
     const isIncremental = tablaConfig.incremental || false;
-    const result = await insertIntoMaestrosParametros(data, tenantId, tabla, isIncremental);
+    const result = await insertIntoMaestrosParametros(data, tenant.id, tabla, isIncremental);
 
     res.json({
       success: true,
@@ -139,10 +190,11 @@ router.post('/upload/:tenantId', requireSyncPermission('sync'), async (req, res)
 /**
  * GET /api/sync/download/:tenantId
  * Envía datos al cliente para insertar en SQL Server
+ * @param tenantId - Puede ser el ID (UUID) o el slug del tenant
  */
 router.get('/download/:tenantId', requireSyncPermission('sync'), async (req, res) => {
   try {
-    const { tenantId } = req.params;
+    const { tenantId: tenantParam } = req.params;
     const { tabla } = req.query;
 
     if (!tabla) {
@@ -152,11 +204,36 @@ router.get('/download/:tenantId', requireSyncPermission('sync'), async (req, res
       });
     }
 
-    console.log(`[SYNC DOWNLOAD] ${tenantId} - ${tabla}`);
+    // Buscar el tenant por ID o slug
+    const tenant = await prisma.tenants.findFirst({
+      where: {
+        OR: [
+          { id: tenantParam },
+          { slug: tenantParam }
+        ]
+      }
+    });
+
+    if (!tenant) {
+      return res.status(404).json({
+        success: false,
+        error: 'Tenant no encontrado'
+      });
+    }
+
+    // Validar que el tenant del API key coincide con el solicitado
+    if (req.syncClient.tenantId !== tenant.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tienes permiso para acceder a este tenant'
+      });
+    }
+
+    console.log(`[SYNC DOWNLOAD] ${tenant.slug} - ${tabla}`);
 
     // Obtener configuración
     const config = await prisma.sync_configurations.findUnique({
-      where: { tenantId }
+      where: { tenantId: tenant.id }
     });
 
     if (!config) {
@@ -179,7 +256,7 @@ router.get('/download/:tenantId', requireSyncPermission('sync'), async (req, res
     }
 
     // Ejecutar query configurado en process
-    let data = await executeDownloadQuery(tablaConfig, tenantId);
+    let data = await executeDownloadQuery(tablaConfig, tenant.id);
 
     // IMPORTANTE: Convertir DECIMALs a números estándar para evitar problemas de serialización
     // PostgreSQL DECIMAL(65,30) puede devolver objetos Decimal que causan overflow
@@ -231,10 +308,11 @@ router.get('/download/:tenantId', requireSyncPermission('sync'), async (req, res
 /**
  * POST /api/sync/logs/:tenantId
  * Recibe logs de sincronización del cliente
+ * @param tenantId - Puede ser el ID (UUID) o el slug del tenant
  */
 router.post('/logs/:tenantId', requireSyncPermission('sync'), async (req, res) => {
   try {
-    const { tenantId } = req.params;
+    const { tenantId: tenantParam } = req.params;
     const { logs } = req.body;
 
     if (!logs || !Array.isArray(logs)) {
@@ -244,18 +322,44 @@ router.post('/logs/:tenantId', requireSyncPermission('sync'), async (req, res) =
       });
     }
 
-    console.log(`[SYNC LOGS] ${tenantId}: ${logs.length} logs`);
+    // Buscar el tenant por ID o slug
+    const tenant = await prisma.tenants.findFirst({
+      where: {
+        OR: [
+          { id: tenantParam },
+          { slug: tenantParam }
+        ]
+      }
+    });
+
+    if (!tenant) {
+      return res.status(404).json({
+        success: false,
+        error: 'Tenant no encontrado'
+      });
+    }
+
+    // Validar que el tenant del API key coincide con el solicitado
+    if (req.syncClient.tenantId !== tenant.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tienes permiso para acceder a este tenant'
+      });
+    }
+
+    console.log(`[SYNC LOGS] ${tenant.slug}: ${logs.length} logs`);
 
     // Obtener config ID
     const config = await prisma.sync_configurations.findUnique({
-      where: { tenantId },
+      where: { tenantId: tenant.id },
       select: { id: true }
     });
 
     // Insertar logs
     const insertedLogs = await prisma.sync_logs.createMany({
       data: logs.map(log => ({
-        tenantId,
+        id: uuidv4(),
+        tenantId: tenant.id,
         configId: config?.id || null,
         direccion: log.direccion,
         tabla: log.tabla,
@@ -268,7 +372,8 @@ router.post('/logs/:tenantId', requireSyncPermission('sync'), async (req, res) =
         duracionMs: log.duracionMs,
         metadatos: log.metadatos || null,
         fechaInicio: new Date(log.fechaInicio),
-        fechaFin: log.fechaFin ? new Date(log.fechaFin) : null
+        fechaFin: log.fechaFin ? new Date(log.fechaFin) : null,
+        createdAt: new Date()
       }))
     });
 
@@ -293,14 +398,27 @@ router.post('/logs/:tenantId', requireSyncPermission('sync'), async (req, res) =
  * GET /api/sync/configurations
  * Lista todas las configuraciones de sincronización
  */
-router.get('/configurations', async (req, res) => {
+router.get('/configurations', authWithTenant, async (req, res) => {
   try {
+    // Verificar que el usuario tenga un tenant asignado
+    if (!req.tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Debe tener un tenant asignado'
+      });
+    }
+
     const configs = await prisma.sync_configurations.findMany({
+      where: {
+        tenantId: req.tenantId // Solo configuraciones del tenant actual
+      },
       include: {
         tenants: {
           select: {
+            id: true,
             nombre: true,
-            cuit: true
+            cuit: true,
+            slug: true
           }
         }
       },
@@ -309,9 +427,15 @@ router.get('/configurations', async (req, res) => {
       }
     });
 
+    // Mapear tenants a tenant (singular) para consistencia con el frontend
+    const mappedConfigs = configs.map(config => ({
+      ...config,
+      tenant: config.tenants
+    }));
+
     res.json({
       success: true,
-      data: configs
+      data: mappedConfigs
     });
   } catch (error) {
     console.error('Error al listar configuraciones:', error);
@@ -324,16 +448,27 @@ router.get('/configurations', async (req, res) => {
 
 /**
  * GET /api/sync/configurations/:id
- * Obtiene una configuración por ID
+ * Obtiene una configuración por ID (solo del tenant actual)
  */
-router.get('/configurations/:id', async (req, res) => {
+router.get('/configurations/:id', authWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const config = await prisma.sync_configurations.findUnique({
-      where: { id },
+    // Verificar que el usuario tenga un tenant asignado
+    if (!req.tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Debe tener un tenant asignado'
+      });
+    }
+
+    const config = await prisma.sync_configurations.findFirst({
+      where: {
+        id,
+        tenantId: req.tenantId // Solo del tenant actual
+      },
       include: {
-        tenant: {
+        tenants: {
           select: {
             nombre: true,
             cuit: true,
@@ -350,9 +485,11 @@ router.get('/configurations/:id', async (req, res) => {
       });
     }
 
+    // Mapear tenants a tenant (singular) para consistencia con el frontend
     // No enviar password al frontend (por seguridad)
     const configWithoutPassword = {
       ...config,
+      tenant: config.tenants,
       sqlServerPassword: '***encrypted***',
     };
 
@@ -371,12 +508,11 @@ router.get('/configurations/:id', async (req, res) => {
 
 /**
  * POST /api/sync/configurations
- * Crea una nueva configuración
+ * Crea una nueva configuración (solo para el tenant actual)
  */
-router.post('/configurations', async (req, res) => {
+router.post('/configurations', authWithTenant, async (req, res) => {
   try {
     const {
-      tenantId,
       sqlServerHost,
       sqlServerPort,
       sqlServerDatabase,
@@ -386,23 +522,22 @@ router.post('/configurations', async (req, res) => {
       activo
     } = req.body;
 
-    // Validar campos requeridos
-    if (!tenantId || !sqlServerHost || !sqlServerDatabase || !sqlServerUser || !sqlServerPassword) {
+    // Verificar que el usuario tenga un tenant asignado
+    if (!req.tenantId) {
       return res.status(400).json({
         success: false,
-        error: 'Campos requeridos faltantes'
+        error: 'Debe tener un tenant asignado'
       });
     }
 
-    // Verificar que el tenant existe
-    const tenant = await prisma.tenants.findUnique({
-      where: { id: tenantId }
-    });
+    // Usar siempre el tenantId del usuario autenticado
+    const tenantId = req.tenantId;
 
-    if (!tenant) {
-      return res.status(404).json({
+    // Validar campos requeridos
+    if (!sqlServerHost || !sqlServerDatabase || !sqlServerUser || !sqlServerPassword) {
+      return res.status(400).json({
         success: false,
-        error: 'Tenant no encontrado'
+        error: 'Campos requeridos faltantes'
       });
     }
 
@@ -423,6 +558,7 @@ router.post('/configurations', async (req, res) => {
 
     const config = await prisma.sync_configurations.create({
       data: {
+        id: uuidv4(),
         tenantId,
         sqlServerHost,
         sqlServerPort: sqlServerPort || 1433,
@@ -430,21 +566,32 @@ router.post('/configurations', async (req, res) => {
         sqlServerUser,
         sqlServerPassword: encryptedPassword,
         configuracionTablas: configuracionTablas || { tablasSubida: [], tablasBajada: [] },
-        activo: activo !== undefined ? activo : true
+        ultimaModificacion: new Date(),
+        activo: activo !== undefined ? activo : true,
+        createdAt: new Date(),
+        updatedAt: new Date()
       },
       include: {
-        tenant: {
+        tenants: {
           select: {
+            id: true,
             nombre: true,
-            cuit: true
+            cuit: true,
+            slug: true
           }
         }
       }
     });
 
+    // Mapear tenants a tenant (singular) para consistencia con el frontend
+    const mappedConfig = {
+      ...config,
+      tenant: config.tenants
+    };
+
     res.status(201).json({
       success: true,
-      data: config
+      data: mappedConfig
     });
   } catch (error) {
     console.error('Error al crear configuración:', error);
@@ -457,9 +604,9 @@ router.post('/configurations', async (req, res) => {
 
 /**
  * PUT /api/sync/configurations/:id
- * Actualiza una configuración existente
+ * Actualiza una configuración existente (solo del tenant actual)
  */
-router.put('/configurations/:id', async (req, res) => {
+router.put('/configurations/:id', authWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -472,9 +619,20 @@ router.put('/configurations/:id', async (req, res) => {
       activo
     } = req.body;
 
-    // Verificar que existe
-    const existingConfig = await prisma.sync_configurations.findUnique({
-      where: { id }
+    // Verificar que el usuario tenga un tenant asignado
+    if (!req.tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Debe tener un tenant asignado'
+      });
+    }
+
+    // Verificar que existe y pertenece al tenant actual
+    const existingConfig = await prisma.sync_configurations.findFirst({
+      where: {
+        id,
+        tenantId: req.tenantId // Solo del tenant actual
+      }
     });
 
     if (!existingConfig) {
@@ -497,22 +655,34 @@ router.put('/configurations/:id', async (req, res) => {
     if (configuracionTablas) updateData.configuracionTablas = configuracionTablas;
     if (activo !== undefined) updateData.activo = activo;
 
+    // Actualizar timestamps de modificación
+    updateData.ultimaModificacion = new Date();
+    updateData.updatedAt = new Date();
+
     const config = await prisma.sync_configurations.update({
       where: { id },
       data: updateData,
       include: {
-        tenant: {
+        tenants: {
           select: {
+            id: true,
             nombre: true,
-            cuit: true
+            cuit: true,
+            slug: true
           }
         }
       }
     });
 
+    // Mapear tenants a tenant (singular) para consistencia con el frontend
+    const mappedConfig = {
+      ...config,
+      tenant: config.tenants
+    };
+
     res.json({
       success: true,
-      data: config
+      data: mappedConfig
     });
   } catch (error) {
     console.error('Error al actualizar configuración:', error);
@@ -525,11 +695,34 @@ router.put('/configurations/:id', async (req, res) => {
 
 /**
  * DELETE /api/sync/configurations/:id
- * Elimina una configuración
+ * Elimina una configuración (solo del tenant actual)
  */
-router.delete('/configurations/:id', async (req, res) => {
+router.delete('/configurations/:id', authWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Verificar que el usuario tenga un tenant asignado
+    if (!req.tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Debe tener un tenant asignado'
+      });
+    }
+
+    // Verificar que existe y pertenece al tenant actual
+    const existingConfig = await prisma.sync_configurations.findFirst({
+      where: {
+        id,
+        tenantId: req.tenantId // Solo del tenant actual
+      }
+    });
+
+    if (!existingConfig) {
+      return res.status(404).json({
+        success: false,
+        error: 'Configuración no encontrada'
+      });
+    }
 
     await prisma.sync_configurations.delete({
       where: { id }
@@ -550,15 +743,24 @@ router.delete('/configurations/:id', async (req, res) => {
 
 /**
  * GET /api/sync/logs
- * Obtiene logs de sincronización con filtros
+ * Obtiene logs de sincronización con filtros (solo del tenant actual)
  */
-router.get('/logs', async (req, res) => {
+router.get('/logs', authWithTenant, async (req, res) => {
   try {
-    const { tenantId, tabla, estado, desde, hasta, limit = 100 } = req.query;
+    const { tabla, estado, desde, hasta, limit = 100 } = req.query;
 
-    const where = {};
+    // Verificar que el usuario tenga un tenant asignado
+    if (!req.tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Debe tener un tenant asignado'
+      });
+    }
 
-    if (tenantId) where.tenantId = tenantId;
+    const where = {
+      tenantId: req.tenantId // Solo logs del tenant actual
+    };
+
     if (tabla) where.tabla = tabla;
     if (estado) where.estado = estado;
 
@@ -575,7 +777,7 @@ router.get('/logs', async (req, res) => {
       },
       take: parseInt(limit),
       include: {
-        tenant: {
+        tenants: {
           select: {
             nombre: true
           }
@@ -941,17 +1143,32 @@ function normalizeBoolean(value, defaultValue = true) {
 
 async function insertIntoMaestrosParametros(data, tenantId, tipoTabla, isIncremental = true) {
   // Mapear datos del cliente a maestros_parametros
-  const registros = data.map(item => ({
-    codigo: item.codigo || item.id,
-    nombre: item.nombre || item.descripcion,
-    descripcion: item.descripcion || null,
-    tipo_campo: item.tipo_campo || tipoTabla, // Usar el valor del registro, no el nombre de la tabla
-    valor_padre: item.valor_padre || null,
-    orden: item.orden || 1,
-    activo: normalizeBoolean(item.activo, true),
-    tenantId,
-    parametros_json: item.parametros_json || null
-  }));
+  const registros = data.map((item, index) => {
+    // Validar y parsear parametros_json si viene como string
+    let parametrosJson = item.parametros_json || null;
+
+    if (parametrosJson && typeof parametrosJson === 'string') {
+      try {
+        parametrosJson = JSON.parse(parametrosJson);
+      } catch (e) {
+        console.error(`[SYNC] Error parseando parametros_json en registro ${index} (${item.codigo}):`, e.message);
+        console.error(`[SYNC] Valor recibido:`, parametrosJson);
+        parametrosJson = null; // Ignorar el JSON inválido
+      }
+    }
+
+    return {
+      codigo: item.codigo || item.id,
+      nombre: item.nombre || item.descripcion,
+      descripcion: item.descripcion || null,
+      tipo_campo: item.tipo_campo || tipoTabla,
+      valor_padre: item.valor_padre || null,
+      orden: item.orden || 1,
+      activo: normalizeBoolean(item.activo, true),
+      tenantId,
+      parametros_json: parametrosJson
+    };
+  });
 
   if (registros.length === 0) {
     return { insertedCount: 0, updatedCount: 0, deletedCount: 0 };
@@ -963,40 +1180,70 @@ async function insertIntoMaestrosParametros(data, tenantId, tipoTabla, isIncreme
   let insertedCount = 0;
   let updatedCount = 0;
 
-  // Fase 1: Upsert (crear o actualizar)
-  for (const registro of registros) {
-    const existing = await prisma.parametros_maestros.findUnique({
-      where: {
-        tipo_campo_codigo: {
-          tipo_campo: registro.tipo_campo,
-          codigo: registro.codigo
-        }
+  // Fase 1: Obtener todos los registros existentes de una sola vez
+  const codigosRecibidos = registros.map(r => r.codigo);
+  const existingRecords = await prisma.parametros_maestros.findMany({
+    where: {
+      tipo_campo: tipoCampo,
+      codigo: {
+        in: codigosRecibidos
       }
-    });
+    },
+    select: {
+      codigo: true
+    }
+  });
 
-    await prisma.parametros_maestros.upsert({
-      where: {
-        tipo_campo_codigo: {
-          tipo_campo: registro.tipo_campo,
-          codigo: registro.codigo
-        }
-      },
-      update: {
-        nombre: registro.nombre,
-        descripcion: registro.descripcion,
-        valor_padre: registro.valor_padre,
-        orden: registro.orden,
-        activo: registro.activo,
-        parametros_json: registro.parametros_json,
-        updatedAt: new Date()
-      },
-      create: registro
-    });
+  const codigosExistentes = new Set(existingRecords.map(r => r.codigo));
 
-    if (existing) {
-      updatedCount++;
-    } else {
-      insertedCount++;
+  // Separar en nuevos y actualizaciones
+  const nuevos = registros.filter(r => !codigosExistentes.has(r.codigo));
+  const actualizaciones = registros.filter(r => codigosExistentes.has(r.codigo));
+
+  console.log(`[SYNC] ${tipoCampo}: ${nuevos.length} nuevos, ${actualizaciones.length} para actualizar`);
+
+  // Fase 2: Insertar nuevos en batch
+  if (nuevos.length > 0) {
+    try {
+      await prisma.parametros_maestros.createMany({
+        data: nuevos,
+        skipDuplicates: true
+      });
+      insertedCount = nuevos.length;
+    } catch (error) {
+      console.error(`[SYNC] Error insertando nuevos registros:`, error.message);
+      throw error;
+    }
+  }
+
+  // Fase 3: Actualizar existentes en batch (usando transacción)
+  if (actualizaciones.length > 0) {
+    try {
+      await prisma.$transaction(
+        actualizaciones.map(registro =>
+          prisma.parametros_maestros.update({
+            where: {
+              tipo_campo_codigo: {
+                tipo_campo: registro.tipo_campo,
+                codigo: registro.codigo
+              }
+            },
+            data: {
+              nombre: registro.nombre,
+              descripcion: registro.descripcion,
+              valor_padre: registro.valor_padre,
+              orden: registro.orden,
+              activo: registro.activo,
+              parametros_json: registro.parametros_json,
+              updatedAt: new Date()
+            }
+          })
+        )
+      );
+      updatedCount = actualizaciones.length;
+    } catch (error) {
+      console.error(`[SYNC] Error actualizando registros:`, error.message);
+      throw error;
     }
   }
 

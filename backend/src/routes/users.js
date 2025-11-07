@@ -2,6 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const { authWithTenant } = require('../middleware/authWithTenant');
 
 const router = express.Router();
@@ -113,7 +114,7 @@ router.post('/', [
   body('apellido').isLength({ min: 1 }).trim(),
   body('profileId').optional().isString(),
   body('recibeNotificacionesEmail').optional().isBoolean(),
-  body('esUsuarioTesoreria').optional().isBoolean()
+  body('superuser').optional().isBoolean()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -121,7 +122,12 @@ router.post('/', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { email, password, nombre, apellido, profileId, recibeNotificacionesEmail, esUsuarioTesoreria } = req.body;
+    const { email, password, nombre, apellido, profileId, recibeNotificacionesEmail, superuser } = req.body;
+
+    // Solo superusers pueden crear otros superusers
+    if (superuser && !req.isSuperuser) {
+      return res.status(403).json({ error: 'Solo los super administradores pueden crear otros super administradores' });
+    }
 
     // Verificar que el email no esté en uso dentro del tenant
     const existingUser = await prisma.users.findUnique({
@@ -146,17 +152,37 @@ router.post('/', [
     // Hashear la contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Generar ID único para el usuario
+    const userId = crypto.randomUUID();
+    const now = new Date();
+
+    const createData = {
+      id: userId,
+      email,
+      password: hashedPassword,
+      nombre,
+      apellido,
+      recibeNotificacionesEmail: recibeNotificacionesEmail || false,
+      superuser: superuser || false,
+      updatedAt: now
+    };
+
+    // Conectar profile si se proporciona
+    if (profileId && profileId !== '') {
+      createData.profiles = {
+        connect: { id: profileId }
+      };
+    }
+
+    // Conectar tenant si se proporciona
+    if (req.tenantId) {
+      createData.tenants = {
+        connect: { id: req.tenantId }
+      };
+    }
+
     const user = await prisma.users.create({
-      data: {
-        email,
-        password: hashedPassword,
-        nombre,
-        apellido,
-        profileId: profileId && profileId !== '' ? profileId : null,
-        recibeNotificacionesEmail: recibeNotificacionesEmail || false,
-        esUsuarioTesoreria: esUsuarioTesoreria || false,
-        tenantId: req.tenantId
-      },
+      data: createData,
       include: {
         profiles: {
           select: {
@@ -177,7 +203,31 @@ router.post('/', [
 
   } catch (error) {
     console.error('Create user error:', error);
-    res.status(500).json({ error: 'Error del servidor' });
+
+    // Manejar error de email duplicado (Prisma unique constraint)
+    // target es un array: ['email'] o ['googleId']
+    if (error.code === 'P2002') {
+      const target = error.meta?.target;
+      console.log('CREATE - P2002 detectado. Target:', target);
+      console.log('CREATE - Es array?', Array.isArray(target));
+      console.log('CREATE - Incluye email?', Array.isArray(target) && target.includes('email'));
+
+      if (Array.isArray(target) && target.includes('email')) {
+        const errorResponse = {
+          error: 'El email ya está siendo utilizado por otro usuario. Por favor, usa un email diferente.'
+        };
+        console.log('CREATE - Enviando respuesta de error:', errorResponse);
+        return res.status(400).json(errorResponse);
+      }
+
+      if (Array.isArray(target) && target.includes('googleId')) {
+        return res.status(400).json({
+          error: 'Esta cuenta de Google ya está vinculada a otro usuario.'
+        });
+      }
+    }
+
+    res.status(500).json({ error: 'Error al crear el usuario' });
   }
 });
 
@@ -190,7 +240,7 @@ router.put('/:id', [
   body('apellido').optional().isLength({ min: 1 }).trim(),
   body('profileId').optional().isString(),
   body('recibeNotificacionesEmail').optional().isBoolean(),
-  body('esUsuarioTesoreria').optional().isBoolean()
+  body('superuser').optional().isBoolean()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -199,7 +249,7 @@ router.put('/:id', [
     }
 
     const { id } = req.params;
-    const { email, password, nombre, apellido, profileId, activo, recibeNotificacionesEmail, esUsuarioTesoreria } = req.body;
+    const { email, password, nombre, apellido, profileId, activo, recibeNotificacionesEmail, superuser } = req.body;
 
     // Verificar que el usuario existe en el tenant
     const existingUser = await prisma.users.findUnique({
@@ -208,6 +258,11 @@ router.put('/:id', [
 
     if (!existingUser) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // Solo superusers pueden modificar el estado de superuser
+    if (superuser !== undefined && !req.isSuperuser) {
+      return res.status(403).json({ error: 'Solo los super administradores pueden modificar el estado de super administrador' });
     }
 
     // Si se cambia el email, verificar que no esté en uso dentro del tenant
@@ -237,18 +292,33 @@ router.put('/:id', [
     if (email !== undefined) updateData.email = email;
     if (nombre !== undefined) updateData.nombre = nombre;
     if (apellido !== undefined) updateData.apellido = apellido;
+
+    // Manejar perfil con sintaxis de relación
     if (profileId !== undefined) {
-      // Si profileId es una cadena vacía, establecerlo como null
-      updateData.profileId = profileId === '' ? null : profileId;
+      if (profileId === '' || profileId === null) {
+        // Desconectar perfil
+        updateData.profiles = {
+          disconnect: true
+        };
+      } else {
+        // Conectar nuevo perfil
+        updateData.profiles = {
+          connect: { id: profileId }
+        };
+      }
     }
+
     if (activo !== undefined) updateData.activo = activo;
     if (recibeNotificacionesEmail !== undefined) updateData.recibeNotificacionesEmail = recibeNotificacionesEmail;
-    if (esUsuarioTesoreria !== undefined) updateData.esUsuarioTesoreria = esUsuarioTesoreria;
-    
+    if (superuser !== undefined) updateData.superuser = superuser;
+
     // Hashear la nueva contraseña si se proporciona
     if (password) {
       updateData.password = await bcrypt.hash(password, 10);
     }
+
+    // Actualizar timestamp
+    updateData.updatedAt = new Date();
 
     const user = await prisma.users.update({
       where: req.filterByTenant({ id }),
@@ -273,7 +343,26 @@ router.put('/:id', [
 
   } catch (error) {
     console.error('Update user error:', error);
-    res.status(500).json({ error: 'Error del servidor' });
+
+    // Manejar error de email duplicado (Prisma unique constraint)
+    // target es un array: ['email'] o ['googleId']
+    if (error.code === 'P2002') {
+      const target = error.meta?.target;
+
+      if (Array.isArray(target) && target.includes('email')) {
+        return res.status(400).json({
+          error: 'El email ya está siendo utilizado por otro usuario. Por favor, usa un email diferente.'
+        });
+      }
+
+      if (Array.isArray(target) && target.includes('googleId')) {
+        return res.status(400).json({
+          error: 'Esta cuenta de Google ya está vinculada a otro usuario.'
+        });
+      }
+    }
+
+    res.status(500).json({ error: 'Error al actualizar el usuario' });
   }
 });
 
@@ -292,7 +381,10 @@ router.patch('/:id/toggle-status', authWithTenant, async (req, res) => {
 
     const updatedUser = await prisma.users.update({
       where: req.filterByTenant({ id }),
-      data: { activo: !user.activo }
+      data: {
+        activo: !user.activo,
+        updatedAt: new Date()
+      }
     });
 
     res.json({ 

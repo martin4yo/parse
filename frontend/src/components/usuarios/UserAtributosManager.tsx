@@ -24,7 +24,7 @@ interface UserAtributo {
   id: string;
   userId: string;
   valorAtributoId: string;
-  valorAtributo: ValorAtributo & {
+  valorAtributo?: ValorAtributo & {
     atributo: Atributo;
   };
 }
@@ -132,7 +132,7 @@ export function UserAtributosManager({ userId }: UserAtributosManagerProps) {
 
   const getAvailableAtributos = () => {
     const assignedAtributoIds = new Set(
-      userAtributos.map(ua => ua.valorAtributo.atributo.id)
+      userAtributos.filter(ua => ua.valorAtributo).map(ua => ua.valorAtributo!.atributo.id)
     );
     return atributos.filter(a => !assignedAtributoIds.has(a.id) && a.activo);
   };
@@ -230,17 +230,17 @@ export function UserAtributosManager({ userId }: UserAtributosManagerProps) {
             No hay atributos asignados
           </p>
         ) : (
-          userAtributos.map((ua) => (
+          userAtributos.filter(ua => ua.valorAtributo).map((ua) => (
             <div
               key={ua.id}
               className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg hover:border-palette-purple/30 transition-colors"
             >
               <div>
                 <p className="text-sm font-medium text-text-primary">
-                  {ua.valorAtributo.atributo.descripcion}
+                  {ua.valorAtributo!.atributo.descripcion}
                 </p>
                 <p className="text-xs text-gray-600">
-                  {ua.valorAtributo.descripcion}
+                  {ua.valorAtributo!.descripcion}
                 </p>
               </div>
               <button

@@ -4,14 +4,18 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
-passport.use(
-  new GoogleStrategy(
-    {
-      clientID: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: process.env.GOOGLE_CALLBACK_URL,
-      scope: ['profile', 'email']
-    },
+// Solo configurar Google OAuth si las credenciales están presentes
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_CALLBACK_URL) {
+  console.log('✅ Configurando Google OAuth Strategy');
+
+  passport.use(
+    new GoogleStrategy(
+      {
+        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        callbackURL: process.env.GOOGLE_CALLBACK_URL,
+        scope: ['profile', 'email']
+      },
     async (accessToken, refreshToken, profile, done) => {
       try {
         console.log('🔍 Google OAuth - Profile received:', {
@@ -97,6 +101,13 @@ passport.use(
     }
   )
 );
+} else {
+  console.log('⚠️  Google OAuth NO configurado (credenciales faltantes)');
+  console.log('   Para habilitar login con Google, configura en .env:');
+  console.log('   - GOOGLE_CLIENT_ID');
+  console.log('   - GOOGLE_CLIENT_SECRET');
+  console.log('   - GOOGLE_CALLBACK_URL');
+}
 
 // Serialización no necesaria para JWT, pero la incluimos por compatibilidad
 passport.serializeUser((user, done) => {

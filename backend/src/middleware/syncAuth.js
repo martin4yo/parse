@@ -28,7 +28,7 @@ async function authenticateSyncClient(req, res, next) {
         key: hashedKey,
       },
       include: {
-        tenant: {
+        tenants: {
           select: {
             id: true,
             slug: true,
@@ -64,7 +64,7 @@ async function authenticateSyncClient(req, res, next) {
     }
 
     // Validar que el tenant está activo
-    if (!apiKeyRecord.tenant.activo) {
+    if (!apiKeyRecord.tenants.activo) {
       return res.status(403).json({
         success: false,
         error: 'Tenant deshabilitado',
@@ -104,8 +104,8 @@ async function authenticateSyncClient(req, res, next) {
     // Agregar información al request
     req.syncClient = {
       apiKeyId: apiKeyRecord.id,
-      tenantId: apiKeyRecord.tenant.id,
-      tenant: apiKeyRecord.tenant,
+      tenantId: apiKeyRecord.tenants.id,
+      tenant: apiKeyRecord.tenants,
       permisos: apiKeyRecord.permisos || {},
     };
 

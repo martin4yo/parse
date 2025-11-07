@@ -9,9 +9,11 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { Plus, Edit, Trash2, RefreshCw, Database, Eye } from 'lucide-react';
 import { SyncConfiguration } from '@/types/sync';
 import { toast } from 'sonner';
+import { useApiClient } from '@/hooks/useApiClient';
 
 export default function SyncAdminPage() {
   const router = useRouter();
+  const { get, put, delete: del } = useApiClient();
   const [configurations, setConfigurations] = useState<SyncConfiguration[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -22,8 +24,7 @@ export default function SyncAdminPage() {
   const fetchConfigurations = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/sync/configurations');
-      const data = await response.json();
+      const data = await get('/api/sync/configurations');
 
       if (data.success) {
         setConfigurations(data.data);
@@ -44,11 +45,7 @@ export default function SyncAdminPage() {
     }
 
     try {
-      const response = await fetch(`/api/sync/configurations/${id}`, {
-        method: 'DELETE',
-      });
-
-      const data = await response.json();
+      const data = await del(`/api/sync/configurations/${id}`);
 
       if (data.success) {
         toast.success('Configuración eliminada');
@@ -64,17 +61,9 @@ export default function SyncAdminPage() {
 
   const handleToggleActive = async (config: SyncConfiguration) => {
     try {
-      const response = await fetch(`/api/sync/configurations/${config.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          activo: !config.activo,
-        }),
+      const data = await put(`/api/sync/configurations/${config.id}`, {
+        activo: !config.activo,
       });
-
-      const data = await response.json();
 
       if (data.success) {
         toast.success(

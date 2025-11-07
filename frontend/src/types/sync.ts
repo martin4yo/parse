@@ -62,9 +62,10 @@ export interface SyncConfiguration {
   createdAt: string;
   updatedAt: string;
   tenant?: {
+    id: string;
     nombre: string;
     cuit: string;
-    slug?: string;
+    slug: string;
   };
 }
 

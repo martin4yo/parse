@@ -8,7 +8,7 @@ async function testEndpoint() {
     // Simular token de superuser para tenant IDEA
     const token = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjZGRlNjZmMy03NjI2LTQ3MjMtODcxMy1jYjJmODNlZTFhMWQiLCJ0ZW5hbnRJZCI6ImRlZmF1bHQtdGVuYW50LWlkIiwiaWF0IjoxNzI3MDQ3MzU5LCJleHAiOjE3MjcxMzM3NTl9.EyqQUWF4e5OvwGE6qR5TW8ZMYfgO_5Kt6Q_lW30S7ng';
 
-    const response = await fetch('http://localhost:5050/api/rendiciones/items/4937028000411984/2507', {
+    const response = await fetch('http://localhost:5100/api/rendiciones/items/4937028000411984/2507', {
       method: 'GET',
       headers: {
         'Authorization': token,

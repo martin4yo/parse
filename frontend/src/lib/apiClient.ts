@@ -4,7 +4,7 @@ class ApiClient {
   private baseURL: string;
 
   constructor() {
-    this.baseURL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050') + '/api';
+    this.baseURL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5100') + '/api';
   }
 
   private async request<T>(
@@ -154,7 +154,7 @@ export const api = {
         headers.Authorization = `Bearer ${token}`;
       }
       
-      return fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050'}/api/dkt/upload`, {
+      return fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5100'}/api/dkt/upload`, {
         method: 'POST',
         headers,
         body: formData,

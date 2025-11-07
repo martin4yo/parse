@@ -3,7 +3,28 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const passport = require('passport');
-require('dotenv').config();
+
+// Cargar variables de entorno con ruta explícita
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+
+// Validar variables críticas al iniciar
+if (!process.env.JWT_SECRET) {
+  console.error('❌ FATAL: JWT_SECRET no está definido en .env');
+  console.error('   Asegúrate de que backend/.env existe y tiene JWT_SECRET sin comillas');
+  console.error('   Ejemplo: JWT_SECRET=tu-secreto-largo');
+  process.exit(1);
+}
+
+if (!process.env.DATABASE_URL) {
+  console.error('❌ FATAL: DATABASE_URL no está definido en .env');
+  console.error('   Asegúrate de que backend/.env existe y tiene DATABASE_URL sin comillas');
+  process.exit(1);
+}
+
+console.log('✅ Variables de entorno cargadas correctamente');
+console.log(`   JWT_SECRET: ${process.env.JWT_SECRET.substring(0, 20)}... (${process.env.JWT_SECRET.length} chars)`);
+console.log(`   DATABASE_URL: ${process.env.DATABASE_URL.substring(0, 30)}...`);
 
 // Configurar passport
 require('./config/passport');
@@ -29,7 +50,7 @@ const planesRoutes = require('./routes/planes');
 const menuRoutes = require('./routes/menu');
 
 const app = express();
-const PORT = process.env.PORT || 5050;
+const PORT = process.env.PORT || 5100;
 
 // Configurar trust proxy para producción
 if (process.env.NODE_ENV === 'production') {

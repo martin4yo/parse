@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
+const crypto = require('crypto');
 const prisma = new PrismaClient();
 
 /**
@@ -171,13 +172,19 @@ router.post('/', async (req, res) => {
       }
     }
 
+    // Generar ID único para el tenant
+    const tenantId = crypto.randomUUID();
+    const now = new Date();
+
     const tenant = await prisma.tenants.create({
       data: {
+        id: tenantId,
         nombre,
         slug,
         cuit,
         planId,
         activo,
+        updatedAt: now,
       },
     });
 
@@ -187,6 +194,27 @@ router.post('/', async (req, res) => {
     });
   } catch (error) {
     console.error('Error al crear tenant:', error);
+
+    // Manejar error de slug/cuit duplicado (Prisma unique constraint)
+    // target es un array: ['slug'] o ['cuit']
+    if (error.code === 'P2002') {
+      const target = error.meta?.target;
+
+      if (Array.isArray(target) && target.includes('slug')) {
+        return res.status(400).json({
+          success: false,
+          error: 'Ya existe un tenant con ese slug. Por favor, elige un slug diferente.'
+        });
+      }
+
+      if (Array.isArray(target) && target.includes('cuit')) {
+        return res.status(400).json({
+          success: false,
+          error: 'Ya existe un tenant con ese CUIT. Por favor, verifica los datos.'
+        });
+      }
+    }
+
     res.status(500).json({
       success: false,
       error: error.message,
@@ -268,6 +296,9 @@ router.put('/:id', async (req, res) => {
 
     if (activo !== undefined) updateData.activo = activo;
 
+    // Actualizar timestamp
+    updateData.updatedAt = new Date();
+
     const tenant = await prisma.tenants.update({
       where: { id },
       data: updateData,
@@ -290,6 +321,27 @@ router.put('/:id', async (req, res) => {
     });
   } catch (error) {
     console.error('Error al actualizar tenant:', error);
+
+    // Manejar error de slug/cuit duplicado (Prisma unique constraint)
+    // target es un array: ['slug'] o ['cuit']
+    if (error.code === 'P2002') {
+      const target = error.meta?.target;
+
+      if (Array.isArray(target) && target.includes('slug')) {
+        return res.status(400).json({
+          success: false,
+          error: 'Ya existe un tenant con ese slug. Por favor, elige un slug diferente.'
+        });
+      }
+
+      if (Array.isArray(target) && target.includes('cuit')) {
+        return res.status(400).json({
+          success: false,
+          error: 'Ya existe un tenant con ese CUIT. Por favor, verifica los datos.'
+        });
+      }
+    }
+
     res.status(500).json({
       success: false,
       error: error.message,

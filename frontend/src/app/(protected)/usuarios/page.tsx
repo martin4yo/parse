@@ -9,6 +9,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
 import { useConfirmDialog } from '@/hooks/useConfirm';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Esquemas de validación
 const userSchema = z.object({
@@ -17,9 +18,8 @@ const userSchema = z.object({
   nombre: z.string().min(1, 'El nombre es requerido'),
   apellido: z.string().min(1, 'El apellido es requerido'),
   profileId: z.string().optional(),
-  recibeNotificacionesEmail: z.boolean().optional(),
-  esUsuarioTesoreria: z.boolean().optional(),
   tenantId: z.string().optional(),
+  superuser: z.boolean().optional(),
 });
 
 const userAtributoSchema = z.object({
@@ -33,6 +33,7 @@ type UserAtributoFormData = z.infer<typeof userAtributoSchema>;
 type TabType = 'usuarios' | 'atributos';
 
 export default function UsuariosPage() {
+  const { isSuperuser } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('usuarios');
   const [users, setUsers] = useState<User[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -69,9 +70,8 @@ export default function UsuariosPage() {
       nombre: '',
       apellido: '',
       profileId: '',
-      recibeNotificacionesEmail: false,
-      esUsuarioTesoreria: false,
       tenantId: '',
+      superuser: false,
     }
   });
 
@@ -87,7 +87,7 @@ export default function UsuariosPage() {
   const selectedAtributoId = atributoForm.watch('atributoId');
 
   // Hook para confirmación de eliminación
-  const { confirmDelete } = useConfirmDialog();
+  const { confirm, confirmDelete } = useConfirmDialog();
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -197,8 +197,8 @@ export default function UsuariosPage() {
       nombre: '',
       apellido: '',
       profileId: '',
-      recibeNotificacionesEmail: false,
       tenantId: '',
+      superuser: false,
     });
     setShowUserModal(true);
   };
@@ -211,9 +211,8 @@ export default function UsuariosPage() {
       nombre: user.nombre,
       apellido: user.apellido,
       profileId: user.profileId || '',
-      recibeNotificacionesEmail: user.recibeNotificacionesEmail || false,
-      esUsuarioTesoreria: user.esUsuarioTesoreria || false,
       tenantId: user.tenantId || '',
+      superuser: user.superuser || false,
     });
     setShowUserModal(true);
   };
@@ -278,8 +277,17 @@ export default function UsuariosPage() {
           setSelectedUser(updatedUser);
         }
       }
-    } catch (error) {
-      toast.error('Error al guardar usuario');
+    } catch (error: any) {
+      // Extraer mensaje de error específico del backend
+      console.log('Error completo:', error);
+      console.log('Error response:', error.response);
+      console.log('Error response data:', error.response?.data);
+      console.log('Error message extraído:', error.response?.data?.error);
+
+      const errorMessage = error.response?.data?.error || 'Error al guardar usuario';
+      console.log('🔴 Llamando toast.error con mensaje:', errorMessage);
+      toast.error(errorMessage);
+      console.log('✅ Toast.error llamado');
       console.error('Error saving user:', error);
     } finally {
       setLoading(false);
@@ -308,8 +316,9 @@ export default function UsuariosPage() {
       setShowAtributoModal(false);
       atributoForm.reset();
       await loadUserAtributos(selectedUser.id);
-    } catch (error) {
-      toast.error('Error al guardar atributo del usuario');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Error al guardar atributo del usuario';
+      toast.error(errorMessage);
       console.error('Error saving user atributo:', error);
     } finally {
       setLoading(false);
@@ -331,8 +340,9 @@ export default function UsuariosPage() {
         const remainingUsers = users.filter(u => u.id !== user.id);
         setSelectedUser(remainingUsers.length > 0 ? remainingUsers[0] : null);
       }
-    } catch (error) {
-      toast.error('Error al eliminar usuario');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Error al eliminar usuario';
+      toast.error(errorMessage);
       console.error('Error deleting user:', error);
     } finally {
       setLoading(false);
@@ -351,8 +361,9 @@ export default function UsuariosPage() {
         await loadUserAtributos(selectedUser.id);
       }
       toast.success('Atributo removido del usuario correctamente');
-    } catch (error) {
-      toast.error('Error al eliminar atributo');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Error al eliminar atributo';
+      toast.error(errorMessage);
       console.error('Error deleting user atributo:', error);
     } finally {
       setLoading(false);
@@ -374,8 +385,9 @@ export default function UsuariosPage() {
       if (selectedUser && selectedUser.id === user.id) {
         setSelectedUser(prev => prev ? { ...prev, activo: response.user.activo } : null);
       }
-    } catch (error) {
-      toast.error('Error al cambiar estado del usuario');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || 'Error al cambiar estado del usuario';
+      toast.error(errorMessage);
       console.error('Error toggling user status:', error);
     } finally {
       setLoading(false);
@@ -397,7 +409,11 @@ export default function UsuariosPage() {
   };
 
   const handleVerifyEmailManually = async (user: User) => {
-    const confirmed = await confirmDelete(`verificar manualmente el email de ${user.apellido}, ${user.nombre}`);
+    const confirmed = await confirm(
+      `¿Estás seguro de que quieres verificar manualmente el email de ${user.apellido}, ${user.nombre}?`,
+      'Verificar email manualmente',
+      'info'
+    );
     if (!confirmed) return;
 
     try {
@@ -569,31 +585,23 @@ export default function UsuariosPage() {
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex flex-col space-y-1">
-                                <div className="flex items-center">
-                                  {user.activo ? (
-                                    <>
-                                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2" />
-                                      <span className="text-sm font-medium text-green-700">Activo</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <div className="w-2 h-2 bg-red-500 rounded-full mr-2" />
-                                      <span className="text-sm font-medium text-red-700">Inactivo</span>
-                                    </>
-                                  )}
-                                </div>
-                                {user.esUsuarioTesoreria && (
-                                  <div className="flex items-center">
-                                    <Banknote className="w-3 h-3 text-purple-500 mr-1" />
-                                    <span className="text-xs text-purple-700">Tesorería</span>
-                                  </div>
+                              <div className="flex items-center">
+                                {user.activo ? (
+                                  <>
+                                    <div className="w-2 h-2 bg-green-500 rounded-full mr-2" />
+                                    <span className="text-sm font-medium text-green-700">Activo</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="w-2 h-2 bg-red-500 rounded-full mr-2" />
+                                    <span className="text-sm font-medium text-red-700">Inactivo</span>
+                                  </>
                                 )}
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-text-secondary">
-                                {user.tenants ? user.tenants.nombre : 'Sin empresa'}
+                                {user.tenant ? user.tenant.nombre : 'Sin empresa'}
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -896,37 +904,20 @@ export default function UsuariosPage() {
                 </select>
               </div>
 
-              <div>
-                <label className="flex items-center space-x-2 cursor-pointer">
+              {/* Solo superusers pueden marcar a otros usuarios como superuser */}
+              {isSuperuser && (
+                <div className="flex items-center space-x-2">
                   <input
                     type="checkbox"
-                    {...userForm.register('recibeNotificacionesEmail')}
-                    className="w-4 h-4 text-primary border-input rounded focus:ring-primary focus:ring-2"
+                    id="superuser"
+                    {...userForm.register('superuser')}
+                    className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2"
                   />
-                  <span className="text-sm text-text-primary">
-                    Recibir notificaciones por email
-                  </span>
-                </label>
-                <p className="text-xs text-text-secondary mt-1 ml-6">
-                  El usuario recibirá avisos de importación de DKT y autorizaciones pendientes
-                </p>
-              </div>
-
-              <div>
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    {...userForm.register('esUsuarioTesoreria')}
-                    className="w-4 h-4 text-primary border-input rounded focus:ring-primary focus:ring-2"
-                  />
-                  <span className="text-sm text-text-primary">
-                    Usuario de Tesorería
-                  </span>
-                </label>
-                <p className="text-xs text-text-secondary mt-1 ml-6">
-                  El usuario tendrá acceso a funcionalidades de tesorería como adelantos y pagos
-                </p>
-              </div>
+                  <label htmlFor="superuser" className="text-sm font-medium text-text-primary">
+                    Usuario Super Administrador
+                  </label>
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 pt-4">
                 <Button

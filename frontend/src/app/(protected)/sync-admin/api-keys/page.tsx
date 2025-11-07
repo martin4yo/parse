@@ -10,6 +10,7 @@ import { Plus, Key, Trash2, RefreshCw, Copy, Check, Eye, EyeOff } from 'lucide-r
 import { toast } from 'sonner';
 import { Select } from '@/components/ui/Select';
 import { useConfirmDialog } from '@/hooks/useConfirm';
+import { useApiClient } from '@/hooks/useApiClient';
 
 interface Tenant {
   id: string;
@@ -41,6 +42,7 @@ interface ApiKey {
 
 export default function ApiKeysPage() {
   const { confirm } = useConfirmDialog();
+  const { get, post, put, delete: del } = useApiClient();
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,8 +72,7 @@ export default function ApiKeysPage() {
 
   const fetchTenants = async () => {
     try {
-      const response = await fetch('/api/tenants?activo=true');
-      const data = await response.json();
+      const data = await get('/api/tenants?activo=true');
       if (data.success) {
         setTenants(data.data);
       }
@@ -83,8 +84,7 @@ export default function ApiKeysPage() {
   const fetchApiKeys = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/sync/api-keys');
-      const data = await response.json();
+      const data = await get('/api/sync/api-keys');
 
       if (data.success) {
         setApiKeys(data.data);
@@ -108,15 +108,7 @@ export default function ApiKeysPage() {
     }
 
     try {
-      const response = await fetch('/api/sync/api-keys', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
+      const data = await post('/api/sync/api-keys', formData);
 
       if (data.success) {
         setNewKeyData(data.data);
@@ -155,11 +147,7 @@ export default function ApiKeysPage() {
     }
 
     try {
-      const response = await fetch(`/api/sync/api-keys/${id}`, {
-        method: 'DELETE',
-      });
-
-      const data = await response.json();
+      const data = await del(`/api/sync/api-keys/${id}`);
 
       if (data.success) {
         toast.success('API key eliminada');
@@ -175,17 +163,9 @@ export default function ApiKeysPage() {
 
   const handleToggleActive = async (apiKey: ApiKey) => {
     try {
-      const response = await fetch(`/api/sync/api-keys/${apiKey.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          activo: !apiKey.activo,
-        }),
+      const data = await put(`/api/sync/api-keys/${apiKey.id}`, {
+        activo: !apiKey.activo,
       });
-
-      const data = await response.json();
 
       if (data.success) {
         toast.success(
@@ -213,11 +193,7 @@ export default function ApiKeysPage() {
     }
 
     try {
-      const response = await fetch(`/api/sync/api-keys/${id}/regenerate`, {
-        method: 'POST',
-      });
-
-      const data = await response.json();
+      const data = await post(`/api/sync/api-keys/${id}/regenerate`, {});
 
       if (data.success) {
         setNewKeyData(data.data);

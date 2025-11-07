@@ -22,6 +22,8 @@ interface ReglaNegocio {
     transformacionesCampo?: TransformacionCampo[];
     logicOperator: 'AND' | 'OR';
     stopOnMatch: boolean;
+    mensajeError?: string;
+    severidad?: string;
   };
   createdAt?: string;
   updatedAt?: string;

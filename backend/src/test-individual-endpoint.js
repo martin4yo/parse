@@ -4,7 +4,7 @@ async function testIndividualEndpoint() {
   try {
     console.log('🧪 Testing /asociar-automatico-individual endpoint...');
     
-    const response = await fetch('http://localhost:5050/api/documentos/asociar-automatico-individual', {
+    const response = await fetch('http://localhost:5100/api/documentos/asociar-automatico-individual', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

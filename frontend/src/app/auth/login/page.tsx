@@ -244,7 +244,7 @@ export default function LoginPage() {
                   variant="outline"
                   className="w-full"
                   onClick={() => {
-                    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5050';
+                    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5100';
                     window.location.href = `${backendUrl}/api/auth/google`;
                   }}
                 >
