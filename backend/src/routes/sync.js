@@ -23,13 +23,31 @@ router.get('/health', (req, res) => {
  * GET /api/sync/config/:tenantId
  * Obtiene la configuración de sincronización del tenant
  * Requiere autenticación con API key
+ * @param tenantId - Puede ser el ID (UUID) o el slug del tenant
  */
 router.get('/config/:tenantId', requireSyncPermission('sync'), async (req, res) => {
   try {
-    const { tenantId } = req.params;
+    const { tenantId: tenantParam } = req.params;
+
+    // Buscar el tenant por ID o slug
+    const tenant = await prisma.tenants.findFirst({
+      where: {
+        OR: [
+          { id: tenantParam },
+          { slug: tenantParam }
+        ]
+      }
+    });
+
+    if (!tenant) {
+      return res.status(404).json({
+        success: false,
+        error: 'Tenant no encontrado'
+      });
+    }
 
     // Validar que el tenant del API key coincide con el solicitado
-    if (req.syncClient.tenantId !== tenantId) {
+    if (req.syncClient.tenantId !== tenant.id) {
       return res.status(403).json({
         success: false,
         error: 'No tienes permiso para acceder a este tenant'
@@ -37,7 +55,7 @@ router.get('/config/:tenantId', requireSyncPermission('sync'), async (req, res) 
     }
 
     const config = await prisma.sync_configurations.findUnique({
-      where: { tenantId }
+      where: { tenantId: tenant.id }
     });
 
     if (!config) {
@@ -76,10 +94,11 @@ router.get('/config/:tenantId', requireSyncPermission('sync'), async (req, res) 
 /**
  * POST /api/sync/upload/:tenantId
  * Recibe datos del cliente para insertar en PostgreSQL
+ * @param tenantId - Puede ser el ID (UUID) o el slug del tenant
  */
 router.post('/upload/:tenantId', requireSyncPermission('sync'), async (req, res) => {
   try {
-    const { tenantId } = req.params;
+    const { tenantId: tenantParam } = req.params;
     const { tabla, data, timestamp } = req.body;
 
     if (!tabla || !data || !Array.isArray(data)) {
@@ -89,11 +108,36 @@ router.post('/upload/:tenantId', requireSyncPermission('sync'), async (req, res)
       });
     }
 
-    console.log(`[SYNC UPLOAD] ${tenantId} - ${tabla}: ${data.length} registros`);
+    // Buscar el tenant por ID o slug
+    const tenant = await prisma.tenants.findFirst({
+      where: {
+        OR: [
+          { id: tenantParam },
+          { slug: tenantParam }
+        ]
+      }
+    });
+
+    if (!tenant) {
+      return res.status(404).json({
+        success: false,
+        error: 'Tenant no encontrado'
+      });
+    }
+
+    // Validar que el tenant del API key coincide con el solicitado
+    if (req.syncClient.tenantId !== tenant.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tienes permiso para acceder a este tenant'
+      });
+    }
+
+    console.log(`[SYNC UPLOAD] ${tenant.slug} - ${tabla}: ${data.length} registros`);
 
     // Obtener configuración para saber cómo procesar
     const config = await prisma.sync_configurations.findUnique({
-      where: { tenantId }
+      where: { tenantId: tenant.id }
     });
 
     if (!config) {
@@ -119,7 +163,7 @@ router.post('/upload/:tenantId', requireSyncPermission('sync'), async (req, res)
     // (Aquí deberías implementar la lógica de post_process si está configurado en "destino")
 
     const isIncremental = tablaConfig.incremental || false;
-    const result = await insertIntoMaestrosParametros(data, tenantId, tabla, isIncremental);
+    const result = await insertIntoMaestrosParametros(data, tenant.id, tabla, isIncremental);
 
     res.json({
       success: true,
@@ -141,10 +185,11 @@ router.post('/upload/:tenantId', requireSyncPermission('sync'), async (req, res)
 /**
  * GET /api/sync/download/:tenantId
  * Envía datos al cliente para insertar en SQL Server
+ * @param tenantId - Puede ser el ID (UUID) o el slug del tenant
  */
 router.get('/download/:tenantId', requireSyncPermission('sync'), async (req, res) => {
   try {
-    const { tenantId } = req.params;
+    const { tenantId: tenantParam } = req.params;
     const { tabla } = req.query;
 
     if (!tabla) {
@@ -154,11 +199,36 @@ router.get('/download/:tenantId', requireSyncPermission('sync'), async (req, res
       });
     }
 
-    console.log(`[SYNC DOWNLOAD] ${tenantId} - ${tabla}`);
+    // Buscar el tenant por ID o slug
+    const tenant = await prisma.tenants.findFirst({
+      where: {
+        OR: [
+          { id: tenantParam },
+          { slug: tenantParam }
+        ]
+      }
+    });
+
+    if (!tenant) {
+      return res.status(404).json({
+        success: false,
+        error: 'Tenant no encontrado'
+      });
+    }
+
+    // Validar que el tenant del API key coincide con el solicitado
+    if (req.syncClient.tenantId !== tenant.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tienes permiso para acceder a este tenant'
+      });
+    }
+
+    console.log(`[SYNC DOWNLOAD] ${tenant.slug} - ${tabla}`);
 
     // Obtener configuración
     const config = await prisma.sync_configurations.findUnique({
-      where: { tenantId }
+      where: { tenantId: tenant.id }
     });
 
     if (!config) {
@@ -181,7 +251,7 @@ router.get('/download/:tenantId', requireSyncPermission('sync'), async (req, res
     }
 
     // Ejecutar query configurado en process
-    let data = await executeDownloadQuery(tablaConfig, tenantId);
+    let data = await executeDownloadQuery(tablaConfig, tenant.id);
 
     // IMPORTANTE: Convertir DECIMALs a números estándar para evitar problemas de serialización
     // PostgreSQL DECIMAL(65,30) puede devolver objetos Decimal que causan overflow
@@ -233,10 +303,11 @@ router.get('/download/:tenantId', requireSyncPermission('sync'), async (req, res
 /**
  * POST /api/sync/logs/:tenantId
  * Recibe logs de sincronización del cliente
+ * @param tenantId - Puede ser el ID (UUID) o el slug del tenant
  */
 router.post('/logs/:tenantId', requireSyncPermission('sync'), async (req, res) => {
   try {
-    const { tenantId } = req.params;
+    const { tenantId: tenantParam } = req.params;
     const { logs } = req.body;
 
     if (!logs || !Array.isArray(logs)) {
@@ -246,18 +317,43 @@ router.post('/logs/:tenantId', requireSyncPermission('sync'), async (req, res) =
       });
     }
 
-    console.log(`[SYNC LOGS] ${tenantId}: ${logs.length} logs`);
+    // Buscar el tenant por ID o slug
+    const tenant = await prisma.tenants.findFirst({
+      where: {
+        OR: [
+          { id: tenantParam },
+          { slug: tenantParam }
+        ]
+      }
+    });
+
+    if (!tenant) {
+      return res.status(404).json({
+        success: false,
+        error: 'Tenant no encontrado'
+      });
+    }
+
+    // Validar que el tenant del API key coincide con el solicitado
+    if (req.syncClient.tenantId !== tenant.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tienes permiso para acceder a este tenant'
+      });
+    }
+
+    console.log(`[SYNC LOGS] ${tenant.slug}: ${logs.length} logs`);
 
     // Obtener config ID
     const config = await prisma.sync_configurations.findUnique({
-      where: { tenantId },
+      where: { tenantId: tenant.id },
       select: { id: true }
     });
 
     // Insertar logs
     const insertedLogs = await prisma.sync_logs.createMany({
       data: logs.map(log => ({
-        tenantId,
+        tenantId: tenant.id,
         configId: config?.id || null,
         direccion: log.direccion,
         tabla: log.tabla,
