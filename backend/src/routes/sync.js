@@ -16,7 +16,12 @@ const { authWithTenant } = require('../middleware/authWithTenant');
  * Health check
  */
 router.get('/health', (req, res) => {
-  res.json({ success: true, status: 'ok' });
+  res.json({
+    success: true,
+    status: 'ok',
+    version: '2.0.0-slug-support', // Indica que el backend soporta slug
+    updated: '2025-11-07'
+  });
 });
 
 /**
