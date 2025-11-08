@@ -25,7 +25,7 @@ export interface TableSchema {
 export interface TablaSubida {
   nombre: string;
   primaryKey: string;
-  incremental: boolean;
+  incremental?: boolean;
   campoFecha?: string;
   pre_process?: PhaseConfig;
   process: ProcessConfig;
@@ -35,7 +35,7 @@ export interface TablaSubida {
 export interface TablaBajada {
   nombre: string;
   primaryKey: string;
-  incremental: boolean;
+  incremental?: boolean;
   campoFecha?: string;
   campoId?: string;
   schema: TableSchema;
