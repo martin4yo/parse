@@ -191,11 +191,14 @@ router.post('/upload/:tenantId', requireSyncPermission('sync'), async (req, res)
  * GET /api/sync/download/:tenantId
  * Envía datos al cliente para insertar en SQL Server
  * @param tenantId - Puede ser el ID (UUID) o el slug del tenant
+ * @query tabla - Nombre de la tabla a descargar
+ * @query ultimaSync - (Opcional) Timestamp ISO de última sincronización para download incremental por fecha
+ * @query ultimoId - (Opcional) Último ID sincronizado para download incremental por ID
  */
 router.get('/download/:tenantId', requireSyncPermission('sync'), async (req, res) => {
   try {
     const { tenantId: tenantParam } = req.params;
-    const { tabla } = req.query;
+    const { tabla, ultimaSync, ultimoId } = req.query;
 
     if (!tabla) {
       return res.status(400).json({
@@ -229,7 +232,17 @@ router.get('/download/:tenantId', requireSyncPermission('sync'), async (req, res
       });
     }
 
-    console.log(`[SYNC DOWNLOAD] ${tenant.slug} - ${tabla}`);
+    // Construir mensaje de log descriptivo
+    let logMsg = `[SYNC DOWNLOAD] ${tenant.slug} - ${tabla}`;
+    if (ultimaSync || ultimoId) {
+      logMsg += ' (INCREMENTAL';
+      if (ultimaSync) logMsg += ` desde ${ultimaSync}`;
+      if (ultimoId) logMsg += ` ID > ${ultimoId}`;
+      logMsg += ')';
+    } else {
+      logMsg += ' (COMPLETA)';
+    }
+    console.log(logMsg);
 
     // Obtener configuración
     const config = await prisma.sync_configurations.findUnique({
@@ -255,8 +268,43 @@ router.get('/download/:tenantId', requireSyncPermission('sync'), async (req, res
       });
     }
 
-    // Ejecutar query configurado en process
-    let data = await executeDownloadQuery(tablaConfig, tenant.id);
+    // Determinar si usar sincronización incremental
+    const isIncremental = tablaConfig.incremental || false;
+    const hasUltimaSync = ultimaSync && ultimaSync.trim() !== '';
+    const hasUltimoId = ultimoId && ultimoId.toString().trim() !== '';
+
+    let data;
+    let syncType = 'completa';
+
+    if (isIncremental && (hasUltimaSync || hasUltimoId)) {
+      // Validar parámetros según configuración
+      if (hasUltimaSync) {
+        const fechaSync = new Date(ultimaSync);
+        if (isNaN(fechaSync.getTime())) {
+          return res.status(400).json({
+            success: false,
+            error: 'El parámetro ultimaSync no es una fecha válida (esperado formato ISO)'
+          });
+        }
+      }
+
+      // Ejecutar query incremental (soporta fecha, ID o ambos)
+      console.log(`[SYNC DOWNLOAD] Ejecutando sincronización INCREMENTAL para ${tabla}`);
+      data = await executeDownloadQueryIncremental(
+        tablaConfig,
+        tenant.id,
+        hasUltimaSync ? ultimaSync : null,
+        hasUltimoId ? ultimoId : null
+      );
+      syncType = 'incremental';
+    } else {
+      // Ejecutar query completa
+      if (isIncremental && !hasUltimaSync && !hasUltimoId) {
+        console.log(`[SYNC DOWNLOAD] Tabla configurada como incremental pero sin ultimaSync ni ultimoId. Ejecutando COMPLETA.`);
+      }
+      data = await executeDownloadQuery(tablaConfig, tenant.id);
+      syncType = 'completa';
+    }
 
     // IMPORTANTE: Convertir DECIMALs a números estándar para evitar problemas de serialización
     // PostgreSQL DECIMAL(65,30) puede devolver objetos Decimal que causan overflow
@@ -289,11 +337,14 @@ router.get('/download/:tenantId', requireSyncPermission('sync'), async (req, res
       console.log(`[SYNC DOWNLOAD] ADVERTENCIA: No hay schema ni datos para ${tabla}`);
     }
 
+    console.log(`[SYNC DOWNLOAD] ${tenant.slug} - ${tabla}: ${data.length} registros (${syncType})`);
+
     res.json({
       success: true,
       tabla,
       data,
       schema,
+      syncType,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -1309,6 +1360,136 @@ async function executeDownloadQuery(tablaConfig, tenantId) {
     }
   });
 
+  return data;
+}
+
+/**
+ * Helper: Ejecuta query de download incremental (solo registros nuevos/modificados)
+ * Soporta 3 modos de sincronización incremental:
+ * 1. Por timestamp (campoFecha) - Sincroniza registros modificados después de ultimaSync
+ * 2. Por ID (campoId) - Sincroniza registros con ID mayor que ultimoId
+ * 3. Por ambos (campoFecha + campoId) - Más robusto, usa ambos criterios
+ *
+ * @param {object} tablaConfig - Configuración de la tabla
+ * @param {string} tenantId - ID del tenant
+ * @param {string} ultimaSync - Timestamp ISO de la última sincronización exitosa (opcional)
+ * @param {string|number} ultimoId - Último ID sincronizado (opcional)
+ * @returns {Promise<Array>} - Registros modificados desde ultimaSync/ultimoId
+ */
+async function executeDownloadQueryIncremental(tablaConfig, tenantId, ultimaSync = null, ultimoId = null) {
+  const campoFecha = tablaConfig.campoFecha;
+  const campoId = tablaConfig.campoId;
+
+  // Validar que al menos un campo esté configurado
+  if (!campoFecha && !campoId) {
+    console.warn(`[SYNC DOWNLOAD] Tabla ${tablaConfig.nombre} configurada como incremental pero sin campoFecha ni campoId. Ejecutando sync completa.`);
+    return executeDownloadQuery(tablaConfig, tenantId);
+  }
+
+  // Determinar modo de sincronización
+  let mode = '';
+  if (campoFecha && ultimaSync) mode += 'FECHA';
+  if (campoId && ultimoId) mode += (mode ? '+ID' : 'ID');
+
+  if (!mode) {
+    console.warn(`[SYNC DOWNLOAD] No se proporcionaron parámetros para sync incremental (ultimaSync o ultimoId). Ejecutando sync completa.`);
+    return executeDownloadQuery(tablaConfig, tenantId);
+  }
+
+  console.log(`[SYNC DOWNLOAD INCREMENTAL] ${tablaConfig.nombre} - Modo: ${mode}${ultimaSync ? ', Desde: ' + ultimaSync : ''}${ultimoId ? ', ID > ' + ultimoId : ''}`);
+
+  // Si hay una query personalizada, modificarla para agregar filtros
+  if (tablaConfig.process?.query) {
+    let query = tablaConfig.process.query;
+    const params = [tenantId]; // $1 = tenantId
+    let paramIndex = 2;
+
+    console.log(`[SYNC DOWNLOAD INCREMENTAL] Query original:`, query);
+
+    // Detectar si la query ya tiene WHERE
+    const hasWhere = /\bWHERE\b/i.test(query);
+
+    // Construir condiciones
+    const conditions = [];
+
+    if (campoFecha && ultimaSync) {
+      const fechaDesde = new Date(ultimaSync);
+      params.push(fechaDesde);
+      conditions.push(`${campoFecha} > $${paramIndex}`);
+      paramIndex++;
+    }
+
+    if (campoId && ultimoId) {
+      params.push(ultimoId);
+      conditions.push(`${campoId} > $${paramIndex}`);
+      paramIndex++;
+    }
+
+    const whereClause = conditions.join(' AND ');
+
+    // Agregar condiciones a la query
+    if (hasWhere) {
+      // Si ya tiene WHERE, agregar con AND al inicio
+      query = query.replace(/\bWHERE\b/i, `WHERE ${whereClause} AND`);
+    } else {
+      // Si no tiene WHERE, agregarlo antes de ORDER BY, GROUP BY, LIMIT, etc.
+      const clausePattern = /\b(ORDER\s+BY|GROUP\s+BY|LIMIT|OFFSET)\b/i;
+      if (clausePattern.test(query)) {
+        query = query.replace(clausePattern, `WHERE ${whereClause} $1`);
+      } else {
+        // Agregar al final
+        query = query.trim();
+        if (query.endsWith(';')) {
+          query = query.slice(0, -1); // Quitar punto y coma final
+        }
+        query += ` WHERE ${whereClause}`;
+      }
+    }
+
+    console.log(`[SYNC DOWNLOAD INCREMENTAL] Query modificada:`, query);
+    console.log(`[SYNC DOWNLOAD INCREMENTAL] Parámetros:`, params);
+
+    try {
+      // Ejecutar query con parámetros dinámicos
+      const data = await prisma.$queryRawUnsafe(query, ...params);
+
+      console.log(`[SYNC DOWNLOAD INCREMENTAL] Registros obtenidos: ${data.length}`);
+      return data;
+    } catch (error) {
+      console.error('[SYNC DOWNLOAD INCREMENTAL] Error ejecutando query:', error);
+      throw new Error(`Error en query incremental de download: ${error.message}`);
+    }
+  }
+
+  // Fallback: Descargar de parametros_maestros con filtros
+  console.log(`[SYNC DOWNLOAD INCREMENTAL] Usando fallback para parametros_maestros`);
+  const tipo_campo = tablaConfig.tipoCampo || tablaConfig.nombre;
+
+  const where = {
+    tipo_campo,
+    tenantId,
+    activo: true
+  };
+
+  // Agregar filtros según lo configurado
+  if (campoFecha && ultimaSync) {
+    where.updatedAt = {
+      gt: new Date(ultimaSync)
+    };
+  }
+
+  if (campoId && ultimoId) {
+    // Asumiendo que el campo ID en parametros_maestros es 'codigo'
+    where.codigo = {
+      gt: ultimoId.toString()
+    };
+  }
+
+  const data = await prisma.parametros_maestros.findMany({
+    where
+  });
+
+  console.log(`[SYNC DOWNLOAD INCREMENTAL] Registros obtenidos (fallback): ${data.length}`);
   return data;
 }
 
