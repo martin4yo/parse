@@ -1429,13 +1429,14 @@ async function executeDownloadQueryIncremental(tablaConfig, tenantId, ultimaSync
 
     // Agregar condiciones a la query
     if (hasWhere) {
-      // Si ya tiene WHERE, agregar con AND al inicio
+      // Si ya tiene WHERE, agregar con AND después de WHERE
       query = query.replace(/\bWHERE\b/i, `WHERE ${whereClause} AND`);
     } else {
       // Si no tiene WHERE, agregarlo antes de ORDER BY, GROUP BY, LIMIT, etc.
       const clausePattern = /\b(ORDER\s+BY|GROUP\s+BY|LIMIT|OFFSET)\b/i;
       if (clausePattern.test(query)) {
-        query = query.replace(clausePattern, `WHERE ${whereClause} $1`);
+        // Usar función de reemplazo para preservar el texto capturado
+        query = query.replace(clausePattern, (match) => `WHERE ${whereClause} ${match}`);
       } else {
         // Agregar al final
         query = query.trim();
