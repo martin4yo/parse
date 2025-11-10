@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Textarea } from '@/components/ui/Textarea';
 import { Badge } from '@/components/ui/Badge';
-import { Save, TestTube, Plus, Trash2, ArrowLeft, Sparkles } from 'lucide-react';
+import { Save, TestTube, Plus, Trash2, ArrowLeft, Sparkles, Lightbulb, Zap, Package } from 'lucide-react';
 import { SyncConfigFormData, TablaSubida, TablaBajada, Tenant } from '@/types/sync';
 import { toast } from 'sonner';
 import PhaseEditor from './PhaseEditor';
@@ -214,6 +214,7 @@ FROM ${vistaOrigen}`;
           {
             nombre: '',
             primaryKey: 'id',
+            incremental: false,
             schema: {
               columns: [],
             },
@@ -600,6 +601,63 @@ FROM ${vistaOrigen}`;
                       </div>
                     </div>
 
+                    {/* Sincronización Incremental */}
+                    <div className="border-t pt-4 space-y-4">
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          checked={tabla.incremental || false}
+                          onCheckedChange={(checked) =>
+                            updateTablaBajada(index, { incremental: checked })
+                          }
+                        />
+                        <Label>Sincronización Incremental</Label>
+                      </div>
+
+                      {tabla.incremental && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ml-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                          <div>
+                            <Label>Campo de Fecha (opcional)</Label>
+                            <Input
+                              value={tabla.campoFecha || ''}
+                              onChange={(e) =>
+                                updateTablaBajada(index, { campoFecha: e.target.value })
+                              }
+                              placeholder="updatedAt"
+                            />
+                            <p className="text-xs text-gray-600 mt-1">
+                              Filtra registros modificados después de la última sync
+                            </p>
+                          </div>
+                          <div>
+                            <Label>Campo de ID (opcional)</Label>
+                            <Input
+                              value={tabla.campoId || ''}
+                              onChange={(e) =>
+                                updateTablaBajada(index, { campoId: e.target.value })
+                              }
+                              placeholder="id"
+                            />
+                            <p className="text-xs text-gray-600 mt-1">
+                              Filtra registros con ID mayor al último descargado
+                            </p>
+                          </div>
+                          <div className="col-span-2">
+                            <div className="bg-blue-100 border-l-4 border-blue-500 p-3 text-sm">
+                              <p className="font-semibold text-blue-800 mb-1 flex items-center gap-2">
+                                <Lightbulb className="h-4 w-4" />
+                                Configurar al menos uno:
+                              </p>
+                              <ul className="text-blue-700 space-y-1 ml-4 list-disc">
+                                <li><strong>Campo de Fecha:</strong> Sincroniza por timestamp (recomendado para tablas con updatedAt)</li>
+                                <li><strong>Campo de ID:</strong> Sincroniza por ID autoincremental (útil si no hay campo de fecha)</li>
+                                <li><strong>Ambos:</strong> Máxima confiabilidad, combina ambos criterios</li>
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     <div>
                       <Label>Tipo de Campo (maestros_parametros)</Label>
                       <Input
@@ -623,10 +681,23 @@ FROM ${vistaOrigen}`;
                             process: { ...tabla.process, query: e.target.value },
                           })
                         }
-                        placeholder="SELECT * FROM parametros_maestros WHERE tipo_campo = 'cuenta'"
+                        placeholder="SELECT * FROM parametros_maestros WHERE tipo_campo = 'cuenta' AND tenantId = $1"
                         rows={3}
                         className="font-mono text-sm"
                       />
+                      <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                        {tabla.incremental ? (
+                          <>
+                            <Zap className="h-3 w-3" />
+                            El filtro incremental se agrega automáticamente según campoFecha/campoId
+                          </>
+                        ) : (
+                          <>
+                            <Package className="h-3 w-3" />
+                            Sincronización completa - se descargan todos los registros
+                          </>
+                        )}
+                      </p>
                     </div>
 
                     {/* Fases avanzadas */}

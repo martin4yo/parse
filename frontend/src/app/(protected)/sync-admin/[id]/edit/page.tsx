@@ -9,6 +9,8 @@ import { SyncConfiguration } from '@/types/sync';
 import { toast } from 'sonner';
 import { useApiClient } from '@/hooks/useApiClient';
 
+export const dynamic = 'force-dynamic';
+
 export default function EditSyncConfigPage() {
   const params = useParams();
   const id = params.id as string;

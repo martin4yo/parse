@@ -162,6 +162,113 @@ Incluye:
 3. Aplicar filtros según necesidad
 4. Ver detalles de cada ejecución
 
+## 🔄 Sincronización Incremental en Download (Backend → Cliente)
+
+**Implementado: Noviembre 2025**
+
+### Descripción
+
+El sistema ahora soporta **sincronización incremental** para tablas de bajada (download), permitiendo al cliente SQL Server obtener solo los registros nuevos o modificados desde la última sincronización exitosa.
+
+### Modos de Sincronización Incremental
+
+Se soportan **3 modos** configurables por tabla:
+
+1. **Por Timestamp (campoFecha)** - Sincroniza registros modificados después de `ultimaSync`
+   - Útil para tablas con campo de fecha de modificación (ej: `updatedAt`, `fechaModificacion`)
+   - Ejemplo: `GET /api/sync/download/tenant?tabla=Proveedores&ultimaSync=2025-11-07T10:30:00Z`
+
+2. **Por ID (campoId)** - Sincroniza registros con ID mayor que `ultimoId`
+   - Útil para tablas con IDs autoincrementales o secuenciales
+   - Ejemplo: `GET /api/sync/download/tenant?tabla=Productos&ultimoId=12500`
+
+3. **Por Ambos (campoFecha + campoId)** - Más robusto, usa ambos criterios
+   - Combina ambos filtros con AND
+   - Ejemplo: `GET /api/sync/download/tenant?tabla=Facturas&ultimaSync=2025-11-07T10:30:00Z&ultimoId=5000`
+
+### Configuración de Tabla de Bajada
+
+```typescript
+{
+  nombre: "Proveedores",
+  primaryKey: "id",
+  incremental: true,           // ← Activar sincronización incremental
+  campoFecha: "updatedAt",      // ← Campo de timestamp para filtrar (opcional)
+  campoId: "id",                // ← Campo de ID para filtrar (opcional)
+  process: {
+    query: "SELECT * FROM proveedores WHERE \"tenantId\" = $1"
+  }
+}
+```
+
+**IMPORTANTE**: Debes configurar al menos `campoFecha` O `campoId` para que funcione la sincronización incremental.
+
+### Cómo Funciona en el Cliente SQL Server
+
+El cliente debe:
+
+1. **Mantener registro de última sincronización**:
+   ```sql
+   CREATE TABLE sync_control (
+     tabla NVARCHAR(100) PRIMARY KEY,
+     ultima_bajada DATETIME2,
+     ultimo_id_bajado BIGINT
+   );
+   ```
+
+2. **Antes de sincronizar**, obtener los últimos valores:
+   ```sql
+   SELECT ultima_bajada, ultimo_id_bajado
+   FROM sync_control
+   WHERE tabla = 'Proveedores';
+   ```
+
+3. **Llamar al endpoint** con los parámetros:
+   ```http
+   GET /api/sync/download/mi-tenant?tabla=Proveedores&ultimaSync=2025-11-07T10:30:00Z&ultimoId=1000
+   ```
+
+4. **Después de aplicar los cambios exitosamente**, actualizar el control:
+   ```sql
+   UPDATE sync_control
+   SET ultima_bajada = GETDATE(),
+       ultimo_id_bajado = (SELECT MAX(id) FROM Proveedores)
+   WHERE tabla = 'Proveedores';
+   ```
+
+### Respuesta del Endpoint
+
+```json
+{
+  "success": true,
+  "tabla": "Proveedores",
+  "data": [...],
+  "schema": {...},
+  "syncType": "incremental",  // ← "incremental" o "completa"
+  "timestamp": "2025-11-08T15:45:00.123Z"
+}
+```
+
+### Ventajas
+
+- ✅ **Menor tráfico de red**: Solo se transfieren registros nuevos/modificados
+- ✅ **Mejor performance**: Queries más rápidas al filtrar por fecha/ID
+- ✅ **Menor carga en el servidor**: Menos datos procesados por request
+- ✅ **Flexibilidad**: Soporta timestamp, ID o ambos según la tabla
+- ✅ **Backward compatible**: Si no se envían parámetros, hace sync completa
+
+### Logs de Debugging
+
+Los logs del backend muestran el modo de sincronización:
+
+```
+[SYNC DOWNLOAD] acme - Proveedores (INCREMENTAL desde 2025-11-07T10:30:00Z ID > 1000)
+[SYNC DOWNLOAD INCREMENTAL] Proveedores - Modo: FECHA+ID, Desde: 2025-11-07T10:30:00Z, ID > 1000
+[SYNC DOWNLOAD INCREMENTAL] Registros obtenidos: 45
+```
+
+---
+
 ## ⚠️ Pendientes
 
 - [ ] Endpoint para listar tenants (usado en selector de tenant)
