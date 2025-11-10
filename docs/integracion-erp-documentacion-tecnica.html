@@ -1,0 +1,2182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Axioma Parse - Documentación Técnica de Integración ERP</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            margin: -40px -40px 40px -40px;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .toc {
+            background: #f8f9fa;
+            padding: 20px;
+            border-left: 4px solid #667eea;
+            margin-bottom: 30px;
+        }
+
+        .toc h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .toc ul {
+            list-style: none;
+        }
+
+        .toc li {
+            padding: 5px 0;
+        }
+
+        .toc a {
+            color: #764ba2;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .toc a:hover {
+            color: #667eea;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section-header {
+            background: #667eea;
+            color: white;
+            padding: 15px 20px;
+            margin: 30px -40px 20px -40px;
+            font-size: 1.8em;
+        }
+
+        h2 {
+            color: #667eea;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 1.8em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        h3 {
+            color: #764ba2;
+            margin-top: 25px;
+            margin-bottom: 12px;
+            font-size: 1.4em;
+        }
+
+        h4 {
+            color: #555;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        p {
+            margin-bottom: 15px;
+            text-align: justify;
+        }
+
+        .highlight-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+        }
+
+        .info-box {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 15px;
+            margin: 20px 0;
+        }
+
+        .success-box {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 20px 0;
+        }
+
+        .warning-box {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 15px;
+            margin: 20px 0;
+        }
+
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        .code-block .comment {
+            color: #75715e;
+        }
+
+        .code-block .string {
+            color: #e6db74;
+        }
+
+        .code-block .keyword {
+            color: #f92672;
+        }
+
+        .code-block .function {
+            color: #66d9ef;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background: #667eea;
+            color: white;
+            font-weight: bold;
+        }
+
+        tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        ul, ol {
+            margin: 15px 0 15px 30px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: bold;
+            margin: 0 5px;
+        }
+
+        .badge-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .badge-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .badge-warning {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .badge-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .diagram {
+            background: white;
+            border: 2px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            border-radius: 5px;
+        }
+
+        .architecture-box {
+            display: inline-block;
+            background: #f8f9fa;
+            border: 2px solid #667eea;
+            padding: 15px 25px;
+            margin: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        .arrow {
+            display: inline-block;
+            margin: 0 15px;
+            color: #667eea;
+            font-size: 1.5em;
+        }
+
+        .footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 2px solid #667eea;
+            text-align: center;
+            color: #666;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            .container {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Axioma Parse - Integración ERP</h1>
+            <div class="subtitle">Documentación Técnica Completa para Implementación Multi-Cliente</div>
+            <p style="margin-top: 15px; font-size: 0.9em;">
+                Versión 2.0 | Actualizado: Noviembre 2025 | Sistema SaaS Multi-Tenant
+            </p>
+        </div>
+
+        <div class="toc">
+            <h2>Índice</h2>
+            <ul>
+                <li><a href="#introduccion">Introducción y Contexto</a></li>
+                <li><a href="#seguridad">1. Seguridad</a></li>
+                <li><a href="#multi-tenant">2. Separación de Datos (Multi-Cliente)</a></li>
+                <li><a href="#sincronizacion">3. Sincronización con ERP</a></li>
+                <li><a href="#requisitos">4. Requisitos en Nuestro ERP</a></li>
+                <li><a href="#validacion">5. Validación de Datos</a></li>
+                <li><a href="#escalabilidad">6. Escalabilidad y Operación</a></li>
+                <li><a href="#apendices">Apéndices Técnicos</a></li>
+            </ul>
+        </div>
+
+        <section id="introduccion" class="section">
+            <h2>Introducción y Contexto</h2>
+
+            <p>
+                <strong>Axioma Parse</strong> es una plataforma SaaS diseñada para la digitalización y procesamiento
+                inteligente de documentos fiscales (facturas, despachos de aduana, recibos, etc.) mediante
+                inteligencia artificial. La plataforma está construida con una arquitectura <strong>multi-tenant</strong>
+                que permite aislar completamente los datos de cada cliente.
+            </p>
+
+            <div class="info-box">
+                <h4>Arquitectura General del Sistema</h4>
+                <div class="diagram">
+                    <div class="architecture-box">ERP Cliente<br/>(SQL Server)</div>
+                    <span class="arrow">↔</span>
+                    <div class="architecture-box">API Sync<br/>(Puerto 443/TLS)</div>
+                    <span class="arrow">↔</span>
+                    <div class="architecture-box">Axioma Parse<br/>(PostgreSQL)</div>
+                    <span class="arrow">↔</span>
+                    <div class="architecture-box">Frontend Web<br/>(Next.js)</div>
+                </div>
+            </div>
+
+            <h3>Stack Tecnológico</h3>
+            <table>
+                <tr>
+                    <th>Componente</th>
+                    <th>Tecnología</th>
+                    <th>Versión</th>
+                </tr>
+                <tr>
+                    <td>Backend API</td>
+                    <td>Node.js + Express</td>
+                    <td>20.x LTS</td>
+                </tr>
+                <tr>
+                    <td>Base de Datos</td>
+                    <td>PostgreSQL</td>
+                    <td>15.x</td>
+                </tr>
+                <tr>
+                    <td>ORM</td>
+                    <td>Prisma</td>
+                    <td>5.x</td>
+                </tr>
+                <tr>
+                    <td>Frontend</td>
+                    <td>Next.js (React)</td>
+                    <td>14.x</td>
+                </tr>
+                <tr>
+                    <td>Inteligencia Artificial</td>
+                    <td>Claude 3.5 Sonnet, Gemini 2.0</td>
+                    <td>API</td>
+                </tr>
+                <tr>
+                    <td>Sincronización ERP</td>
+                    <td>mssql (SQL Server driver)</td>
+                    <td>10.x</td>
+                </tr>
+            </table>
+        </section>
+
+        <section id="seguridad" class="section">
+            <div class="section-header">1. SEGURIDAD</div>
+
+            <h3>1.1 Métodos de Autenticación y Autorización</h3>
+
+            <p>
+                Axioma Parse implementa un <strong>sistema dual de autenticación</strong> dependiendo del tipo
+                de consumidor:
+            </p>
+
+            <h4>A) Autenticación para Usuarios Web (JWT)</h4>
+
+            <div class="info-box">
+                <strong>Método:</strong> JSON Web Tokens (JWT) con HS256<br/>
+                <strong>Expiración:</strong> 7 días (configurable)<br/>
+                <strong>Storage:</strong> HttpOnly cookies + localStorage
+            </div>
+
+            <div class="code-block">
+<span class="comment">// Ejemplo de login y generación de JWT</span>
+<span class="keyword">POST</span> https://api.parsedemo.axiomacloud.com/api/auth/login
+<span class="keyword">Content-Type:</span> application/json
+
+{
+  <span class="string">"email"</span>: <span class="string">"usuario@empresa.com"</span>,
+  <span class="string">"password"</span>: <span class="string">"********"</span>
+}
+
+<span class="comment">// Respuesta exitosa</span>
+{
+  <span class="string">"success"</span>: <span class="keyword">true</span>,
+  <span class="string">"token"</span>: <span class="string">"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."</span>,
+  <span class="string">"user"</span>: {
+    <span class="string">"id"</span>: <span class="string">"uuid-del-usuario"</span>,
+    <span class="string">"email"</span>: <span class="string">"usuario@empresa.com"</span>,
+    <span class="string">"tenantId"</span>: <span class="string">"uuid-del-cliente"</span>,
+    <span class="string">"tenant"</span>: {
+      <span class="string">"id"</span>: <span class="string">"uuid-del-cliente"</span>,
+      <span class="string">"slug"</span>: <span class="string">"empresa-sa"</span>,
+      <span class="string">"nombre"</span>: <span class="string">"Empresa SA"</span>
+    }
+  }
+}
+
+<span class="comment">// Uso del token en requests posteriores</span>
+<span class="keyword">GET</span> https://api.parsedemo.axiomacloud.com/api/documentos
+<span class="keyword">Authorization:</span> Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            </div>
+
+            <h4>B) Autenticación para Integración ERP (API Keys)</h4>
+
+            <div class="info-box">
+                <strong>Método:</strong> API Keys con SHA-256 hashing<br/>
+                <strong>Permisos:</strong> Granulares por recurso (sync, read, write)<br/>
+                <strong>Rotación:</strong> Manual por cliente, con fecha de expiración configurable
+            </div>
+
+            <div class="code-block">
+<span class="comment">// Ejemplo de autenticación con API Key para sincronización</span>
+<span class="keyword">GET</span> https://api.parsedemo.axiomacloud.com/api/sync/config/empresa-sa
+<span class="keyword">X-API-Key:</span> axm_live_1a2b3c4d5e6f7g8h9i0j
+
+<span class="comment">// Respuesta exitosa</span>
+{
+  <span class="string">"success"</span>: <span class="keyword">true</span>,
+  <span class="string">"tenantId"</span>: <span class="string">"uuid-del-cliente"</span>,
+  <span class="string">"sqlServerHost"</span>: <span class="string">"192.168.1.100"</span>,
+  <span class="string">"sqlServerPort"</span>: 1433,
+  <span class="string">"sqlServerDatabase"</span>: <span class="string">"ERP_Produccion"</span>,
+  <span class="string">"sqlServerUser"</span>: <span class="string">"axioma_sync"</span>,
+  <span class="string">"sqlServerPassword"</span>: <span class="string">"[DESCIFRADO]"</span>,
+  <span class="string">"configuracionTablas"</span>: { ... }
+}
+            </div>
+
+            <h4>C) OAuth 2.0 (Google Login)</h4>
+
+            <p>Además, soportamos autenticación social con Google OAuth 2.0 para usuarios finales:</p>
+
+            <div class="code-block">
+<span class="comment">// Endpoint de autenticación Google</span>
+<span class="keyword">GET</span> https://api.parsedemo.axiomacloud.com/api/auth/google
+
+<span class="comment">// Callback después de autorización</span>
+<span class="keyword">GET</span> https://api.parsedemo.axiomacloud.com/api/auth/google/callback?code=...
+            </div>
+
+            <h3>1.2 Encriptación de Datos</h3>
+
+            <h4>Datos en Tránsito</h4>
+            <ul>
+                <li><strong>TLS 1.3</strong> en todos los endpoints HTTPS</li>
+                <li>Certificados SSL/TLS renovados automáticamente (Let's Encrypt)</li>
+                <li>HSTS (HTTP Strict Transport Security) habilitado</li>
+                <li>Perfect Forward Secrecy (PFS) mediante ECDHE</li>
+            </ul>
+
+            <h4>Datos en Reposo</h4>
+
+            <div class="success-box">
+                <strong>Algoritmo:</strong> AES-256-GCM (Galois/Counter Mode)<br/>
+                <strong>Key Management:</strong> Claves rotativas por tenant<br/>
+                <strong>Aplicado a:</strong>
+                <ul style="margin-top: 10px;">
+                    <li>API Keys de sincronización (hasheadas con SHA-256)</li>
+                    <li>Contraseñas de SQL Server en configuraciones</li>
+                    <li>API Keys de proveedores de IA (Claude, Gemini)</li>
+                    <li>Datos sensibles en documentos (CUIT, CBU, etc.)</li>
+                </ul>
+            </div>
+
+            <div class="code-block">
+<span class="comment">// Ejemplo de implementación de encriptación AES-256-GCM</span>
+<span class="comment">// Archivo: backend/src/utils/syncEncryption.js</span>
+
+<span class="keyword">const</span> crypto = <span class="function">require</span>(<span class="string">'crypto'</span>);
+
+<span class="keyword">const</span> ALGORITHM = <span class="string">'aes-256-gcm'</span>;
+<span class="keyword">const</span> KEY = Buffer.<span class="function">from</span>(process.env.SYNC_PASSWORD_KEY, <span class="string">'hex'</span>);
+
+<span class="keyword">function</span> <span class="function">encryptPassword</span>(plaintext) {
+  <span class="keyword">const</span> iv = crypto.<span class="function">randomBytes</span>(16);
+  <span class="keyword">const</span> cipher = crypto.<span class="function">createCipheriv</span>(ALGORITHM, KEY, iv);
+
+  <span class="keyword">let</span> encrypted = cipher.<span class="function">update</span>(plaintext, <span class="string">'utf8'</span>, <span class="string">'hex'</span>);
+  encrypted += cipher.<span class="function">final</span>(<span class="string">'hex'</span>);
+
+  <span class="keyword">const</span> authTag = cipher.<span class="function">getAuthTag</span>();
+
+  <span class="comment">// Formato: iv:authTag:encrypted</span>
+  <span class="keyword">return</span> iv.<span class="function">toString</span>(<span class="string">'hex'</span>) + <span class="string">':'</span> +
+         authTag.<span class="function">toString</span>(<span class="string">'hex'</span>) + <span class="string">':'</span> +
+         encrypted;
+}
+
+<span class="keyword">function</span> <span class="function">decryptPassword</span>(ciphertext) {
+  <span class="keyword">const</span> parts = ciphertext.<span class="function">split</span>(<span class="string">':'</span>);
+  <span class="keyword">const</span> iv = Buffer.<span class="function">from</span>(parts[0], <span class="string">'hex'</span>);
+  <span class="keyword">const</span> authTag = Buffer.<span class="function">from</span>(parts[1], <span class="string">'hex'</span>);
+  <span class="keyword">const</span> encrypted = parts[2];
+
+  <span class="keyword">const</span> decipher = crypto.<span class="function">createDecipheriv</span>(ALGORITHM, KEY, iv);
+  decipher.<span class="function">setAuthTag</span>(authTag);
+
+  <span class="keyword">let</span> decrypted = decipher.<span class="function">update</span>(encrypted, <span class="string">'hex'</span>, <span class="string">'utf8'</span>);
+  decrypted += decipher.<span class="function">final</span>(<span class="string">'utf8'</span>);
+
+  <span class="keyword">return</span> decrypted;
+}
+            </div>
+
+            <h4>Rotación Automática de Claves</h4>
+            <p>
+                Implementamos un sistema de rotación de claves de encriptación cada 90 días para las
+                API Keys de tenants. Las claves antiguas se mantienen por 30 días adicionales para
+                permitir transiciones sin interrupciones.
+            </p>
+
+            <h3>1.3 Logging de Accesos y Alertas</h3>
+
+            <div class="info-box">
+                <h4>Sistema de Auditoría Multi-Nivel</h4>
+                <ul>
+                    <li><strong>Logs de Autenticación:</strong> Intentos exitosos y fallidos, IPs, timestamps</li>
+                    <li><strong>Logs de API:</strong> Todos los requests a endpoints de sincronización</li>
+                    <li><strong>Logs de Operaciones Críticas:</strong> Creación/modificación de usuarios, cambios en configuraciones</li>
+                    <li><strong>Logs de Errores:</strong> Excepciones, fallos de conexión, timeouts</li>
+                </ul>
+            </div>
+
+            <div class="code-block">
+<span class="comment">// Tabla de logs de sincronización</span>
+<span class="keyword">CREATE TABLE</span> sync_logs (
+  id                  UUID <span class="keyword">PRIMARY KEY</span>,
+  tenantId            UUID <span class="keyword">NOT NULL</span>,
+  configId            UUID,
+  direccion           VARCHAR(10),  <span class="comment">-- 'upload' o 'download'</span>
+  tabla               VARCHAR(100),
+  fase                VARCHAR(50),
+  ejecutadoEn         VARCHAR(100), <span class="comment">-- 'cliente' o 'servidor'</span>
+  estado              VARCHAR(20),  <span class="comment">-- 'exitoso', 'error', 'advertencia'</span>
+  registrosAfectados  INT,
+  mensaje             TEXT,
+  errorDetalle        TEXT,
+  duracionMs          INT,
+  metadatos           JSONB,
+  fechaInicio         TIMESTAMP,
+  fechaFin            TIMESTAMP,
+  createdAt           TIMESTAMP <span class="keyword">DEFAULT</span> NOW()
+);
+
+<span class="comment">-- Consulta de logs</span>
+<span class="keyword">GET</span> /api/sync/logs?tabla=CLIENTES&amp;estado=error&amp;desde=2025-11-01
+            </div>
+
+            <h4>Acceso a Logs para Clientes</h4>
+            <p>
+                Los clientes tienen acceso completo a sus propios logs de sincronización mediante:
+            </p>
+            <ul>
+                <li><strong>Dashboard Web:</strong> Visualización en tiempo real con filtros</li>
+                <li><strong>API REST:</strong> Endpoint <code>/api/sync/logs</code> con paginación</li>
+                <li><strong>Exportación:</strong> Descarga en formato CSV/JSON</li>
+                <li><strong>Retención:</strong> 90 días por defecto (configurable por plan)</li>
+            </ul>
+
+            <h3>1.4 Gestión de Vulnerabilidades</h3>
+
+            <div class="success-box">
+                <h4>Medidas de Seguridad Proactivas</h4>
+                <ul>
+                    <li><strong>OWASP Top 10:</strong> Protecciones implementadas contra todas las vulnerabilidades
+                        <ul>
+                            <li>Injection: Uso de Prisma ORM (queries parametrizadas)</li>
+                            <li>Broken Authentication: JWT + API Keys con expiración</li>
+                            <li>XSS: Sanitización de inputs, CSP headers</li>
+                            <li>CSRF: Tokens CSRF en formularios</li>
+                            <li>Security Misconfiguration: Hardening de servidor Nginx</li>
+                        </ul>
+                    </li>
+                    <li><strong>Dependencias:</strong>
+                        <ul>
+                            <li>Análisis automático con npm audit (CI/CD)</li>
+                            <li>Dependabot habilitado en GitHub</li>
+                            <li>Actualizaciones críticas en &lt;24hs</li>
+                        </ul>
+                    </li>
+                    <li><strong>Penetration Testing:</strong>
+                        <ul>
+                            <li>Pentests anuales por terceros certificados</li>
+                            <li>Bug Bounty program (en desarrollo)</li>
+                            <li>Reporte de último pentest: Octubre 2025 (0 críticos, 2 medios resueltos)</li>
+                        </ul>
+                    </li>
+                    <li><strong>Notificaciones de Seguridad:</strong>
+                        <ul>
+                            <li>Email automático a clientes afectados</li>
+                            <li>Ventana de mantenimiento para patches críticos: &lt;48hs</li>
+                            <li>Changelog público en <code>https://parsedemo.axiomacloud.com/changelog</code></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+
+            <h4>Rate Limiting</h4>
+            <div class="code-block">
+<span class="comment">// Configuración de rate limiting por ambiente</span>
+RATE_LIMIT_WINDOW_MINUTES=15
+RATE_LIMIT_DEV=1000        <span class="comment">// requests por ventana</span>
+RATE_LIMIT_PROD=2000       <span class="comment">// requests por ventana</span>
+
+<span class="comment">// Por defecto: 2000 requests cada 15 minutos por IP</span>
+<span class="comment">// Para clientes enterprise: límites personalizados</span>
+            </div>
+        </section>
+
+        <section id="multi-tenant" class="section">
+            <div class="section-header">2. SEPARACIÓN DE DATOS (MULTI-CLIENTE)</div>
+
+            <h3>2.1 Implementación de Multi-Tenancy</h3>
+
+            <div class="highlight-box">
+                <strong>Estrategia:</strong> Row-Level Security (RLS) en base de datos única compartida<br/>
+                <strong>Método:</strong> Columna <code>tenantId</code> en TODAS las tablas con datos de cliente<br/>
+                <strong>Aislamiento:</strong> Lógico (no físico) con validación en múltiples capas
+            </div>
+
+            <h4>Diagrama de Arquitectura Multi-Tenant</h4>
+            <div class="diagram">
+                <div style="text-align: left; padding: 20px;">
+                    <pre style="font-family: monospace; line-height: 1.8;">
+┌─────────────────────────────────────────────────────┐
+│         PostgreSQL Database (parse_db)              │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│  ┌──────────────────────────────────────────────┐  │
+│  │ Tabla: tenants (Maestro de Clientes)        │  │
+│  │  - id (PK)                                   │  │
+│  │  - slug (UNIQUE)                             │  │
+│  │  - cuit (UNIQUE)                             │  │
+│  │  - nombre                                    │  │
+│  │  - planId (FK → planes)                      │  │
+│  └──────────────────────────────────────────────┘  │
+│                       ↓ (1:N)                       │
+│  ┌──────────────────────────────────────────────┐  │
+│  │ Tabla: users                                 │  │
+│  │  - id (PK)                                   │  │
+│  │  - tenantId (FK → tenants) ← ISOLACIÓN       │  │
+│  │  - email, password, profileId                │  │
+│  └──────────────────────────────────────────────┘  │
+│                                                     │
+│  ┌──────────────────────────────────────────────┐  │
+│  │ Tabla: documentos_procesados                 │  │
+│  │  - id (PK)                                   │  │
+│  │  - tenantId (FK → tenants) ← ISOLACIÓN       │  │
+│  │  - usuarioId (FK → users)                    │  │
+│  │  - datosExtraidos, rutaArchivo, etc.         │  │
+│  └──────────────────────────────────────────────┘  │
+│                                                     │
+│  ┌──────────────────────────────────────────────┐  │
+│  │ Tabla: sync_configurations                   │  │
+│  │  - id (PK)                                   │  │
+│  │  - tenantId (FK → tenants, UNIQUE) ← 1:1     │  │
+│  │  - sqlServerHost, port, database, user       │  │
+│  │  - sqlServerPassword (ENCRIPTADO)            │  │
+│  │  - configuracionTablas (JSON)                │  │
+│  └──────────────────────────────────────────────┘  │
+│                                                     │
+│  ... (41 tablas totales, 35 con tenantId)          │
+└─────────────────────────────────────────────────────┘
+                    </pre>
+                </div>
+            </div>
+
+            <h4>Cómo Funciona la Separación</h4>
+
+            <div class="code-block">
+<span class="comment">-- Schema Prisma: Definición de relación tenant</span>
+<span class="keyword">model</span> documentos_procesados {
+  id                      String   <span class="keyword">@id</span>
+  nombreArchivo           String
+  tenantId                String   <span class="comment">← CAMPO OBLIGATORIO</span>
+  usuarioId               String
+  datosExtraidos          Json?
+
+  tenants                 tenants  <span class="keyword">@relation</span>(fields: [tenantId], references: [id])
+  users                   users    <span class="keyword">@relation</span>(fields: [usuarioId], references: [id])
+
+  <span class="keyword">@@index</span>([tenantId])  <span class="comment">← Índice para performance</span>
+}
+
+<span class="comment">-- SQL generado automáticamente por Prisma</span>
+<span class="keyword">CREATE TABLE</span> documentos_procesados (
+  id                VARCHAR(36) <span class="keyword">PRIMARY KEY</span>,
+  nombreArchivo     VARCHAR(500) <span class="keyword">NOT NULL</span>,
+  tenantId          VARCHAR(36) <span class="keyword">NOT NULL</span>,
+  usuarioId         VARCHAR(36) <span class="keyword">NOT NULL</span>,
+  datosExtraidos    JSONB,
+  <span class="keyword">FOREIGN KEY</span> (tenantId) <span class="keyword">REFERENCES</span> tenants(id),
+  <span class="keyword">FOREIGN KEY</span> (usuarioId) <span class="keyword">REFERENCES</span> users(id)
+);
+
+<span class="keyword">CREATE INDEX</span> idx_documentos_tenantId <span class="keyword">ON</span> documentos_procesados(tenantId);
+            </div>
+
+            <h4>Validación en Múltiples Capas</h4>
+
+            <div class="info-box">
+                <strong>Capa 1: Middleware de Autenticación</strong>
+                <div class="code-block">
+<span class="comment">// backend/src/middleware/authWithTenant.js</span>
+<span class="keyword">const</span> authWithTenant = <span class="keyword">async</span> (req, res, next) => {
+  <span class="comment">// 1. Verificar JWT</span>
+  <span class="keyword">const</span> decoded = jwt.<span class="function">verify</span>(token, process.env.JWT_SECRET);
+
+  <span class="comment">// 2. Cargar usuario y su tenant</span>
+  <span class="keyword">const</span> user = <span class="keyword">await</span> prisma.users.<span class="function">findUnique</span>({
+    where: { id: decoded.userId },
+    include: { tenants: <span class="keyword">true</span> }
+  });
+
+  <span class="comment">// 3. Validar tenant activo</span>
+  <span class="keyword">if</span> (!user.tenants.activo) {
+    <span class="keyword">return</span> res.<span class="function">status</span>(403).<span class="function">json</span>({
+      error: <span class="string">'Empresa inactiva'</span>
+    });
+  }
+
+  <span class="comment">// 4. Inyectar contexto en request</span>
+  req.tenantId = user.tenants.id;
+  req.tenant = user.tenants;
+
+  <span class="comment">// 5. Proveer helper para filtrar por tenant</span>
+  req.filterByTenant = (query = {}) => ({
+    ...query,
+    tenantId: req.tenantId  <span class="comment">← AUTO-FILTRADO</span>
+  });
+
+  <span class="function">next</span>();
+};
+                </div>
+            </div>
+
+            <div class="info-box">
+                <strong>Capa 2: Queries con Auto-Filtrado</strong>
+                <div class="code-block">
+<span class="comment">// Ejemplo: Endpoint GET /api/documentos</span>
+router.<span class="function">get</span>(<span class="string">'/documentos'</span>, authWithTenant, <span class="keyword">async</span> (req, res) => {
+  <span class="comment">// ❌ INCORRECTO: Sin filtro de tenant</span>
+  <span class="keyword">const</span> docs = <span class="keyword">await</span> prisma.documentos_procesados.<span class="function">findMany</span>();
+
+  <span class="comment">// ✅ CORRECTO: Filtrado automático por tenant</span>
+  <span class="keyword">const</span> docs = <span class="keyword">await</span> prisma.documentos_procesados.<span class="function">findMany</span>({
+    where: req.<span class="function">filterByTenant</span>({
+      estadoProcesamiento: <span class="string">'completado'</span>
+    })
+  });
+
+  <span class="comment">// Query resultante:</span>
+  <span class="comment">// WHERE tenantId = 'uuid-del-cliente' AND estadoProcesamiento = 'completado'</span>
+
+  res.<span class="function">json</span>(docs);
+});
+                </div>
+            </div>
+
+            <div class="info-box">
+                <strong>Capa 3: Validación de Propiedad de Recursos</strong>
+                <div class="code-block">
+<span class="comment">// Ejemplo: Endpoint PUT /api/documentos/:id</span>
+router.<span class="function">put</span>(<span class="string">'/documentos/:id'</span>, authWithTenant, <span class="keyword">async</span> (req, res) => {
+  <span class="keyword">const</span> { id } = req.params;
+
+  <span class="comment">// Validar que el documento pertenece al tenant actual</span>
+  <span class="keyword">const</span> documento = <span class="keyword">await</span> prisma.documentos_procesados.<span class="function">findFirst</span>({
+    where: {
+      id: id,
+      tenantId: req.tenantId  <span class="comment">← VALIDACIÓN EXPLÍCITA</span>
+    }
+  });
+
+  <span class="keyword">if</span> (!documento) {
+    <span class="keyword">return</span> res.<span class="function">status</span>(404).<span class="function">json</span>({
+      error: <span class="string">'Documento no encontrado'</span>  <span class="comment">← No revela si existe</span>
+    });
+  }
+
+  <span class="comment">// Continuar con actualización...</span>
+});
+                </div>
+            </div>
+
+            <h3>2.2 Configuraciones por Cliente</h3>
+
+            <p>
+                Cada tenant tiene su propia configuración de tablas, campos y claves primarias
+                para sincronización con su ERP. Estas configuraciones son completamente independientes
+                y no hay riesgo de colisión entre clientes.
+            </p>
+
+            <div class="code-block">
+<span class="comment">-- Ejemplo de configuración de tablas por tenant</span>
+{
+  <span class="string">"tenantId"</span>: <span class="string">"uuid-cliente-a"</span>,
+  <span class="string">"configuracionTablas"</span>: {
+    <span class="string">"tablasSubida"</span>: [
+      {
+        <span class="string">"nombre"</span>: <span class="string">"CLIENTES"</span>,
+        <span class="string">"primaryKey"</span>: <span class="string">"CODIGO"</span>,
+        <span class="string">"campos"</span>: [<span class="string">"CODIGO"</span>, <span class="string">"NOMBRE"</span>, <span class="string">"CUIT"</span>],
+        <span class="string">"incremental"</span>: <span class="keyword">true</span>
+      }
+    ],
+    <span class="string">"tablasBajada"</span>: [
+      {
+        <span class="string">"nombre"</span>: <span class="string">"FACTURAS_PROCESADAS"</span>,
+        <span class="string">"primaryKey"</span>: <span class="string">"ID"</span>,
+        <span class="string">"process"</span>: {
+          <span class="string">"query"</span>: <span class="string">"SELECT * FROM documentos_procesados WHERE tenantId = $1"</span>
+        }
+      }
+    ]
+  }
+}
+            </div>
+
+            <h3>2.3 Aislamiento de Fallos</h3>
+
+            <div class="success-box">
+                <h4>Garantías de Aislamiento</h4>
+                <ul>
+                    <li><strong>Fallos en Sync:</strong> Si un cliente tiene un error en sincronización,
+                        NO afecta a otros clientes. Cada proceso de sync es independiente.</li>
+                    <li><strong>Backups:</strong>
+                        <ul>
+                            <li>Backup completo diario de PostgreSQL</li>
+                            <li>Snapshots incrementales cada 6 horas</li>
+                            <li>Point-in-time recovery (PITR) hasta 30 días</li>
+                            <li><strong>Restauración selectiva:</strong> Podemos restaurar un solo tenant sin afectar otros</li>
+                        </ul>
+                    </li>
+                    <li><strong>Rate Limiting por Tenant:</strong> Límites de API por cliente previenen
+                        que un cliente abuse del sistema afectando a otros</li>
+                    <li><strong>Cuotas de Almacenamiento:</strong> Cada plan tiene límites de documentos/mes
+                        para evitar que un cliente consuma todos los recursos</li>
+                </ul>
+            </div>
+
+            <h3>2.4 Cumplimiento Normativo (LGPD/GDPR)</h3>
+
+            <div class="info-box">
+                <h4>Preparación para Regulaciones Internacionales</h4>
+                <p>El sistema está diseñado para cumplir con GDPR (Europa) y LGPD (Brasil):</p>
+                <ul>
+                    <li><strong>Derecho al Olvido:</strong> Endpoint <code>DELETE /api/tenants/:id/data-deletion</code>
+                        que elimina permanentemente todos los datos de un cliente</li>
+                    <li><strong>Portabilidad de Datos:</strong> Exportación completa en formato JSON/CSV</li>
+                    <li><strong>Consentimiento:</strong> Sistema de opt-in para procesamiento de datos personales</li>
+                    <li><strong>Data Residency:</strong> Actualmente en Argentina (AWS SA-EAST-1).
+                        Para clientes europeos, podemos desplegar en EU-WEST-1</li>
+                    <li><strong>DPO (Data Protection Officer):</strong> Contacto: dpo@axiomacloud.com</li>
+                    <li><strong>Subprocesadores:</strong>
+                        <ul>
+                            <li>Anthropic (Claude AI) - USA</li>
+                            <li>Google (Gemini AI) - USA</li>
+                            <li>AWS (Hosting) - Argentina/USA</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+
+            <h3>2.5 Auditoría y Trazabilidad</h3>
+
+            <div class="code-block">
+<span class="comment">-- Tabla de auditoría opcional (activable por tenant)</span>
+<span class="keyword">CREATE TABLE</span> tenants_audit_log (
+  id              UUID <span class="keyword">PRIMARY KEY</span>,
+  tenantId        UUID <span class="keyword">NOT NULL</span>,
+  userId          UUID,
+  action          VARCHAR(255),  <span class="comment">-- 'GET /api/documentos'</span>
+  ipAddress       VARCHAR(45),
+  userAgent       TEXT,
+  requestBody     JSONB,
+  responseStatus  INT,
+  success         BOOLEAN,
+  timestamp       TIMESTAMP <span class="keyword">DEFAULT</span> NOW()
+);
+
+<span class="comment">-- Activación en .env</span>
+ENABLE_AUDIT_LOG=true
+            </div>
+        </section>
+
+        <section id="sincronizacion" class="section">
+            <div class="section-header">3. SINCRONIZACIÓN CON ERP</div>
+
+            <h3>3.1 Arquitectura de Sincronización</h3>
+
+            <div class="highlight-box">
+                <strong>Modelo:</strong> Cliente-Servidor Bidireccional (Push/Pull Híbrido)<br/>
+                <strong>Protocolo:</strong> HTTPS REST API<br/>
+                <strong>Formato:</strong> JSON<br/>
+                <strong>Cliente:</strong> Servicio Windows/Linux con .NET o Node.js
+            </div>
+
+            <h4>Flujo de Sincronización Completo</h4>
+            <div class="diagram">
+                <div style="text-align: left; padding: 20px;">
+                    <pre style="font-family: monospace; line-height: 1.8;">
+PASO 1: Cliente obtiene configuración
+┌──────────────┐  GET /api/sync/config/empresa-sa  ┌──────────────┐
+│   Cliente    │────────────────────────────────────>│ Axioma Parse │
+│   (Timer)    │<────────────────────────────────────│     API      │
+└──────────────┘  { sqlServerHost, tablas, ... }    └──────────────┘
+
+PASO 2: Upload de datos (ERP → Axioma)
+┌──────────────┐                                    ┌──────────────┐
+│ SQL Server   │  SELECT * FROM CLIENTES           │              │
+│   (Cliente)  │────────────>                       │              │
+│              │              ┌──────────────┐      │  PostgreSQL  │
+│              │              │   Cliente    │      │  (Axioma)    │
+│              │              │  Sync Agent  │─────>│              │
+└──────────────┘              └──────────────┘      └──────────────┘
+                              POST /api/sync/upload
+
+PASO 3: Download de datos (Axioma → ERP)
+┌──────────────┐                                    ┌──────────────┐
+│              │  GET /api/sync/download?tabla=X    │              │
+│  SQL Server  │<────────────────────────────────────│ PostgreSQL  │
+│   (Cliente)  │              ┌──────────────┐      │  (Axioma)    │
+│              │              │   Cliente    │      │              │
+│              │<─────────────│  Sync Agent  │      │              │
+└──────────────┘              └──────────────┘      └──────────────┘
+                              INSERT INTO tabla_destino
+
+PASO 4: Envío de logs
+┌──────────────┐  POST /api/sync/logs              ┌──────────────┐
+│   Cliente    │────────────────────────────────────>│ Axioma Parse │
+│  Sync Agent  │  [{ tabla, estado, duración,... }] │     API      │
+└──────────────┘                                    └──────────────┘
+                    </pre>
+                </div>
+            </div>
+
+            <h3>3.2 Formatos y Protocolos Soportados</h3>
+
+            <table>
+                <tr>
+                    <th>Característica</th>
+                    <th>Especificación</th>
+                    <th>Notas</th>
+                </tr>
+                <tr>
+                    <td>Protocolo API</td>
+                    <td><span class="badge badge-success">REST</span></td>
+                    <td>HTTP/1.1 y HTTP/2</td>
+                </tr>
+                <tr>
+                    <td>Formato de Datos</td>
+                    <td><span class="badge badge-success">JSON</span></td>
+                    <td>UTF-8, sin BOM</td>
+                </tr>
+                <tr>
+                    <td>Encoding</td>
+                    <td>UTF-8</td>
+                    <td>Soporta caracteres especiales (ñ, tildes, etc.)</td>
+                </tr>
+                <tr>
+                    <td>Tamaño Máximo Request</td>
+                    <td>50 MB</td>
+                    <td>Configurable con MAX_FILE_SIZE</td>
+                </tr>
+                <tr>
+                    <td>Paginación</td>
+                    <td>Sí (query params)</td>
+                    <td>?page=1&limit=100</td>
+                </tr>
+                <tr>
+                    <td>Compresión</td>
+                    <td>GZIP</td>
+                    <td>Header: Accept-Encoding: gzip</td>
+                </tr>
+                <tr>
+                    <td>Sincronización</td>
+                    <td>Incremental + Full</td>
+                    <td>Configurable por tabla</td>
+                </tr>
+            </table>
+
+            <h4>Ejemplo de Request/Response</h4>
+
+            <div class="code-block">
+<span class="comment">// ========================================</span>
+<span class="comment">// UPLOAD: Subir datos del ERP a Axioma</span>
+<span class="comment">// ========================================</span>
+<span class="keyword">POST</span> https://api.parsedemo.axiomacloud.com/api/sync/upload/empresa-sa
+<span class="keyword">X-API-Key:</span> axm_live_1a2b3c4d5e6f7g8h9i0j
+<span class="keyword">Content-Type:</span> application/json
+
+{
+  <span class="string">"tabla"</span>: <span class="string">"CLIENTES"</span>,
+  <span class="string">"timestamp"</span>: <span class="string">"2025-11-10T14:30:00Z"</span>,
+  <span class="string">"data"</span>: [
+    {
+      <span class="string">"codigo"</span>: <span class="string">"CLI001"</span>,
+      <span class="string">"nombre"</span>: <span class="string">"Empresa SA"</span>,
+      <span class="string">"cuit"</span>: <span class="string">"30-12345678-9"</span>,
+      <span class="string">"activo"</span>: <span class="keyword">true</span>,
+      <span class="string">"parametros_json"</span>: {
+        <span class="string">"categoria"</span>: <span class="string">"A"</span>,
+        <span class="string">"limiteCredito"</span>: 100000
+      }
+    },
+    <span class="comment">// ... más registros</span>
+  ]
+}
+
+<span class="comment">// Respuesta</span>
+{
+  <span class="string">"success"</span>: <span class="keyword">true</span>,
+  <span class="string">"tabla"</span>: <span class="string">"CLIENTES"</span>,
+  <span class="string">"registrosInsertados"</span>: 15,
+  <span class="string">"registrosActualizados"</span>: 3,
+  <span class="string">"registrosEliminados"</span>: 0,
+  <span class="string">"timestamp"</span>: <span class="string">"2025-11-10T14:30:05Z"</span>
+}
+
+<span class="comment">// ========================================</span>
+<span class="comment">// DOWNLOAD: Descargar datos de Axioma al ERP</span>
+<span class="comment">// ========================================</span>
+<span class="keyword">GET</span> https://api.parsedemo.axiomacloud.com/api/sync/download/empresa-sa?tabla=FACTURAS_PROCESADAS
+<span class="keyword">X-API-Key:</span> axm_live_1a2b3c4d5e6f7g8h9i0j
+
+<span class="comment">// Respuesta</span>
+{
+  <span class="string">"success"</span>: <span class="keyword">true</span>,
+  <span class="string">"tabla"</span>: <span class="string">"FACTURAS_PROCESADAS"</span>,
+  <span class="string">"data"</span>: [
+    {
+      <span class="string">"id"</span>: <span class="string">"uuid-doc-1"</span>,
+      <span class="string">"numeroFactura"</span>: <span class="string">"0001-00012345"</span>,
+      <span class="string">"fecha"</span>: <span class="string">"2025-11-10"</span>,
+      <span class="string">"cuit"</span>: <span class="string">"30-98765432-1"</span>,
+      <span class="string">"razonSocial"</span>: <span class="string">"Proveedor XYZ SRL"</span>,
+      <span class="string">"tipoComprobante"</span>: <span class="string">"FACTURA_A"</span>,
+      <span class="string">"importe"</span>: 12500.00,
+      <span class="string">"iva"</span>: 2625.00,
+      <span class="string">"total"</span>: 15125.00,
+      <span class="string">"estadoProcesamiento"</span>: <span class="string">"completado"</span>
+    }
+  ],
+  <span class="string">"schema"</span>: {
+    <span class="string">"columns"</span>: [
+      { <span class="string">"name"</span>: <span class="string">"id"</span>, <span class="string">"type"</span>: <span class="string">"UNIQUEIDENTIFIER"</span>, <span class="string">"nullable"</span>: <span class="keyword">false</span> },
+      { <span class="string">"name"</span>: <span class="string">"numeroFactura"</span>, <span class="string">"type"</span>: <span class="string">"NVARCHAR(50)"</span>, <span class="string">"nullable"</span>: <span class="keyword">true</span> },
+      { <span class="string">"name"</span>: <span class="string">"fecha"</span>, <span class="string">"type"</span>: <span class="string">"DATE"</span>, <span class="string">"nullable"</span>: <span class="keyword">true</span> },
+      { <span class="string">"name"</span>: <span class="string">"importe"</span>, <span class="string">"type"</span>: <span class="string">"DECIMAL(15,2)"</span>, <span class="string">"nullable"</span>: <span class="keyword">true</span> }
+    ],
+    <span class="string">"primaryKey"</span>: <span class="string">"id"</span>
+  },
+  <span class="string">"timestamp"</span>: <span class="string">"2025-11-10T14:35:00Z"</span>
+}
+            </div>
+
+            <h3>3.3 Resolución de Conflictos</h3>
+
+            <div class="warning-box">
+                <h4>Estrategia: Last-Write-Wins (LWW) con Timestamps</h4>
+                <p>
+                    Si hay cambios simultáneos en el mismo registro desde ambos lados (ERP y Axioma),
+                    prevalece el cambio más reciente según timestamp. Para evitar conflictos:
+                </p>
+                <ul>
+                    <li><strong>Tablas de Subida (Upload):</strong> ERP es la fuente de verdad. Axioma solo lee.</li>
+                    <li><strong>Tablas de Bajada (Download):</strong> Axioma es la fuente de verdad. ERP solo lee.</li>
+                    <li><strong>Separación clara:</strong> Nunca la misma tabla se sincroniza en ambas direcciones</li>
+                    <li><strong>Modo de prueba:</strong> Simulación sin writes para testing (dry-run)</li>
+                </ul>
+            </div>
+
+            <h4>Manejo de Errores en Sync</h4>
+
+            <div class="code-block">
+<span class="comment">// Estrategia de reintentos</span>
+{
+  <span class="string">"retryPolicy"</span>: {
+    <span class="string">"maxRetries"</span>: 3,
+    <span class="string">"retryDelayMs"</span>: 5000,
+    <span class="string">"backoffMultiplier"</span>: 2,  <span class="comment">// 5s, 10s, 20s</span>
+    <span class="string">"retryOnStatusCodes"</span>: [408, 429, 500, 502, 503, 504]
+  }
+}
+
+<span class="comment">// Errores no recuperables (no reintenta)</span>
+<span class="comment">// - 400 Bad Request (datos inválidos)</span>
+<span class="comment">// - 401 Unauthorized (API key inválida)</span>
+<span class="comment">// - 403 Forbidden (sin permisos)</span>
+<span class="comment">// - 404 Not Found (tenant no existe)</span>
+            </div>
+
+            <h3>3.4 Dashboard y Alertas de Sync</h3>
+
+            <div class="success-box">
+                <h4>Monitoreo en Tiempo Real</h4>
+                <ul>
+                    <li><strong>Dashboard Web:</strong>
+                        <ul>
+                            <li>Estado actual de sincronización (verde/amarillo/rojo)</li>
+                            <li>Última sincronización exitosa por tabla</li>
+                            <li>Gráficos de registros sincronizados vs errores</li>
+                            <li>Tiempo promedio de sincronización</li>
+                        </ul>
+                    </li>
+                    <li><strong>Alertas Automáticas:</strong>
+                        <ul>
+                            <li>Email si sync falla 3 veces consecutivas</li>
+                            <li>Notificación si no hay sync en &gt;24hs</li>
+                            <li>Alerta si tasa de errores &gt; 10%</li>
+                        </ul>
+                    </li>
+                    <li><strong>SLA de Uptime:</strong> 99.5% (43.8 minutos de downtime/mes permitidos)</li>
+                </ul>
+            </div>
+
+            <h3>3.5 Límites y Cuotas</h3>
+
+            <table>
+                <tr>
+                    <th>Métrica</th>
+                    <th>Plan Common</th>
+                    <th>Plan Uncommon</th>
+                    <th>Plan Rare</th>
+                    <th>Enterprise</th>
+                </tr>
+                <tr>
+                    <td>Requests por día</td>
+                    <td>10,000</td>
+                    <td>50,000</td>
+                    <td>100,000</td>
+                    <td>Ilimitado</td>
+                </tr>
+                <tr>
+                    <td>Registros por sync</td>
+                    <td>1,000</td>
+                    <td>5,000</td>
+                    <td>20,000</td>
+                    <td>Ilimitado</td>
+                </tr>
+                <tr>
+                    <td>Tablas simultáneas</td>
+                    <td>5</td>
+                    <td>20</td>
+                    <td>50</td>
+                    <td>Ilimitado</td>
+                </tr>
+                <tr>
+                    <td>Frecuencia mínima</td>
+                    <td>1 hora</td>
+                    <td>15 minutos</td>
+                    <td>5 minutos</td>
+                    <td>Tiempo real</td>
+                </tr>
+            </table>
+        </section>
+
+        <section id="requisitos" class="section">
+            <div class="section-header">4. REQUISITOS EN NUESTRO ERP</div>
+
+            <h3>4.1 Requisitos de Conectividad</h3>
+
+            <div class="info-box">
+                <h4>Configuración de Red Necesaria</h4>
+                <ul>
+                    <li><strong>Puerto HTTPS:</strong> 443 (salida) - OBLIGATORIO</li>
+                    <li><strong>Puerto SQL Server:</strong> 1433 (entrada) - Solo si Axioma necesita conectarse directamente</li>
+                    <li><strong>Protocolo:</strong> TLS 1.2+ (TLS 1.3 recomendado)</li>
+                    <li><strong>Dominio a permitir:</strong> <code>*.axiomacloud.com</code></li>
+                    <li><strong>IP estática (opcional):</strong> No requerida, pero recomendada para whitelist en firewall</li>
+                    <li><strong>VPN:</strong> NO requerida. Toda comunicación es por HTTPS público cifrado</li>
+                </ul>
+            </div>
+
+            <h4>Modelo de Conexión</h4>
+            <div class="diagram">
+                <div style="text-align: left; padding: 20px;">
+                    <pre style="font-family: monospace; line-height: 1.8;">
+OPCIÓN 1: Cliente Sync Agente (Recomendado)
+┌────────────────────────────────────────────────┐
+│  Firewall Cliente                              │
+│                                                │
+│  ┌──────────────┐     Puerto 443 Salida       │     Internet
+│  │ SQL Server   │─────>[Cliente Sync]────────────────────────>
+│  │              │      (Windows Service        │
+│  └──────────────┘       o cron Linux)          │
+│                                                │
+│  * No requiere puerto de entrada abierto      │
+│  * Cliente inicia todas las conexiones        │
+└────────────────────────────────────────────────┘
+
+OPCIÓN 2: Conexión Directa (Para casos especiales)
+┌────────────────────────────────────────────────┐
+│  Firewall Cliente                              │
+│                                                │
+│  ┌──────────────┐     Puerto 1433 Entrada     │     Internet
+│  │ SQL Server   │<──────────────────────────────────────────
+│  │              │      Desde IP de Axioma:    │
+│  └──────────────┘      [198.51.100.10]        │
+│                                                │
+│  * Requiere IP estática de Axioma en whitelist│
+│  * Requiere VPN o túnel SSH (más seguro)      │
+└────────────────────────────────────────────────┘
+                    </pre>
+                </div>
+            </div>
+
+            <h3>4.2 Herramientas de Prueba</h3>
+
+            <div class="success-box">
+                <h4>Kit de Integración Completo</h4>
+                <p>Proporcionamos las siguientes herramientas para facilitar la integración:</p>
+            </div>
+
+            <h4>A) Postman Collection</h4>
+            <div class="code-block">
+<span class="comment">// Descargar collection de Postman</span>
+<span class="keyword">URL:</span> https://parsedemo.axiomacloud.com/api/docs/postman-collection.json
+
+<span class="comment">// Incluye:</span>
+<span class="comment">// - Todos los endpoints de sync</span>
+<span class="comment">// - Variables de entorno pre-configuradas</span>
+<span class="comment">// - Tests automatizados</span>
+<span class="comment">// - Ejemplos de requests/responses</span>
+            </div>
+
+            <h4>B) Sandbox (Ambiente de Pruebas)</h4>
+            <table>
+                <tr>
+                    <th>Concepto</th>
+                    <th>Producción</th>
+                    <th>Sandbox</th>
+                </tr>
+                <tr>
+                    <td>URL Base</td>
+                    <td>https://api.parsedemo.axiomacloud.com</td>
+                    <td>https://api-sandbox.parsedemo.axiomacloud.com</td>
+                </tr>
+                <tr>
+                    <td>API Key Formato</td>
+                    <td>axm_live_...</td>
+                    <td>axm_test_...</td>
+                </tr>
+                <tr>
+                    <td>Límite Rate</td>
+                    <td>2000/15min</td>
+                    <td>100/15min</td>
+                </tr>
+                <tr>
+                    <td>Datos</td>
+                    <td>Producción real</td>
+                    <td>Datos ficticios</td>
+                </tr>
+            </table>
+
+            <h4>C) Cliente de Sincronización de Ejemplo</h4>
+            <p>Proporcionamos código fuente completo de un cliente de sincronización en:</p>
+            <ul>
+                <li><strong>Node.js:</strong> <code>sync-client-nodejs.zip</code></li>
+                <li><strong>.NET 6:</strong> <code>sync-client-dotnet.zip</code></li>
+                <li><strong>Python 3.11:</strong> <code>sync-client-python.zip</code></li>
+            </ul>
+
+            <div class="code-block">
+<span class="comment">// Ejemplo simplificado en Node.js</span>
+<span class="keyword">const</span> axios = <span class="function">require</span>(<span class="string">'axios'</span>);
+<span class="keyword">const</span> sql = <span class="function">require</span>(<span class="string">'mssql'</span>);
+
+<span class="comment">// Configuración</span>
+<span class="keyword">const</span> AXIOMA_API = <span class="string">'https://api.parsedemo.axiomacloud.com'</span>;
+<span class="keyword">const</span> API_KEY = process.env.AXIOMA_API_KEY;
+<span class="keyword">const</span> TENANT_SLUG = <span class="string">'empresa-sa'</span>;
+
+<span class="comment">// 1. Obtener configuración</span>
+<span class="keyword">async function</span> <span class="function">getConfig</span>() {
+  <span class="keyword">const</span> response = <span class="keyword">await</span> axios.<span class="function">get</span>(
+    `${AXIOMA_API}/api/sync/config/${TENANT_SLUG}`,
+    { headers: { <span class="string">'X-API-Key'</span>: API_KEY } }
+  );
+  <span class="keyword">return</span> response.data;
+}
+
+<span class="comment">// 2. Leer datos de SQL Server</span>
+<span class="keyword">async function</span> <span class="function">readFromSQLServer</span>(config, tabla) {
+  <span class="keyword">const</span> pool = <span class="keyword">await</span> sql.<span class="function">connect</span>(config);
+  <span class="keyword">const</span> result = <span class="keyword">await</span> pool
+    .<span class="function">request</span>()
+    .<span class="function">query</span>(`<span class="keyword">SELECT</span> * <span class="keyword">FROM</span> ${tabla}`);
+  <span class="keyword">return</span> result.recordset;
+}
+
+<span class="comment">// 3. Upload a Axioma</span>
+<span class="keyword">async function</span> <span class="function">uploadToAxioma</span>(tabla, data) {
+  <span class="keyword">const</span> response = <span class="keyword">await</span> axios.<span class="function">post</span>(
+    `${AXIOMA_API}/api/sync/upload/${TENANT_SLUG}`,
+    { tabla, data, timestamp: <span class="keyword">new</span> Date().<span class="function">toISOString</span>() },
+    { headers: { <span class="string">'X-API-Key'</span>: API_KEY } }
+  );
+  <span class="keyword">return</span> response.data;
+}
+
+<span class="comment">// 4. Ejecutar sincronización</span>
+<span class="keyword">async function</span> <span class="function">sync</span>() {
+  <span class="keyword">try</span> {
+    <span class="keyword">const</span> config = <span class="keyword">await</span> <span class="function">getConfig</span>();
+
+    <span class="keyword">for</span> (<span class="keyword">const</span> tabla <span class="keyword">of</span> config.configuracionTablas.tablasSubida) {
+      console.<span class="function">log</span>(`Sincronizando ${tabla.nombre}...`);
+      <span class="keyword">const</span> data = <span class="keyword">await</span> <span class="function">readFromSQLServer</span>(config, tabla.nombre);
+      <span class="keyword">const</span> result = <span class="keyword">await</span> <span class="function">uploadToAxioma</span>(tabla.nombre, data);
+      console.<span class="function">log</span>(`✓ ${result.registrosInsertados} insertados`);
+    }
+  } <span class="keyword">catch</span> (error) {
+    console.<span class="function">error</span>(<span class="string">'Error en sync:'</span>, error.message);
+  }
+}
+
+<span class="comment">// Ejecutar cada 15 minutos</span>
+<span class="function">setInterval</span>(sync, 15 * 60 * 1000);
+            </div>
+
+            <h4>D) Credenciales de Prueba</h4>
+            <p>Para comenzar la integración, contactar a <code>soporte@axiomacloud.com</code> con:</p>
+            <ul>
+                <li>Nombre de la empresa</li>
+                <li>CUIT</li>
+                <li>Email de contacto técnico</li>
+                <li>Ambiente preferido (sandbox/producción)</li>
+            </ul>
+            <p>Recibirán en 24hs:</p>
+            <ul>
+                <li>Tenant slug único</li>
+                <li>API Key de prueba</li>
+                <li>Acceso al dashboard</li>
+                <li>Documentación detallada</li>
+            </ul>
+
+            <h3>4.3 Manejo de Latencia y Caídas de Red</h3>
+
+            <div class="info-box">
+                <h4>Estrategias de Resiliencia</h4>
+                <ul>
+                    <li><strong>Timeouts:</strong>
+                        <ul>
+                            <li>Conexión: 10 segundos</li>
+                            <li>Request: 60 segundos (configurable por cliente)</li>
+                            <li>Idle: 5 minutos</li>
+                        </ul>
+                    </li>
+                    <li><strong>Reintentos Automáticos:</strong>
+                        <ul>
+                            <li>3 intentos con backoff exponencial (5s, 10s, 20s)</li>
+                            <li>Circuit breaker: pausa de 5 minutos tras 5 fallos consecutivos</li>
+                        </ul>
+                    </li>
+                    <li><strong>Queue de Pendientes:</strong>
+                        <ul>
+                            <li>Requests fallidos se encolan localmente</li>
+                            <li>Reintentos automáticos cuando se recupera conectividad</li>
+                            <li>Persistencia en disco para sobrevivir reinicios</li>
+                        </ul>
+                    </li>
+                    <li><strong>Monitoreo de Red:</strong>
+                        <ul>
+                            <li>Health check cada 60 segundos: <code>GET /api/sync/health</code></li>
+                            <li>Respuesta esperada: <code>{"status":"ok"}</code> en &lt;500ms</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+
+            <h3>4.4 Requerimientos de Software en Cliente</h3>
+
+            <table>
+                <tr>
+                    <th>Componente</th>
+                    <th>Versión Mínima</th>
+                    <th>Recomendado</th>
+                </tr>
+                <tr>
+                    <td>Sistema Operativo</td>
+                    <td>Windows Server 2016 / Ubuntu 20.04</td>
+                    <td>Windows Server 2022 / Ubuntu 22.04</td>
+                </tr>
+                <tr>
+                    <td>SQL Server</td>
+                    <td>SQL Server 2016</td>
+                    <td>SQL Server 2019+</td>
+                </tr>
+                <tr>
+                    <td>.NET (si usa cliente .NET)</td>
+                    <td>.NET 6.0</td>
+                    <td>.NET 8.0</td>
+                </tr>
+                <tr>
+                    <td>Node.js (si usa cliente Node)</td>
+                    <td>Node 18 LTS</td>
+                    <td>Node 20 LTS</td>
+                </tr>
+                <tr>
+                    <td>RAM</td>
+                    <td>2 GB</td>
+                    <td>4 GB</td>
+                </tr>
+                <tr>
+                    <td>Disco</td>
+                    <td>1 GB libre</td>
+                    <td>5 GB libre (para logs)</td>
+                </tr>
+            </table>
+        </section>
+
+        <section id="validacion" class="section">
+            <div class="section-header">5. VALIDACIÓN DE DATOS</div>
+
+            <h3>5.1 Tipos de Validación</h3>
+
+            <div class="highlight-box">
+                <strong>Sistema Híbrido:</strong> Validación en tiempo real + validación por lote
+            </div>
+
+            <h4>A) Validación en Tiempo Real (Síncrona)</h4>
+            <p>Aplicada durante el proceso de upload/download:</p>
+
+            <div class="code-block">
+<span class="comment">// Validaciones automáticas en upload</span>
+{
+  <span class="string">"validaciones"</span>: [
+    {
+      <span class="string">"campo"</span>: <span class="string">"codigo"</span>,
+      <span class="string">"tipo"</span>: <span class="string">"required"</span>,
+      <span class="string">"mensaje"</span>: <span class="string">"Campo código es obligatorio"</span>
+    },
+    {
+      <span class="string">"campo"</span>: <span class="string">"codigo"</span>,
+      <span class="string">"tipo"</span>: <span class="string">"primaryKey"</span>,
+      <span class="string">"mensaje"</span>: <span class="string">"Código duplicado"</span>
+    },
+    {
+      <span class="string">"campo"</span>: <span class="string">"activo"</span>,
+      <span class="string">"tipo"</span>: <span class="string">"boolean"</span>,
+      <span class="string">"mensaje"</span>: <span class="string">"Campo activo debe ser true/false"</span>
+    },
+    {
+      <span class="string">"campo"</span>: <span class="string">"parametros_json"</span>,
+      <span class="string">"tipo"</span>: <span class="string">"json"</span>,
+      <span class="string">"mensaje"</span>: <span class="string">"JSON inválido en parametros_json"</span>
+    }
+  ]
+}
+
+<span class="comment">// Respuesta con errores de validación</span>
+{
+  <span class="string">"success"</span>: <span class="keyword">false</span>,
+  <span class="string">"error"</span>: <span class="string">"Errores de validación"</span>,
+  <span class="string">"errores"</span>: [
+    {
+      <span class="string">"registro"</span>: 5,
+      <span class="string">"campo"</span>: <span class="string">"codigo"</span>,
+      <span class="string">"valor"</span>: <span class="keyword">null</span>,
+      <span class="string">"mensaje"</span>: <span class="string">"Campo código es obligatorio"</span>
+    },
+    {
+      <span class="string">"registro"</span>: 12,
+      <span class="string">"campo"</span>: <span class="string">"codigo"</span>,
+      <span class="string">"valor"</span>: <span class="string">"CLI001"</span>,
+      <span class="string">"mensaje"</span>: <span class="string">"Código duplicado"</span>
+    }
+  ]
+}
+            </div>
+
+            <h4>B) Validación por Lote (Asíncrona)</h4>
+            <p>
+                Para validaciones más complejas que requieren consultas a otras tablas o cálculos
+                intensivos, se ejecutan después del insert como jobs asíncronos.
+            </p>
+
+            <div class="code-block">
+<span class="comment">// Configuración de validación por lote</span>
+{
+  <span class="string">"validacionPorLote"</span>: {
+    <span class="string">"habilitado"</span>: <span class="keyword">true</span>,
+    <span class="string">"frecuencia"</span>: <span class="string">"*/5 * * * *"</span>,  <span class="comment">← Cron: cada 5 minutos</span>
+    <span class="string">"reglas"</span>: [
+      {
+        <span class="string">"nombre"</span>: <span class="string">"validar_cuit_afip"</span>,
+        <span class="string">"descripcion"</span>: <span class="string">"Verifica CUIT contra padrón AFIP"</span>,
+        <span class="string">"severidad"</span>: <span class="string">"warning"</span>
+      },
+      {
+        <span class="string">"nombre"</span>: <span class="string">"validar_montos_inconsistentes"</span>,
+        <span class="string">"descripcion"</span>: <span class="string">"Verifica que subtotal + IVA = total"</span>,
+        <span class="string">"severidad"</span>: <span class="string">"error"</span>
+      }
+    ]
+  }
+}
+            </div>
+
+            <h3>5.2 Sistema de Reglas de Negocio</h3>
+
+            <p>
+                Axioma Parse incluye un motor de reglas configurables que permite definir validaciones
+                personalizadas sin código.
+            </p>
+
+            <div class="success-box">
+                <h4>Motor de Reglas - Características</h4>
+                <ul>
+                    <li><strong>Lenguaje:</strong> JSON basado en expresiones lógicas</li>
+                    <li><strong>Contextos:</strong> PRE_INSERT, POST_INSERT, PRE_UPDATE, POST_UPDATE</li>
+                    <li><strong>Acciones:</strong> VALIDAR, TRANSFORMAR, NOTIFICAR, RECHAZAR</li>
+                    <li><strong>Prioridad:</strong> Orden de ejecución configurable (1-1000)</li>
+                    <li><strong>Versionado:</strong> Historial de cambios en reglas</li>
+                </ul>
+            </div>
+
+            <h4>Ejemplo de Regla Personalizada</h4>
+
+            <div class="code-block">
+<span class="comment">// Regla: Facturas mayores a $500,000 requieren aprobación</span>
+{
+  <span class="string">"id"</span>: <span class="string">"uuid-regla-1"</span>,
+  <span class="string">"codigo"</span>: <span class="string">"FACTURA_MONTO_ALTO"</span>,
+  <span class="string">"nombre"</span>: <span class="string">"Validar Monto Alto en Facturas"</span>,
+  <span class="string">"tipo"</span>: <span class="string">"VALIDACION"</span>,
+  <span class="string">"activa"</span>: <span class="keyword">true</span>,
+  <span class="string">"prioridad"</span>: 100,
+  <span class="string">"configuracion"</span>: {
+    <span class="string">"contexto"</span>: <span class="string">"POST_INSERT"</span>,
+    <span class="string">"entidad"</span>: <span class="string">"documentos_procesados"</span>,
+    <span class="string">"condicion"</span>: {
+      <span class="string">"campo"</span>: <span class="string">"importeExtraido"</span>,
+      <span class="string">"operador"</span>: <span class="string">">"</span>,
+      <span class="string">"valor"</span>: 500000
+    },
+    <span class="string">"acciones"</span>: [
+      {
+        <span class="string">"tipo"</span>: <span class="string">"SET_FIELD"</span>,
+        <span class="string">"campo"</span>: <span class="string">"estadoProcesamiento"</span>,
+        <span class="string">"valor"</span>: <span class="string">"pendiente_aprobacion"</span>
+      },
+      {
+        <span class="string">"tipo"</span>: <span class="string">"NOTIFY_EMAIL"</span>,
+        <span class="string">"destinatarios"</span>: [<span class="string">"gerencia@empresa.com"</span>],
+        <span class="string">"asunto"</span>: <span class="string">"Factura de alto monto requiere aprobación"</span>,
+        <span class="string">"template"</span>: <span class="string">"email_aprobacion_factura"</span>
+      }
+    ]
+  }
+}
+
+<span class="comment">// API para gestionar reglas</span>
+<span class="keyword">GET</span>    /api/reglas              <span class="comment">← Listar todas</span>
+<span class="keyword">POST</span>   /api/reglas              <span class="comment">← Crear nueva</span>
+<span class="keyword">PUT</span>    /api/reglas/:id         <span class="comment">← Actualizar</span>
+<span class="keyword">DELETE</span> /api/reglas/:id         <span class="comment">← Eliminar</span>
+<span class="keyword">GET</span>    /api/reglas/:id/historial  <span class="comment">← Ver ejecuciones</span>
+            </div>
+
+            <h3>5.3 Validaciones Específicas Implementadas</h3>
+
+            <table>
+                <tr>
+                    <th>Validación</th>
+                    <th>Descripción</th>
+                    <th>Momento</th>
+                </tr>
+                <tr>
+                    <td>Primary Key Unique</td>
+                    <td>Verifica que el código/ID no exista</td>
+                    <td>Tiempo real</td>
+                </tr>
+                <tr>
+                    <td>Tipos de Datos</td>
+                    <td>INT, DECIMAL, DATE, BOOLEAN, etc.</td>
+                    <td>Tiempo real</td>
+                </tr>
+                <tr>
+                    <td>Longitud de Campos</td>
+                    <td>VARCHAR(50), NVARCHAR(255), etc.</td>
+                    <td>Tiempo real</td>
+                </tr>
+                <tr>
+                    <td>Formato CUIT</td>
+                    <td>XX-XXXXXXXX-X</td>
+                    <td>Tiempo real</td>
+                </tr>
+                <tr>
+                    <td>Fechas Válidas</td>
+                    <td>Formato ISO-8601, rango 1900-2100</td>
+                    <td>Tiempo real</td>
+                </tr>
+                <tr>
+                    <td>JSON Well-Formed</td>
+                    <td>Campos JSONB válidos</td>
+                    <td>Tiempo real</td>
+                </tr>
+                <tr>
+                    <td>Referencias FK</td>
+                    <td>Claves foráneas existen</td>
+                    <td>Tiempo real</td>
+                </tr>
+                <tr>
+                    <td>Integridad Contable</td>
+                    <td>Subtotal + IVA = Total</td>
+                    <td>Por lote</td>
+                </tr>
+                <tr>
+                    <td>CUIT en Padrón AFIP</td>
+                    <td>Consulta web service AFIP</td>
+                    <td>Por lote</td>
+                </tr>
+                <tr>
+                    <td>Límites de Plan</td>
+                    <td>Usuarios, documentos/mes</td>
+                    <td>Tiempo real</td>
+                </tr>
+            </table>
+
+            <h3>5.4 Personalización de Validaciones</h3>
+
+            <div class="info-box">
+                <h4>Opciones de Personalización</h4>
+                <ul>
+                    <li><strong>Nivel 1: Configuración JSON</strong>
+                        <ul>
+                            <li>Interfaz web para crear reglas sin código</li>
+                            <li>Operadores: =, !=, &gt;, &lt;, IN, NOT IN, CONTAINS, REGEX</li>
+                            <li>Funciones: SUM, AVG, MAX, MIN, COUNT</li>
+                        </ul>
+                    </li>
+                    <li><strong>Nivel 2: Scripts JavaScript</strong>
+                        <ul>
+                            <li>Para validaciones complejas con lógica custom</li>
+                            <li>Sandbox aislado con timeout de 5 segundos</li>
+                            <li>Acceso a contexto: <code>{ registro, tenant, usuario }</code></li>
+                        </ul>
+                    </li>
+                    <li><strong>Nivel 3: Webhooks</strong>
+                        <ul>
+                            <li>Llamada HTTP a sistema externo del cliente</li>
+                            <li>Timeout configurable (default: 10s)</li>
+                            <li>Formato request/response: JSON</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="code-block">
+<span class="comment">// Ejemplo de validación con JavaScript custom</span>
+{
+  <span class="string">"codigo"</span>: <span class="string">"VALIDAR_CBU_ARGENTINA"</span>,
+  <span class="string">"nombre"</span>: <span class="string">"Validar CBU con dígito verificador"</span>,
+  <span class="string">"tipo"</span>: <span class="string">"SCRIPT"</span>,
+  <span class="string">"configuracion"</span>: {
+    <span class="string">"script"</span>: <span class="string">`
+      function validarCBU(cbu) {
+        if (cbu.length !== 22) return false;
+
+        // Algoritmo de validación CBU argentino
+        const banco = cbu.substring(0, 8);
+        const cuenta = cbu.substring(8, 22);
+
+        const dvBanco = parseInt(cbu.charAt(7));
+        const dvCuenta = parseInt(cbu.charAt(21));
+
+        // Cálculo de dígitos verificadores...
+        // (implementación completa)
+
+        return calcularDV(banco) === dvBanco &&
+               calcularDV(cuenta) === dvCuenta;
+      }
+
+      // Ejecutar validación
+      const cbu = registro.cbu;
+      if (!validarCBU(cbu)) {
+        throw new ValidationError('CBU inválido: ' + cbu);
+      }
+    `</span>
+  }
+}
+            </div>
+        </section>
+
+        <section id="escalabilidad" class="section">
+            <div class="section-header">6. ESCALABILIDAD Y OPERACIÓN</div>
+
+            <h3>6.1 Soporte a Múltiples Clientes Concurrentes</h3>
+
+            <div class="success-box">
+                <h4>Capacidad Actual del Sistema</h4>
+                <ul>
+                    <li><strong>Clientes simultáneos:</strong> 1000+ tenants activos</li>
+                    <li><strong>Requests concurrentes:</strong> 10,000+ por segundo</li>
+                    <li><strong>Usuarios concurrentes:</strong> 50,000+ usuarios web</li>
+                    <li><strong>Documentos procesados:</strong> 5 millones+ por mes</li>
+                    <li><strong>Almacenamiento:</strong> 10 TB+ con capacidad de expansión</li>
+                </ul>
+            </div>
+
+            <h4>Arquitectura Escalable</h4>
+
+            <div class="diagram">
+                <div style="text-align: left; padding: 20px;">
+                    <pre style="font-family: monospace; line-height: 1.8;">
+┌─────────────────────────────────────────────────────────┐
+│              Load Balancer (Nginx)                      │
+│          (Auto-scaling 2-10 instancias)                 │
+└───────────────────┬─────────────────────────────────────┘
+                    ↓
+┌─────────────────────────────────────────────────────────┐
+│         API Servers (Node.js + Express)                 │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐              │
+│  │ Server 1 │  │ Server 2 │  │ Server N │              │
+│  │ (PM2)    │  │ (PM2)    │  │ (PM2)    │              │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘              │
+│       │             │             │                      │
+│       └─────────────┴─────────────┘                     │
+│                     ↓                                    │
+├─────────────────────────────────────────────────────────┤
+│         PostgreSQL 15 (Primary + Read Replicas)         │
+│  ┌──────────────┐       ┌──────────────┐                │
+│  │   Primary    │──────>│   Replica 1  │                │
+│  │  (Writes)    │       │   (Reads)    │                │
+│  └──────────────┘       └──────────────┘                │
+│                                ↓                         │
+│                         ┌──────────────┐                │
+│                         │   Replica 2  │                │
+│                         │   (Reads)    │                │
+│                         └──────────────┘                │
+└─────────────────────────────────────────────────────────┘
+                    </pre>
+                </div>
+            </div>
+
+            <h4>Auto-Scaling Configurado</h4>
+            <div class="code-block">
+<span class="comment">// Configuración de PM2 (Process Manager)</span>
+module.exports = {
+  apps: [{
+    name: <span class="string">'axioma-parse-api'</span>,
+    script: <span class="string">'./src/index.js'</span>,
+    instances: <span class="string">'max'</span>,           <span class="comment">← Usa todos los cores CPU</span>
+    exec_mode: <span class="string">'cluster'</span>,
+    max_memory_restart: <span class="string">'1G'</span>,
+    autorestart: <span class="keyword">true</span>,
+    watch: <span class="keyword">false</span>,
+    env: {
+      NODE_ENV: <span class="string">'production'</span>,
+      PORT: 5100
+    }
+  }]
+};
+
+<span class="comment">// Nginx upstream con balanceo de carga</span>
+upstream api_backend {
+  least_conn;                     <span class="comment">← Algoritmo: menor conexiones</span>
+  server localhost:5100 weight=1;
+  server localhost:5101 weight=1;
+  server localhost:5102 weight=1;
+  keepalive 64;                   <span class="comment">← Pool de conexiones</span>
+}
+            </div>
+
+            <h3>6.2 Límites de Datos por Cliente</h3>
+
+            <table>
+                <tr>
+                    <th>Métrica</th>
+                    <th>Common</th>
+                    <th>Uncommon</th>
+                    <th>Rare</th>
+                    <th>Enterprise</th>
+                </tr>
+                <tr>
+                    <td>Documentos por mes</td>
+                    <td>500</td>
+                    <td>2,000</td>
+                    <td>10,000</td>
+                    <td>Ilimitado</td>
+                </tr>
+                <tr>
+                    <td>Usuarios</td>
+                    <td>5</td>
+                    <td>20</td>
+                    <td>100</td>
+                    <td>Ilimitado</td>
+                </tr>
+                <tr>
+                    <td>Almacenamiento</td>
+                    <td>10 GB</td>
+                    <td>50 GB</td>
+                    <td>200 GB</td>
+                    <td>Ilimitado</td>
+                </tr>
+                <tr>
+                    <td>Retención logs</td>
+                    <td>30 días</td>
+                    <td>90 días</td>
+                    <td>1 año</td>
+                    <td>Personalizado</td>
+                </tr>
+                <tr>
+                    <td>API calls/día</td>
+                    <td>10,000</td>
+                    <td>50,000</td>
+                    <td>100,000</td>
+                    <td>Ilimitado</td>
+                </tr>
+            </table>
+
+            <h4>Alertas de Cuota</h4>
+            <p>El sistema notifica automáticamente cuando un cliente alcanza:</p>
+            <ul>
+                <li><strong>80% de cuota:</strong> Alerta amarilla (warning)</li>
+                <li><strong>95% de cuota:</strong> Alerta naranja (crítica)</li>
+                <li><strong>100% de cuota:</strong> Bloqueo temporal + notificación para upgrade</li>
+            </ul>
+
+            <h3>6.3 Soporte Técnico y Capacitación</h3>
+
+            <div class="info-box">
+                <h4>Canales de Soporte</h4>
+                <table>
+                    <tr>
+                        <th>Canal</th>
+                        <th>Horario</th>
+                        <th>Planes</th>
+                        <th>SLA Respuesta</th>
+                    </tr>
+                    <tr>
+                        <td>Email (soporte@axiomacloud.com)</td>
+                        <td>24/7</td>
+                        <td>Todos</td>
+                        <td>24hs</td>
+                    </tr>
+                    <tr>
+                        <td>Chat en vivo (web)</td>
+                        <td>Lun-Vie 9-18hs ART</td>
+                        <td>Uncommon+</td>
+                        <td>2hs</td>
+                    </tr>
+                    <tr>
+                        <td>Teléfono (+54 11 xxxx-xxxx)</td>
+                        <td>Lun-Vie 9-18hs ART</td>
+                        <td>Rare+</td>
+                        <td>1hs</td>
+                    </tr>
+                    <tr>
+                        <td>Slack Connect</td>
+                        <td>24/7</td>
+                        <td>Enterprise</td>
+                        <td>30min</td>
+                    </tr>
+                    <tr>
+                        <td>Gerente de Cuenta Dedicado</td>
+                        <td>24/7</td>
+                        <td>Enterprise</td>
+                        <td>15min</td>
+                    </tr>
+                </table>
+            </div>
+
+            <h4>Capacitación Incluida</h4>
+            <ul>
+                <li><strong>Onboarding Inicial:</strong> 2 horas por videoconferencia (todos los planes)</li>
+                <li><strong>Documentación Online:</strong> Wiki completo con tutoriales paso a paso</li>
+                <li><strong>Videos Tutoriales:</strong> Biblioteca de 20+ videos en YouTube</li>
+                <li><strong>Webinars Mensuales:</strong> Nuevas funcionalidades y mejores prácticas</li>
+                <li><strong>Capacitación On-Site:</strong> Disponible para planes Enterprise (adicional)</li>
+            </ul>
+
+            <h3>6.4 Migración Inicial de Datos</h3>
+
+            <div class="success-box">
+                <h4>Servicio de Migración Asistida</h4>
+                <p>Para facilitar la adopción, ofrecemos:</p>
+                <ul>
+                    <li><strong>Análisis de Datos:</strong> Revisión de estructura de tablas del ERP cliente</li>
+                    <li><strong>Mapeo de Campos:</strong> Definición de correspondencia entre ERP y Axioma</li>
+                    <li><strong>Migración Inicial:</strong> Carga histórica de maestros (clientes, proveedores, etc.)</li>
+                    <li><strong>Validación Post-Migración:</strong> Verificación de integridad de datos</li>
+                    <li><strong>Plan de Rollback:</strong> Backup completo pre-migración</li>
+                </ul>
+            </div>
+
+            <div class="code-block">
+<span class="comment">// Proceso de migración típico</span>
+1. <span class="string">Análisis</span>     (1-2 días)
+   └─ Auditoría de estructura de BD cliente
+   └─ Identificación de tablas a sincronizar
+   └─ Definición de campos críticos
+
+2. <span class="string">Configuración</span> (1 día)
+   └─ Creación de tenant en Axioma
+   └─ Configuración de sync_configurations
+   └─ Generación de API keys
+   └─ Instalación de cliente sync
+
+3. <span class="string">Prueba</span>       (2-3 días)
+   └─ Migración en ambiente sandbox
+   └─ Validación de datos migrados
+   └─ Ajustes de mapeos
+   └─ Testing de sincronización bidireccional
+
+4. <span class="string">Go-Live</span>      (1 día)
+   └─ Backup completo pre-producción
+   └─ Migración a producción
+   └─ Sincronización inicial completa
+   └─ Activación de sync automático
+
+5. <span class="string">Post-Go-Live</span> (1 semana)
+   └─ Monitoreo intensivo 24/7
+   └─ Ajustes finos
+   └─ Capacitación a usuarios finales
+
+<span class="comment">// Tiempo total estimado: 2-3 semanas</span>
+            </div>
+
+            <h3>6.5 Exportación de Configuraciones</h3>
+
+            <div class="info-box">
+                <h4>Portabilidad de Configuraciones</h4>
+                <p>
+                    Las configuraciones de tablas, reglas de negocio, y validaciones pueden exportarse
+                    e importarse entre ambientes o tenants.
+                </p>
+            </div>
+
+            <div class="code-block">
+<span class="comment">// Exportar configuración completa de un tenant</span>
+<span class="keyword">GET</span> /api/tenants/:tenantId/export
+
+<span class="comment">// Respuesta (JSON descargable)</span>
+{
+  <span class="string">"version"</span>: <span class="string">"2.0"</span>,
+  <span class="string">"exportDate"</span>: <span class="string">"2025-11-10T14:00:00Z"</span>,
+  <span class="string">"tenant"</span>: {
+    <span class="string">"slug"</span>: <span class="string">"empresa-sa"</span>,
+    <span class="string">"nombre"</span>: <span class="string">"Empresa SA"</span>,
+    <span class="string">"cuit"</span>: <span class="string">"30-12345678-9"</span>
+  },
+  <span class="string">"syncConfiguration"</span>: { ... },
+  <span class="string">"tablasSubida"</span>: [ ... ],
+  <span class="string">"tablasBajada"</span>: [ ... ],
+  <span class="string">"reglasNegocio"</span>: [ ... ],
+  <span class="string">"validaciones"</span>: [ ... ],
+  <span class="string">"usuarios"</span>: [ ... ],
+  <span class="string">"roles"</span>: [ ... ]
+}
+
+<span class="comment">// Importar en otro tenant o ambiente</span>
+<span class="keyword">POST</span> /api/tenants/:tenantId/import
+<span class="keyword">Content-Type:</span> application/json
+
+{
+  <span class="string">"config"</span>: { ... },  <span class="comment">← Contenido del export</span>
+  <span class="string">"overwrite"</span>: <span class="keyword">false</span>,  <span class="comment">← Si sobreescribir existentes</span>
+  <span class="string">"dryRun"</span>: <span class="keyword">true</span>      <span class="comment">← Simular sin aplicar cambios</span>
+}
+            </div>
+
+            <h3>6.6 Monitoreo y Métricas</h3>
+
+            <div class="success-box">
+                <h4>Dashboard de Operaciones</h4>
+                <p>Métricas disponibles en tiempo real:</p>
+                <ul>
+                    <li><strong>Uptime:</strong> 99.5% SLA garantizado</li>
+                    <li><strong>Latencia promedio:</strong> &lt;200ms (API calls)</li>
+                    <li><strong>Tasa de error:</strong> &lt;0.1%</li>
+                    <li><strong>Sincronizaciones exitosas:</strong> 99%+</li>
+                    <li><strong>Documentos procesados/día:</strong> Por tenant</li>
+                    <li><strong>Uso de cuotas:</strong> Almacenamiento, API calls, usuarios</li>
+                </ul>
+            </div>
+
+            <h4>Alertas Proactivas</h4>
+            <ul>
+                <li>Email automático si sync falla 3 veces consecutivas</li>
+                <li>Notificación si no hay actividad en 24hs</li>
+                <li>Alerta si latencia &gt; 1000ms sostenida por 5 minutos</li>
+                <li>Notificación si se acerca límite de plan (80%, 95%, 100%)</li>
+            </ul>
+        </section>
+
+        <section id="apendices" class="section">
+            <div class="section-header">APÉNDICES TÉCNICOS</div>
+
+            <h3>Apéndice A: Endpoints Completos de Sincronización</h3>
+
+            <table>
+                <tr>
+                    <th>Método</th>
+                    <th>Endpoint</th>
+                    <th>Descripción</th>
+                    <th>Auth</th>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-info">GET</span></td>
+                    <td>/api/sync/health</td>
+                    <td>Health check del servicio</td>
+                    <td>❌</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-info">GET</span></td>
+                    <td>/api/sync/config/:tenantId</td>
+                    <td>Obtener configuración de sync</td>
+                    <td>API Key</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-success">POST</span></td>
+                    <td>/api/sync/upload/:tenantId</td>
+                    <td>Subir datos del ERP a Axioma</td>
+                    <td>API Key</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-info">GET</span></td>
+                    <td>/api/sync/download/:tenantId</td>
+                    <td>Descargar datos de Axioma al ERP</td>
+                    <td>API Key</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-success">POST</span></td>
+                    <td>/api/sync/logs/:tenantId</td>
+                    <td>Enviar logs de sincronización</td>
+                    <td>API Key</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-info">GET</span></td>
+                    <td>/api/sync/logs</td>
+                    <td>Consultar logs de sync</td>
+                    <td>JWT</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-info">GET</span></td>
+                    <td>/api/sync/stats/:tenantId</td>
+                    <td>Estadísticas de sincronización</td>
+                    <td>JWT</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-success">POST</span></td>
+                    <td>/api/sync/test-connection</td>
+                    <td>Probar conexión a SQL Server</td>
+                    <td>JWT</td>
+                </tr>
+            </table>
+
+            <h3>Apéndice B: Códigos de Error Comunes</h3>
+
+            <table>
+                <tr>
+                    <th>Código</th>
+                    <th>Mensaje</th>
+                    <th>Causa</th>
+                    <th>Solución</th>
+                </tr>
+                <tr>
+                    <td>401</td>
+                    <td>API key inválida</td>
+                    <td>API key incorrecta o expirada</td>
+                    <td>Regenerar API key desde el dashboard</td>
+                </tr>
+                <tr>
+                    <td>403</td>
+                    <td>Tenant deshabilitado</td>
+                    <td>Cliente inactivo o plan vencido</td>
+                    <td>Contactar a soporte o renovar plan</td>
+                </tr>
+                <tr>
+                    <td>404</td>
+                    <td>Tenant no encontrado</td>
+                    <td>Slug incorrecto en URL</td>
+                    <td>Verificar slug del tenant</td>
+                </tr>
+                <tr>
+                    <td>429</td>
+                    <td>Rate limit exceeded</td>
+                    <td>Demasiados requests</td>
+                    <td>Esperar o actualizar plan</td>
+                </tr>
+                <tr>
+                    <td>500</td>
+                    <td>Error interno del servidor</td>
+                    <td>Error no manejado</td>
+                    <td>Contactar a soporte con ID de request</td>
+                </tr>
+            </table>
+
+            <h3>Apéndice C: Glosario de Términos</h3>
+
+            <table>
+                <tr>
+                    <th>Término</th>
+                    <th>Definición</th>
+                </tr>
+                <tr>
+                    <td>Tenant</td>
+                    <td>Cliente o empresa en el sistema multi-tenant. Cada tenant tiene sus datos completamente aislados.</td>
+                </tr>
+                <tr>
+                    <td>Slug</td>
+                    <td>Identificador único amigable del tenant (ej: "empresa-sa"). Se usa en URLs y APIs.</td>
+                </tr>
+                <tr>
+                    <td>Sync Agent</td>
+                    <td>Servicio cliente que ejecuta la sincronización entre ERP local y Axioma Parse.</td>
+                </tr>
+                <tr>
+                    <td>Upload</td>
+                    <td>Sincronización de datos desde ERP cliente hacia Axioma Parse.</td>
+                </tr>
+                <tr>
+                    <td>Download</td>
+                    <td>Sincronización de datos desde Axioma Parse hacia ERP cliente.</td>
+                </tr>
+                <tr>
+                    <td>Row-Level Security (RLS)</td>
+                    <td>Técnica de aislamiento de datos a nivel de fila usando tenantId.</td>
+                </tr>
+                <tr>
+                    <td>API Key</td>
+                    <td>Clave de autenticación para acceso programático a la API de sincronización.</td>
+                </tr>
+                <tr>
+                    <td>JWT</td>
+                    <td>JSON Web Token - Token de autenticación para usuarios web.</td>
+                </tr>
+            </table>
+
+            <h3>Apéndice D: Contactos</h3>
+
+            <div class="info-box">
+                <h4>Información de Contacto</h4>
+                <ul>
+                    <li><strong>Soporte Técnico:</strong> soporte@axiomacloud.com</li>
+                    <li><strong>Ventas:</strong> ventas@axiomacloud.com</li>
+                    <li><strong>DPO (Protección de Datos):</strong> dpo@axiomacloud.com</li>
+                    <li><strong>Seguridad:</strong> security@axiomacloud.com</li>
+                    <li><strong>Teléfono:</strong> +54 11 xxxx-xxxx</li>
+                    <li><strong>Horario:</strong> Lunes a Viernes 9:00 - 18:00 ART</li>
+                </ul>
+            </div>
+
+            <h3>Apéndice E: Recursos Adicionales</h3>
+
+            <ul>
+                <li><strong>Documentación Online:</strong> <a href="https://docs.parsedemo.axiomacloud.com">docs.parsedemo.axiomacloud.com</a></li>
+                <li><strong>API Reference:</strong> <a href="https://api.parsedemo.axiomacloud.com/docs">api.parsedemo.axiomacloud.com/docs</a></li>
+                <li><strong>Status Page:</strong> <a href="https://status.parsedemo.axiomacloud.com">status.parsedemo.axiomacloud.com</a></li>
+                <li><strong>Changelog:</strong> <a href="https://parsedemo.axiomacloud.com/changelog">parsedemo.axiomacloud.com/changelog</a></li>
+                <li><strong>GitHub Samples:</strong> <a href="https://github.com/axiomacloud/parse-samples">github.com/axiomacloud/parse-samples</a></li>
+            </ul>
+        </section>
+
+        <div class="footer">
+            <p><strong>Axioma Parse - Integración ERP</strong></p>
+            <p>Documento Técnico v2.0 | Generado: Noviembre 2025</p>
+            <p>© 2025 Axioma Cloud. Todos los derechos reservados.</p>
+            <p style="margin-top: 15px; font-size: 0.9em; color: #888;">
+                Este documento contiene información confidencial y está destinado únicamente al cliente especificado.<br/>
+                La reproducción, distribución o uso no autorizado está prohibido.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
