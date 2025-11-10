@@ -614,9 +614,9 @@ FROM ${vistaOrigen}`;
                       </div>
 
                       {tabla.incremental && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ml-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                        <div className="ml-6 p-4 bg-blue-50 border border-blue-200 rounded-md space-y-3">
                           <div>
-                            <Label>Campo de Fecha (opcional)</Label>
+                            <Label>Campo de Fecha</Label>
                             <Input
                               value={tabla.campoFecha || ''}
                               onChange={(e) =>
@@ -625,34 +625,18 @@ FROM ${vistaOrigen}`;
                               placeholder="updatedAt"
                             />
                             <p className="text-xs text-gray-600 mt-1">
-                              Filtra registros modificados después de la última sync
+                              Nombre del campo de fecha/timestamp en la tabla (ej: updatedAt, modified_at)
                             </p>
                           </div>
-                          <div>
-                            <Label>Campo de ID (opcional)</Label>
-                            <Input
-                              value={tabla.campoId || ''}
-                              onChange={(e) =>
-                                updateTablaBajada(index, { campoId: e.target.value })
-                              }
-                              placeholder="id"
-                            />
-                            <p className="text-xs text-gray-600 mt-1">
-                              Filtra registros con ID mayor al último descargado
+                          <div className="bg-blue-100 border-l-4 border-blue-500 p-3 text-sm">
+                            <p className="font-semibold text-blue-800 mb-1 flex items-center gap-2">
+                              <Lightbulb className="h-4 w-4" />
+                              Sincronización por fecha:
                             </p>
-                          </div>
-                          <div className="col-span-2">
-                            <div className="bg-blue-100 border-l-4 border-blue-500 p-3 text-sm">
-                              <p className="font-semibold text-blue-800 mb-1 flex items-center gap-2">
-                                <Lightbulb className="h-4 w-4" />
-                                Configurar al menos uno:
-                              </p>
-                              <ul className="text-blue-700 space-y-1 ml-4 list-disc">
-                                <li><strong>Campo de Fecha:</strong> Sincroniza por timestamp (recomendado para tablas con updatedAt)</li>
-                                <li><strong>Campo de ID:</strong> Sincroniza por ID autoincremental (útil si no hay campo de fecha)</li>
-                                <li><strong>Ambos:</strong> Máxima confiabilidad, combina ambos criterios</li>
-                              </ul>
-                            </div>
+                            <p className="text-blue-700">
+                              El sistema descargará solo registros modificados después de la última sincronización exitosa.
+                              Asegurate que el campo configurado se actualice automáticamente cuando el registro cambia.
+                            </p>
                           </div>
                         </div>
                       )}
