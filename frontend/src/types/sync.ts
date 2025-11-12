@@ -37,7 +37,6 @@ export interface TablaBajada {
   primaryKey: string;
   incremental?: boolean;
   campoFecha?: string;
-  campoId?: string;
   schema: TableSchema;
   pre_process?: PhaseConfig;
   process: ProcessConfig;

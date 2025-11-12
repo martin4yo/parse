@@ -208,6 +208,12 @@ class DocumentProcessor {
 
   async extractDataWithAI(text, tenantId = null, filePath = null) {
     try {
+      // DEBUG: Verificar parámetros recibidos
+      console.log('\n🔍 DEBUG extractDataWithAI - PARÁMETROS RECIBIDOS:');
+      console.log(`   text: ${text ? `presente (${text.length} caracteres)` : 'NULL o UNDEFINED'}`);
+      console.log(`   tenantId: ${tenantId || 'NULL'}`);
+      console.log(`   filePath: ${filePath ? 'presente' : 'NULL'}`);
+
       // Opción 0: Google Document AI (PRIORIDAD MÁXIMA - si está configurado y tenemos el archivo)
       if (filePath && documentAIProcessor.isConfigured() && process.env.USE_DOCUMENT_AI === 'true') {
         try {
@@ -441,6 +447,13 @@ class DocumentProcessor {
       console.log('\n📊 ===== CLAUDE VISION CON PIPELINE =====');
       console.log('🎯 Intentando extracción con Claude Vision (Pipeline 2 pasos)...');
 
+      // DEBUG: Verificar parámetros recibidos
+      console.log('\n🔍 DEBUG PARÁMETROS RECIBIDOS:');
+      console.log(`   pdfPath: ${pdfPath ? 'presente' : 'NULL'}`);
+      console.log(`   tenantId: ${tenantId || 'NULL'}`);
+      console.log(`   documentText: ${documentText ? `presente (${documentText.length} caracteres)` : 'NULL o UNDEFINED'}`);
+      console.log(`   documentText type: ${typeof documentText}`);
+
       const aiConfigService = require('../services/aiConfigService');
       const classifierService = require('../services/classifierService');
 
@@ -510,9 +523,13 @@ class DocumentProcessor {
       let promptKey = 'EXTRACCION_FACTURA_CLAUDE'; // Fallback por defecto
 
       // Intentar clasificar si tenemos texto del documento
+      console.log(`\n🔍 DEBUG: Evaluando if(documentText)... documentText es: ${documentText ? 'TRUTHY' : 'FALSY'}`);
       if (documentText) {
         try {
           clasificacion = await classifierService.classify(documentText, tenantId);
+
+          console.log('\n🔍 DEBUG CLASIFICACIÓN:');
+          console.log('   Objeto completo:', JSON.stringify(clasificacion, null, 2));
           console.log(`📋 Tipo detectado: ${clasificacion.tipoDocumento}`);
           console.log(`📊 Confianza: ${(clasificacion.confianza * 100).toFixed(1)}%`);
           console.log(`🤖 Motor clasificador: ${clasificacion.motorUsado || 'N/A'}`);

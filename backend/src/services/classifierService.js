@@ -119,6 +119,9 @@ class ClassifierService {
       // Parsear respuesta JSON
       const clasificacion = this.parseClassificationResponse(text);
 
+      console.log('\n🔍 DEBUG PARSEADO:');
+      console.log('   Clasificación parseada:', JSON.stringify(clasificacion, null, 2));
+
       return {
         ...clasificacion,
         modelo: config.modelo
@@ -170,6 +173,9 @@ class ClassifierService {
       // Parsear respuesta JSON
       const clasificacion = this.parseClassificationResponse(text);
 
+      console.log('\n🔍 DEBUG PARSEADO:');
+      console.log('   Clasificación parseada:', JSON.stringify(clasificacion, null, 2));
+
       return {
         ...clasificacion,
         modelo: config.modelo
@@ -200,8 +206,24 @@ class ClassifierService {
       // Parsear JSON
       const json = JSON.parse(cleaned);
 
+      console.log('\n🔍 DEBUG PARSEO JSON:');
+      console.log('   JSON original de IA:', JSON.stringify(json, null, 2));
+      console.log('   json.tipo:', json.tipo);
+      console.log('   json.tipoDocumento:', json.tipoDocumento);
+      console.log('   json.tipoComprobante:', json.tipoComprobante);
+
+      // Extraer tipo de documento (probar múltiples variantes)
+      let tipoDetectado = json.tipo || json.tipoDocumento || json.tipoComprobante;
+
+      // Si tipoComprobante tiene formato "FACTURA A/B/C", convertir a formato esperado
+      if (tipoDetectado && tipoDetectado.includes('FACTURA')) {
+        tipoDetectado = tipoDetectado.replace(/\s+/g, '_').toUpperCase();
+      }
+
+      console.log('   Seleccionado:', tipoDetectado || 'FACTURA_A');
+
       return {
-        tipoDocumento: json.tipo || json.tipoDocumento || 'FACTURA_A',
+        tipoDocumento: tipoDetectado || 'FACTURA_A',
         confianza: json.confianza || json.confidence || 0.9,
         subtipos: json.subtipos || json.subtypes || []
       };

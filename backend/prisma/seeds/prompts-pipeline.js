@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
+const { v4: uuidv4 } = require('uuid');
 const prisma = new PrismaClient();
 
 /**
@@ -436,9 +437,15 @@ Responde SOLO con JSON válido:`,
         });
         console.log(`   ✅ Prompt actualizado: ${prompt.clave}`);
       } else {
-        // Crear
+        // Crear con ID generado y timestamps
+        const now = new Date();
         await prisma.ai_prompts.create({
-          data: prompt
+          data: {
+            ...prompt,
+            id: uuidv4(),
+            createdAt: now,
+            updatedAt: now
+          }
         });
         console.log(`   ✅ Prompt creado: ${prompt.clave}`);
       }
