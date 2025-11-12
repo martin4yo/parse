@@ -1,0 +1,2049 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guía de Implementación - Parse Framework</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .section {
+            background: white;
+            padding: 30px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            color: #667eea;
+            font-size: 2em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        h3 {
+            color: #764ba2;
+            font-size: 1.5em;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+
+        h4 {
+            color: #555;
+            font-size: 1.2em;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+
+        p {
+            margin-bottom: 15px;
+            text-align: justify;
+        }
+
+        ul, ol {
+            margin-left: 30px;
+            margin-bottom: 15px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        .highlight {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .danger {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .info {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        pre {
+            background: #282c34;
+            color: #abb2bf;
+            padding: 20px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+
+        pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        table td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        table tr:hover {
+            background: #f9f9f9;
+        }
+
+        .workflow {
+            background: #f8f9fa;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .workflow-step {
+            background: white;
+            border-left: 4px solid #764ba2;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+
+        .workflow-step h4 {
+            color: #764ba2;
+            margin-top: 0;
+        }
+
+        .emoji {
+            font-size: 1.2em;
+            margin-right: 8px;
+        }
+
+        .toc {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .toc h3 {
+            color: #333;
+            margin-top: 0;
+        }
+
+        .toc ul {
+            list-style: none;
+            margin-left: 0;
+        }
+
+        .toc li {
+            margin-bottom: 10px;
+        }
+
+        .toc a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .toc a:hover {
+            text-decoration: underline;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+
+        .badge-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .badge-warning {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .badge-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .badge-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+            margin-top: 40px;
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+            .section {
+                box-shadow: none;
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📋 Guía de Implementación</h1>
+            <p>Parse Framework - Sistema Configurable de Extracción de Datos con IA</p>
+        </header>
+
+        <div class="toc section">
+            <h3>📑 Tabla de Contenidos</h3>
+            <ul>
+                <li><a href="#introduccion">1. Introducción - ¿Qué es Parse?</a></li>
+                <li><a href="#metodologia">2. Metodología de Implementación</a></li>
+                <li><a href="#estrategia-prompts">3. Estrategias para Diseñar Prompts Efectivos</a></li>
+                <li><a href="#estrategia-reglas">4. Estrategias para Configurar Reglas de Negocio</a></li>
+                <li><a href="#aprendizaje-historico">5. Aprendizaje desde Datos Históricos</a></li>
+                <li><a href="#patrones-comunes">6. Patrones Comunes de Resolución</a></li>
+                <li><a href="#debugging">7. Debugging y Mejora Continua</a></li>
+                <li><a href="#casos-uso">8. Casos de Uso Ejemplo</a></li>
+            </ul>
+        </div>
+
+        <!-- SECCIÓN 1: INTRODUCCIÓN -->
+        <div id="introduccion" class="section">
+            <h2>1. Introducción - ¿Qué es Parse?</h2>
+
+            <h3>Definición del Producto</h3>
+            <p>
+                <strong>Parse</strong> es un <strong>framework configurable</strong> diseñado para <strong>parsear cualquier tipo de comprobante
+                para cualquier proceso de negocio</strong>. No está limitado a un tipo específico de documento ni a una región geográfica.
+            </p>
+
+            <div class="success">
+                <h4><span class="emoji">✅</span>Parse ES:</h4>
+                <ul>
+                    <li>Un sistema <strong>genérico y adaptable</strong> para extracción de datos de documentos</li>
+                    <li>Un <strong>motor de reglas de negocio</strong> configurable sin necesidad de código</li>
+                    <li>Una <strong>plataforma multi-tenant</strong> donde cada cliente tiene sus propias reglas y prompts</li>
+                    <li>Un <strong>orquestador de IAs</strong> (Gemini, Claude, OpenAI, Document AI) para maximizar precisión</li>
+                    <li>Un <strong>puente entre documentos físicos y sistemas ERP/contables</strong></li>
+                </ul>
+            </div>
+
+
+            <h3>Arquitectura del Sistema</h3>
+            <div class="workflow">
+                <div class="workflow-step">
+                    <h4>📸 Fase 1: Pre-procesamiento</h4>
+                    <p>Optimización de imagen/PDF con Sharp para mejorar calidad y reducir tamaño (70-90% reducción)</p>
+                </div>
+                <div class="workflow-step">
+                    <h4>🔍 Fase 2: Extracción de Texto</h4>
+                    <p>PDF: extracción directa | Imágenes: OCR con Tesseract</p>
+                </div>
+                <div class="workflow-step">
+                    <h4>🏷️ Fase 3: Clasificación (Opcional - Pipeline)</h4>
+                    <p>IA determina tipo de documento usando prompt <code>CLASIFICADOR_DOCUMENTO</code></p>
+                </div>
+                <div class="workflow-step">
+                    <h4>🤖 Fase 4: Extracción con IA</h4>
+                    <p>Selecciona prompt especializado según tipo detectado y extrae datos estructurados</p>
+                </div>
+                <div class="workflow-step">
+                    <h4>⚙️ Fase 5: Aplicación de Reglas de Negocio</h4>
+                    <p>Transformaciones, validaciones, lookups en tablas maestras</p>
+                </div>
+                <div class="workflow-step">
+                    <h4>💾 Fase 6: Almacenamiento</h4>
+                    <p>Guarda en PostgreSQL con datos extraídos + datos enriquecidos</p>
+                </div>
+                <div class="workflow-step">
+                    <h4>🔄 Fase 7: Sincronización (Opcional)</h4>
+                    <p>Exporta a SQL Server / ERP del cliente</p>
+                </div>
+            </div>
+
+            <h3>Componentes Configurables</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Componente</th>
+                        <th>Ubicación</th>
+                        <th>Propósito</th>
+                        <th>Requiere Código</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Prompts IA</strong></td>
+                        <td>BD: <code>ai_prompts</code></td>
+                        <td>Instrucciones para extracción con IA</td>
+                        <td><span class="badge badge-success">NO</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Reglas de Negocio</strong></td>
+                        <td>BD: <code>reglas_negocio</code></td>
+                        <td>Transformaciones y validaciones</td>
+                        <td><span class="badge badge-success">NO</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Parámetros Maestros</strong></td>
+                        <td>BD: <code>parametros_maestros</code></td>
+                        <td>Tablas lookup, dropdowns</td>
+                        <td><span class="badge badge-success">NO</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Configuración IA</strong></td>
+                        <td>BD: <code>ai_provider_configs</code></td>
+                        <td>API keys, modelos por tenant</td>
+                        <td><span class="badge badge-success">NO</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Lógica de Extracción</strong></td>
+                        <td>Código: <code>documentProcessor.js</code></td>
+                        <td>Añadir nuevos métodos de extracción</td>
+                        <td><span class="badge badge-danger">SÍ</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Operaciones de Reglas</strong></td>
+                        <td>Código: <code>businessRulesEngine.js</code></td>
+                        <td>Añadir nuevas operaciones (SET, LOOKUP, etc.)</td>
+                        <td><span class="badge badge-danger">SÍ</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- SECCIÓN 2: METODOLOGÍA -->
+        <div id="metodologia" class="section">
+            <h2>2. Metodología de Implementación</h2>
+
+            <h3>Enfoque Recomendado: Aprendizaje desde Datos Históricos</h3>
+
+            <p>
+                La estrategia más efectiva para implementar Parse en un nuevo cliente es <strong>aprender de su pasado</strong>.
+                En lugar de crear reglas desde cero, analizamos cómo el cliente <em>ya procesaba</em> sus documentos.
+            </p>
+
+            <div class="workflow">
+                <h3>🔄 Flujo Completo de Implementación</h3>
+
+                <div class="workflow-step">
+                    <h4>Paso 1: Recolección de Data Histórica</h4>
+                    <p><strong>Objetivo:</strong> Obtener registros contables/ERP del cliente con documentos procesados en el pasado.</p>
+                    <p><strong>Qué solicitar:</strong></p>
+                    <ul>
+                        <li>📊 <strong>Exportación de base de datos</strong> (Excel, CSV, SQL dump)
+                            <ul>
+                                <li>Facturas/comprobantes de los últimos 6-12 meses</li>
+                                <li>Cada registro debe incluir:
+                                    <ul>
+                                        <li>Datos del comprobante (proveedor, fecha, número, monto)</li>
+                                        <li>Productos/servicios línea por línea</li>
+                                        <li>Asiento contable (cuenta, centro de costo, dimensión)</li>
+                                        <li>Cualquier dato customizado del negocio</li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </li>
+                        <li>📄 <strong>Comprobantes físicos</strong> (PDFs/imágenes)
+                            <ul>
+                                <li>Los mismos documentos que están registrados en la BD</li>
+                                <li>Mínimo 50-100 documentos representativos</li>
+                                <li>Variedad de proveedores, tipos, montos</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="workflow-step">
+                    <h4>Paso 2: Mapeo de Datos</h4>
+                    <p><strong>Objetivo:</strong> Relacionar registros de BD con archivos físicos.</p>
+                    <p><strong>Método:</strong></p>
+                    <ul>
+                        <li>Crear índice: <code>BD_ID ↔ Archivo_PDF</code></li>
+                        <li>Normalizar nombres de archivo (ej: <code>factura_proveedor_fecha_numero.pdf</code>)</li>
+                        <li>Verificar que todos los registros tengan su archivo correspondiente</li>
+                    </ul>
+                </div>
+
+                <div class="workflow-step">
+                    <h4>Paso 3: Escaneo Inicial (Sin Reglas)</h4>
+                    <p><strong>Objetivo:</strong> Procesar documentos con Parse usando solo extracción básica de IA.</p>
+                    <p><strong>Proceso:</strong></p>
+                    <ol>
+                        <li>Subir documentos a Parse</li>
+                        <li>Usar prompt <code>EXTRACCION_UNIVERSAL</code> (genérico)</li>
+                        <li>NO aplicar reglas de negocio aún</li>
+                        <li>Exportar resultados de extracción</li>
+                    </ol>
+                </div>
+
+                <div class="workflow-step">
+                    <h4>Paso 4: Análisis Comparativo</h4>
+                    <p><strong>Objetivo:</strong> Identificar discrepancias entre extracción IA vs datos reales.</p>
+                    <p><strong>Análisis a realizar:</strong></p>
+                    <table style="margin-top: 10px;">
+                        <thead>
+                            <tr>
+                                <th>Campo</th>
+                                <th>Extracción IA</th>
+                                <th>Dato Real (BD)</th>
+                                <th>¿Match?</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Proveedor</td>
+                                <td>"Movistar Argentina SA"</td>
+                                <td>"MOVISTAR"</td>
+                                <td>❌ (necesita normalización)</td>
+                            </tr>
+                            <tr>
+                                <td>Cuenta Contable</td>
+                                <td><em>(null)</em></td>
+                                <td>"5.1.2.001"</td>
+                                <td>❌ (falta lookup)</td>
+                            </tr>
+                            <tr>
+                                <td>Monto Total</td>
+                                <td>15000.00</td>
+                                <td>15000.00</td>
+                                <td>✅</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="workflow-step">
+                    <h4>Paso 5: Detección de Patrones</h4>
+                    <p><strong>Objetivo:</strong> Identificar reglas implícitas en los datos históricos.</p>
+                    <p><strong>Preguntas clave:</strong></p>
+                    <ul>
+                        <li>¿Siempre que el producto contiene "Internet" se usa la misma cuenta contable?</li>
+                        <li>¿Cada proveedor tiene un centro de costo asignado?</li>
+                        <li>¿Hay descripciones que siempre requieren un tipo de orden de compra específico?</li>
+                        <li>¿Existen validaciones (ej: monto máximo, proveedores bloqueados)?</li>
+                    </ul>
+                </div>
+
+                <div class="workflow-step">
+                    <h4>Paso 6: Generación de Reglas</h4>
+                    <p><strong>Objetivo:</strong> Crear reglas de negocio basadas en patrones detectados.</p>
+                    <p><strong>Métodos:</strong></p>
+                    <ul>
+                        <li><strong>Manual:</strong> Implementador crea reglas en UI de Parse</li>
+                        <li><strong>Asistido por IA (Claude Code):</strong> Proveer data + solicitar generación de reglas</li>
+                        <li><strong>Automático (kutulu):</strong> Parse analizará datos y sugerirá reglas</li>
+                    </ul>
+                </div>
+
+                <div class="workflow-step">
+                    <h4>Paso 7: Validación y Ajuste</h4>
+                    <p><strong>Objetivo:</strong> Probar reglas contra sample histórico y medir precisión.</p>
+                    <p><strong>Proceso:</strong></p>
+                    <ol>
+                        <li>Re-procesar documentos con reglas aplicadas</li>
+                        <li>Comparar resultados nuevos vs datos reales</li>
+                        <li>Calcular tasa de acierto por campo</li>
+                        <li>Ajustar reglas donde falle</li>
+                        <li>Iterar hasta lograr 95%+ de precisión</li>
+                    </ol>
+                </div>
+
+                <div class="workflow-step">
+                    <h4>Paso 8: Deployment en Producción</h4>
+                    <p><strong>Objetivo:</strong> Activar sistema para procesar nuevos documentos.</p>
+                    <p><strong>Configuración final:</strong></p>
+                    <ul>
+                        <li>Activar prompts especializados (si aplica)</li>
+                        <li>Activar todas las reglas validadas</li>
+                        <li>Configurar parámetros maestros (proveedores, cuentas, etc.)</li>
+                        <li>Configurar sincronización con ERP (opcional)</li>
+                        <li>Capacitar usuarios finales</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="info">
+                <h4><span class="emoji">💡</span>Tip Importante</h4>
+                <p>
+                    El <strong>éxito de la implementación</strong> depende directamente de la <strong>calidad y variedad</strong>
+                    de los datos históricos. Es preferible tener 100 documentos bien variados que 1000 documentos similares.
+                </p>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 3: ESTRATEGIA PROMPTS -->
+        <div id="estrategia-prompts" class="section">
+            <h2>3. Estrategias para Diseñar Prompts Efectivos</h2>
+
+            <h3>Anatomía de un Prompt Parse</h3>
+            <p>Los prompts en Parse siguen una estructura específica para maximizar precisión:</p>
+
+            <div class="workflow">
+                <h4>Estructura Recomendada</h4>
+                <ol>
+                    <li><strong>Role/Context (Priming)</strong> - Define el rol de la IA</li>
+                    <li><strong>Background Info</strong> - Contexto del tipo de documento</li>
+                    <li><strong>Output Schema</strong> - Estructura JSON esperada</li>
+                    <li><strong>Critical Instructions</strong> - Reglas no negociables</li>
+                    <li><strong>Visual Structure Guide</strong> - Cómo leer el documento</li>
+                    <li><strong>Examples</strong> - Casos de ejemplo</li>
+                    <li><strong>Variable Placeholder</strong> - <code>{{DOCUMENT_TEXT}}</code></li>
+                    <li><strong>Output Format</strong> - Recordatorio de JSON</li>
+                </ol>
+            </div>
+
+            <h3>Ejemplo de Prompt Bien Estructurado</h3>
+            <pre><code># 1. ROLE/CONTEXT
+Eres un experto en facturas de servicios de telecomunicaciones.
+Tu tarea es extraer información estructurada de facturas de empresas
+como Movistar, Claro, Personal, etc.
+
+# 2. BACKGROUND INFO
+CONTEXTO:
+- Las facturas de telecom suelen incluir múltiples servicios (líneas, internet, datos)
+- Cada servicio puede tener un precio diferente
+- Importante distinguir entre cargos fijos y variables
+- Suele haber impuestos adicionales (IVA, tasas municipales)
+
+# 3. OUTPUT SCHEMA
+CAMPOS A EXTRAER:
+- fecha: Fecha de factura (formato YYYY-MM-DD)
+- numeroFactura: Número de comprobante (string)
+- proveedor: Nombre de la empresa de telecom
+- total: Monto total a pagar (número decimal)
+- servicios: Array de servicios [
+    {
+      tipo: "INTERNET" | "TELEFONIA" | "DATOS" | "OTROS",
+      descripcion: string,
+      cantidad: número,
+      precioUnitario: número,
+      subtotal: número
+    }
+  ]
+- impuestos: Array de impuestos [
+    {
+      tipo: string,
+      alicuota: número (porcentaje),
+      importe: número
+    }
+  ]
+
+# 4. CRITICAL INSTRUCTIONS
+⚠️ CRÍTICO:
+- Ignorar el CUIT del cliente (receptor de la factura)
+- Extraer SOLO el CUIT del emisor (empresa de telecom)
+- Si hay promociones/descuentos, restarlos del subtotal
+- La fecha debe ser de emisión, NO de vencimiento
+
+# 5. VISUAL STRUCTURE GUIDE
+FORMATO TÍPICO:
+┌─────────────────────────────────────┐
+│ LOGO EMPRESA      FACTURA: XXXXX    │
+│ CUIT: XX-XXXXXXXX-X  Fecha: DD/MM/YY│
+├─────────────────────────────────────┤
+│ Cliente: ....                       │
+│ CUIT Cliente: YY-YYYYYYYY-Y  ← IGNORAR ESTE
+├─────────────────────────────────────┤
+│ Detalle de Servicios:               │
+│ • Internet 50MB ..... $X.XXX        │
+│ • Línea principal .... $X.XXX       │
+├─────────────────────────────────────┤
+│ Subtotal ............ $XX.XXX       │
+│ IVA 21% ............. $XX.XXX       │
+│ TOTAL ............... $XX.XXX       │
+└─────────────────────────────────────┘
+
+# 6. EXAMPLES
+Ejemplo entrada:
+"Internet Fibra 100MB - Abono mensual: $5.500"
+
+Extracción correcta:
+{
+  tipo: "INTERNET",
+  descripcion: "Internet Fibra 100MB - Abono mensual",
+  cantidad: 1,
+  precioUnitario: 5500.00,
+  subtotal: 5500.00
+}
+
+# 7. VARIABLE PLACEHOLDER
+Texto del documento a procesar:
+{{DOCUMENT_TEXT}}
+
+# 8. OUTPUT FORMAT
+Responde ÚNICAMENTE con JSON válido, sin markdown ni explicaciones.
+Formato:
+{
+  "fecha": "...",
+  "numeroFactura": "...",
+  ...
+}</code></pre>
+
+            <h3>Técnicas de Prompt Engineering</h3>
+
+            <h4>1. Role-Playing (Definir Rol)</h4>
+            <div class="highlight">
+                <p><strong>Qué es:</strong> Darle a la IA una identidad/expertise específica.</p>
+                <p><strong>Cuándo usar:</strong> Siempre, al inicio del prompt.</p>
+                <p><strong>Ejemplo:</strong></p>
+                <code>"Eres un contador experto en comprobantes de importación aduanera..."</code>
+            </div>
+
+            <h4>2. Negative Examples (Ejemplos Negativos)</h4>
+            <div class="highlight">
+                <p><strong>Qué es:</strong> Indicar explícitamente qué NO hacer.</p>
+                <p><strong>Cuándo usar:</strong> Cuando hay errores recurrentes en extracción.</p>
+                <p><strong>Ejemplo:</strong></p>
+                <code>⚠️ NO extraer el CUIT que aparece en "Señor/es:" (es del cliente, no del emisor)</code>
+            </div>
+
+            <h4>3. Pattern Recognition (Reconocimiento de Patrones)</h4>
+            <div class="highlight">
+                <p><strong>Qué es:</strong> Enseñar patrones visuales del documento.</p>
+                <p><strong>Cuándo usar:</strong> Para documentos con layout consistente.</p>
+                <p><strong>Ejemplo:</strong></p>
+                <pre><code>PATRÓN DE TABLA:
+Columna 1: CANTIDAD (siempre primer número de la fila)
+Columna 2: UNIDAD (ej: "un", "kg", "hs")
+Columna 3: DESCRIPCIÓN
+Columna 4: PRECIO UNITARIO
+Columna 5: TOTAL LÍNEA</code></pre>
+            </div>
+
+            <h4>4. Priority Rules (Reglas de Prioridad)</h4>
+            <div class="highlight">
+                <p><strong>Qué es:</strong> Reglas de negocio hard-coded en el prompt.</p>
+                <p><strong>Cuándo usar:</strong> Para lógica que NUNCA debe fallar.</p>
+                <p><strong>Ejemplo:</strong></p>
+                <code>REGLA CRÍTICA: Si el documento contiene "NOTA DE CRÉDITO" → campo tipo = "CREDITO" (confianza 1.0)</code>
+            </div>
+
+            <h4>5. Schema-Driven Output (Salida Basada en Esquema)</h4>
+            <div class="highlight">
+                <p><strong>Qué es:</strong> Proporcionar estructura JSON exacta esperada.</p>
+                <p><strong>Cuándo usar:</strong> Siempre (garantiza consistencia).</p>
+                <p><strong>Ejemplo:</strong></p>
+                <pre><code>{
+  "campo1": "tipo string",
+  "campo2": 123.45,  // tipo number
+  "array": [{
+    "subcampo": "valor"
+  }]
+}</code></pre>
+            </div>
+
+            <h4>6. Confidence Scoring (Puntuación de Confianza)</h4>
+            <div class="highlight">
+                <p><strong>Qué es:</strong> Pedir a la IA que evalúe su propia certeza.</p>
+                <p><strong>Cuándo usar:</strong> Para clasificación o datos ambiguos.</p>
+                <p><strong>Ejemplo:</strong></p>
+                <pre><code>Asigna nivel de confianza (0.0 a 1.0):
+- 0.95-1.0: Todos los indicadores coinciden
+- 0.80-0.94: Mayoría de indicadores presentes
+- 0.60-0.79: Algunos indicadores presentes
+- 0.0-0.59: Baja confianza, datos ambiguos</code></pre>
+            </div>
+
+            <h3>Variables en Prompts</h3>
+            <p>Parse soporta variables dinámicas usando sintaxis <code>{{VARIABLE}}</code>:</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Variable</th>
+                        <th>Propósito</th>
+                        <th>Ejemplo de Uso</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>{{DOCUMENT_TEXT}}</code></td>
+                        <td>Texto extraído del documento</td>
+                        <td>Siempre al final del prompt</td>
+                    </tr>
+                    <tr>
+                        <td><code>{{TIPO_DOCUMENTO}}</code></td>
+                        <td>Tipo detectado en clasificación</td>
+                        <td>Prompts especializados</td>
+                    </tr>
+                    <tr>
+                        <td><code>{{CLIENTE_NOMBRE}}</code></td>
+                        <td>Nombre del tenant</td>
+                        <td>Personalización por cliente</td>
+                    </tr>
+                    <tr>
+                        <td>Variables custom</td>
+                        <td>Cualquier metadata</td>
+                        <td>Configurable por implementación</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="info">
+                <h4><span class="emoji">💡</span>Best Practice</h4>
+                <p>
+                    <strong>Iterar y medir:</strong> Los prompts se perfeccionan con datos reales.
+                    Crear versión inicial → probar con 20 documentos → ajustar → medir tasa de éxito → repetir.
+                </p>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 4: ESTRATEGIA REGLAS -->
+        <div id="estrategia-reglas" class="section">
+            <h2>4. Estrategias para Configurar Reglas de Negocio</h2>
+
+            <h3>Tipos de Reglas en Parse</h3>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tipo</th>
+                        <th>Propósito</th>
+                        <th>Cuándo Ejecuta</th>
+                        <th>¿Bloquea Guardado?</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="badge badge-info">TRANSFORMACION</span></td>
+                        <td>Modificar datos extraídos</td>
+                        <td>Después de extracción IA</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-warning">VALIDACION</span></td>
+                        <td>Verificar calidad de datos</td>
+                        <td>Después de transformaciones</td>
+                        <td>Sí (si falla)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-info">IMPORTACION_DKT</span></td>
+                        <td>Reglas legacy de importación</td>
+                        <td>Al importar desde otros sistemas</td>
+                        <td>No</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Anatomía de una Regla</h3>
+            <pre><code>{
+  "codigo": "REGLA_EJEMPLO",              // Identificador único
+  "nombre": "Nombre descriptivo",         // Para UI
+  "tipo": "TRANSFORMACION",               // Tipo de regla
+  "activa": true,                         // Activar/desactivar
+  "prioridad": 10,                        // Orden ejecución (menor = primero)
+  "configuracion": {
+    // Lógica de condiciones (AND/OR)
+    "logicOperator": "AND",               // "AND" | "OR"
+
+    // Condiciones: cuándo aplicar la regla
+    "condiciones": [
+      {
+        "campo": "nombreCampo",           // Campo a evaluar
+        "operador": "EQUALS",             // Tipo de comparación
+        "valor": "valorEsperado"          // Valor de referencia
+      }
+    ],
+
+    // Acciones: qué hacer si condiciones se cumplen
+    "acciones": [
+      {
+        "operacion": "SET",               // Tipo de acción
+        "campo": "campoDestino",          // Campo a modificar
+        "valor": "nuevoValor"             // Valor a asignar
+      }
+    ]
+  }
+}</code></pre>
+
+            <h3>Operadores de Condición Disponibles</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Operador</th>
+                        <th>Descripción</th>
+                        <th>Ejemplo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>EQUALS</code></td>
+                        <td>Igualdad exacta</td>
+                        <td><code>campo: "tipo", valor: "FACTURA_A"</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>NOT_EQUALS</code></td>
+                        <td>Diferente de</td>
+                        <td><code>campo: "estado", valor: "anulado"</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>CONTAINS</code></td>
+                        <td>Contiene substring</td>
+                        <td><code>campo: "descripcion", valor: "Internet"</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>NOT_CONTAINS</code></td>
+                        <td>No contiene substring</td>
+                        <td><code>campo: "razonSocial", valor: "TIMBO"</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>STARTS_WITH</code></td>
+                        <td>Comienza con</td>
+                        <td><code>campo: "cuit", valor: "30-"</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>ENDS_WITH</code></td>
+                        <td>Termina con</td>
+                        <td><code>campo: "archivo", valor: ".pdf"</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>REGEX</code></td>
+                        <td>Expresión regular</td>
+                        <td><code>campo: "cuit", valor: "^\d{2}-\d{8}-\d$"</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>IN</code></td>
+                        <td>Está en lista</td>
+                        <td><code>campo: "proveedor", valor: ["MOV", "CLARO"]</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>GREATER_THAN</code></td>
+                        <td>Mayor que</td>
+                        <td><code>campo: "importe", valor: 10000</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>LESS_THAN</code></td>
+                        <td>Menor que</td>
+                        <td><code>campo: "cantidad", valor: 100</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>IS_NULL</code></td>
+                        <td>Campo vacío/null</td>
+                        <td><code>campo: "cuentaContable"</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>IS_NOT_NULL</code></td>
+                        <td>Campo tiene valor</td>
+                        <td><code>campo: "cuit"</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Operaciones de Acción Disponibles</h3>
+
+            <h4>1. SET - Asignar Valor</h4>
+            <pre><code>{
+  "operacion": "SET",
+  "campo": "cuentaContable",
+  "valor": "5.1.2.001"
+}</code></pre>
+
+            <h4>2. APPEND - Agregar a String</h4>
+            <pre><code>{
+  "operacion": "APPEND",
+  "campo": "observaciones",
+  "valor": " - Procesado automáticamente"
+}</code></pre>
+
+            <h4>3. CALCULATE - Operaciones Matemáticas</h4>
+            <pre><code>{
+  "operacion": "CALCULATE",
+  "campo": "totalConDescuento",
+  "formula": "{{importe}} * 0.9"  // 10% descuento
+}</code></pre>
+
+            <h4>4. LOOKUP - Buscar en Tabla Maestra</h4>
+            <pre><code>{
+  "operacion": "LOOKUP",
+  "campo": "codigoProveedor",        // Campo destino
+  "lookupTable": "parametros_maestros",
+  "lookupField": "parametros_json->>'cuit'",  // Buscar por CUIT
+  "lookupValue": "{{cuit}}",         // Usar CUIT extraído
+  "returnField": "codigo"            // Devolver código
+}</code></pre>
+
+            <h4>5. LOOKUP_JSON - Buscar en Campo JSON</h4>
+            <pre><code>{
+  "operacion": "LOOKUP_JSON",
+  "campo": "direccion",
+  "lookupTable": "parametros_maestros",
+  "lookupField": "codigo",
+  "lookupValue": "{{codigoProveedor}}",
+  "returnField": "parametros_json->>'direccion'"
+}</code></pre>
+
+            <h4>6. CUSTOM_FUNCTION - JavaScript Personalizado</h4>
+            <pre><code>{
+  "operacion": "SET",
+  "campo": "cuitFormateado",
+  "funcionPersonalizada": `
+    // 'value' contiene el valor actual del campo
+    const digits = value.replace(/[^0-9]/g, '');
+    if (digits.length === 11) {
+      return digits.substring(0,2) + '-' +
+             digits.substring(2,10) + '-' +
+             digits.substring(10);
+    }
+    return value;
+  `
+}</code></pre>
+
+            <h3>Funciones de Transformación Predefinidas</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Función</th>
+                        <th>Descripción</th>
+                        <th>Ejemplo Input → Output</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>REMOVE_LEADING_ZEROS</code></td>
+                        <td>Elimina ceros iniciales</td>
+                        <td><code>"00012345" → "12345"</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>TRIM_SPACES</code></td>
+                        <td>Elimina espacios al inicio/fin</td>
+                        <td><code>" Texto " → "Texto"</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>UPPER_CASE</code></td>
+                        <td>Convertir a mayúsculas</td>
+                        <td><code>"Proveedor" → "PROVEEDOR"</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>LOWER_CASE</code></td>
+                        <td>Convertir a minúsculas</td>
+                        <td><code>"EMAIL@TEST.COM" → "email@test.com"</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Ejemplos de Reglas Comunes</h3>
+
+            <h4>Ejemplo 1: Ignorar Cliente como Proveedor</h4>
+            <div class="highlight">
+                <p><strong>Problema:</strong> IA extrae nombre del cliente como proveedor</p>
+                <p><strong>Solución:</strong> Limpiar campo si contiene nombre del cliente</p>
+                <pre><code>{
+  "codigo": "REGLA_IGNORAR_CLIENTE",
+  "tipo": "TRANSFORMACION",
+  "prioridad": 5,
+  "configuracion": {
+    "logicOperator": "OR",
+    "condiciones": [
+      {
+        "campo": "razonSocial",
+        "operador": "CONTAINS",
+        "valor": "MI EMPRESA SA"
+      },
+      {
+        "campo": "cuit",
+        "operador": "EQUALS",
+        "valor": "30-12345678-9"
+      }
+    ],
+    "acciones": [
+      {
+        "operacion": "SET",
+        "campo": "razonSocial",
+        "valor": null
+      }
+    ]
+  }
+}</code></pre>
+            </div>
+
+            <h4>Ejemplo 2: Lookup de Cuenta Contable por Producto</h4>
+            <div class="highlight">
+                <p><strong>Problema:</strong> Necesito asignar cuenta contable según tipo de producto</p>
+                <p><strong>Solución:</strong> Buscar en tabla maestra usando descripción</p>
+                <pre><code>{
+  "codigo": "REGLA_CUENTA_POR_PRODUCTO",
+  "tipo": "TRANSFORMACION",
+  "prioridad": 20,
+  "configuracion": {
+    "condiciones": [
+      {
+        "campo": "lineItems[].cuentaContable",
+        "operador": "IS_NULL"
+      }
+    ],
+    "acciones": [
+      {
+        "operacion": "LOOKUP",
+        "campo": "lineItems[].cuentaContable",
+        "lookupTable": "parametros_maestros",
+        "lookupField": "nombre",
+        "lookupValue": "{{lineItems[].descripcion}}",
+        "returnField": "codigo",
+        "fuzzyMatch": true  // Búsqueda aproximada
+      }
+    ]
+  }
+}</code></pre>
+            </div>
+
+            <h4>Ejemplo 3: Validación de Monto Máximo</h4>
+            <div class="highlight">
+                <p><strong>Problema:</strong> Facturas >$100.000 requieren aprobación manual</p>
+                <p><strong>Solución:</strong> Regla de validación que bloquea guardado</p>
+                <pre><code>{
+  "codigo": "REGLA_VALIDAR_MONTO_MAXIMO",
+  "tipo": "VALIDACION",
+  "prioridad": 50,
+  "configuracion": {
+    "condiciones": [
+      {
+        "campo": "importe",
+        "operador": "GREATER_THAN",
+        "valor": 100000
+      },
+      {
+        "campo": "aprobadoPor",
+        "operador": "IS_NULL"
+      }
+    ],
+    "acciones": [
+      {
+        "operacion": "BLOCK",
+        "mensaje": "Facturas >$100.000 requieren aprobación de gerencia"
+      }
+    ]
+  }
+}</code></pre>
+            </div>
+
+            <h4>Ejemplo 4: Asignación de Centro de Costo por Proveedor</h4>
+            <div class="highlight">
+                <p><strong>Problema:</strong> Cada proveedor tiene un centro de costo asignado</p>
+                <p><strong>Solución:</strong> Lookup usando CUIT del proveedor</p>
+                <pre><code>{
+  "codigo": "REGLA_CENTRO_COSTO_PROVEEDOR",
+  "tipo": "TRANSFORMACION",
+  "prioridad": 15,
+  "configuracion": {
+    "condiciones": [
+      {
+        "campo": "cuit",
+        "operador": "IS_NOT_NULL"
+      }
+    ],
+    "acciones": [
+      {
+        "operacion": "LOOKUP_JSON",
+        "campo": "centroCosto",
+        "lookupTable": "parametros_maestros",
+        "lookupField": "parametros_json->>'cuit'",
+        "lookupValue": "{{cuit}}",
+        "returnField": "parametros_json->>'centro_costo'"
+      }
+    ]
+  }
+}</code></pre>
+            </div>
+
+            <div class="info">
+                <h4><span class="emoji">💡</span>Prioridad de Reglas</h4>
+                <p>
+                    Las reglas se ejecutan en <strong>orden ascendente de prioridad</strong> (1, 2, 3...).
+                    Usar números bajos (1-10) para reglas de limpieza/normalización,
+                    números medios (20-40) para lookups/enriquecimiento,
+                    y números altos (50+) para validaciones finales.
+                </p>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 5: APRENDIZAJE HISTÓRICO -->
+        <div id="aprendizaje-historico" class="section">
+            <h2>5. Aprendizaje desde Datos Históricos</h2>
+
+            <h3>Proceso Detallado de Análisis</h3>
+
+            <h4>Paso 1: Preparación de Datos</h4>
+            <p>Crear dataset estructurado con datos del cliente:</p>
+
+            <pre><code>-- Ejemplo: Estructura de datos históricos (Excel/CSV)
+| ID  | Fecha      | Proveedor     | CUIT          | Producto          | Cant | Precio  | Total   | Cuenta    | Dimension | OC     |
+|-----|------------|---------------|---------------|-------------------|------|---------|---------|-----------|-----------|--------|
+| 001 | 2024-01-15 | Movistar SA   | 30-12345678-9 | Internet 100MB    | 1    | 5500.00 | 5500.00 | 5.1.2.001 | ADM-001   | -      |
+| 002 | 2024-01-15 | Movistar SA   | 30-12345678-9 | Telefonía Móvil   | 5    | 1200.00 | 6000.00 | 5.1.2.002 | VEN-002   | -      |
+| 003 | 2024-01-20 | YPF SA        | 30-98765432-1 | Combustible Nafta | 150  | 450.00  | 67500.00| 5.3.1.005 | LOG-003   | OC-123 |
+| 004 | 2024-01-22 | Sodexo Pass   | 30-11111111-1 | Vales Alimentarios| 50   | 2000.00 | 100000  | 5.2.1.010 | ADM-001   | -      |</code></pre>
+
+            <h4>Paso 2: Escaneo con Parse (Sin Reglas)</h4>
+            <ol>
+                <li>Subir PDFs correspondientes a los IDs del dataset</li>
+                <li>Configurar Parse para usar <code>EXTRACCION_UNIVERSAL</code></li>
+                <li>Desactivar temporalmente todas las reglas de negocio</li>
+                <li>Procesar documentos</li>
+                <li>Exportar resultados a Excel/CSV</li>
+            </ol>
+
+            <h4>Paso 3: Análisis Comparativo</h4>
+            <p>Crear hoja de cálculo con comparación lado a lado:</p>
+
+            <pre><code>| Campo          | Dato Real (BD) | Extraído (IA) | ¿Match? | Gap/Observación                    |
+|----------------|----------------|---------------|---------|-------------------------------------|
+| Proveedor      | Movistar SA    | MOVISTAR ARG  | ❌      | Normalización necesaria             |
+| CUIT           | 30-12345678-9  | 30123456789   | ⚠️      | Formato diferente (sin guiones)     |
+| Fecha          | 2024-01-15     | 2024-01-15    | ✅      | OK                                  |
+| Total          | 11500.00       | 11500.00      | ✅      | OK                                  |
+| Cuenta Contable| 5.1.2.001      | null          | ❌      | No extraído (necesita lookup)       |
+| Dimensión      | ADM-001        | null          | ❌      | No extraído (necesita lookup)       |
+| Producto[0].Qty| 1              | 1             | ✅      | OK                                  |
+| Producto[1].Qty| 5              | 5             | ✅      | OK                                  |</code></pre>
+
+            <h4>Paso 4: Identificación de Patrones</h4>
+            <p>Análisis SQL/Excel para detectar reglas implícitas:</p>
+
+            <pre><code>-- Query 1: Agrupación por proveedor
+SELECT
+  Proveedor,
+  COUNT(*) as Facturas,
+  STRING_AGG(DISTINCT Cuenta, ', ') as CuentasUsadas,
+  STRING_AGG(DISTINCT Dimension, ', ') as DimensionesUsadas
+FROM datos_historicos
+GROUP BY Proveedor
+ORDER BY Facturas DESC;
+
+-- Resultado:
+| Proveedor   | Facturas | CuentasUsadas     | DimensionesUsadas |
+|-------------|----------|-------------------|-------------------|
+| Movistar SA | 45       | 5.1.2.001, 5.1.2.002 | ADM-001, VEN-002 |
+| YPF SA      | 38       | 5.3.1.005         | LOG-003           |
+
+🔍 PATRÓN DETECTADO:
+   → Cada proveedor usa SIEMPRE las mismas cuentas
+   → Regla: Lookup de cuenta por CUIT proveedor
+
+
+-- Query 2: Agrupación por tipo de producto
+SELECT
+  CASE
+    WHEN Producto LIKE '%Internet%' THEN 'Internet'
+    WHEN Producto LIKE '%Telefonía%' THEN 'Telefonía'
+    WHEN Producto LIKE '%Combustible%' THEN 'Combustible'
+    ELSE 'Otros'
+  END as TipoProducto,
+  STRING_AGG(DISTINCT Cuenta, ', ') as CuentasUsadas
+FROM datos_historicos
+GROUP BY TipoProducto;
+
+-- Resultado:
+| TipoProducto | CuentasUsadas |
+|--------------|---------------|
+| Internet     | 5.1.2.001     |
+| Telefonía    | 5.1.2.002     |
+| Combustible  | 5.3.1.005     |
+
+🔍 PATRÓN DETECTADO:
+   → Productos con "Internet" → SIEMPRE cuenta 5.1.2.001
+   → Regla: If descripcion contains "Internet" → cuenta = 5.1.2.001
+
+
+-- Query 3: Relación Proveedor-Dimensión
+SELECT
+  Proveedor,
+  Dimension,
+  COUNT(*) as Frecuencia,
+  ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (PARTITION BY Proveedor), 2) as Porcentaje
+FROM datos_historicos
+GROUP BY Proveedor, Dimension
+ORDER BY Proveedor, Frecuencia DESC;
+
+-- Resultado:
+| Proveedor   | Dimension | Frecuencia | Porcentaje |
+|-------------|-----------|------------|------------|
+| Movistar SA | ADM-001   | 40         | 88.89%     |
+| Movistar SA | VEN-002   | 5          | 11.11%     |
+| YPF SA      | LOG-003   | 38         | 100.00%    |
+
+🔍 PATRÓN DETECTADO:
+   → YPF → SIEMPRE LOG-003 (100%)
+   → Movistar → Mayormente ADM-001 (88%)
+   → Regla: Default dimension por proveedor (puede requerir override manual)</code></pre>
+
+            <h4>Paso 5: Generación Automática de Reglas</h4>
+            <p>Usar Claude Code (o futuro feature de Parse) para generar reglas JSON:</p>
+
+            <div class="workflow">
+                <h4>Prompt para Claude Code</h4>
+                <pre><code>Analiza el siguiente dataset histórico y genera reglas de negocio
+para Parse en formato JSON:
+
+[ADJUNTAR EXCEL CON DATOS HISTÓRICOS]
+
+Genera reglas para:
+1. Normalización de nombres de proveedor
+2. Formateo de CUIT (agregar guiones)
+3. Lookup de cuenta contable por tipo de producto
+4. Lookup de dimensión por proveedor
+5. Validación de campos obligatorios
+
+Formato de salida: Array de objetos JSON según esquema de Parse.</code></pre>
+            </div>
+
+            <p><strong>Ejemplo de reglas generadas automáticamente:</strong></p>
+            <pre><code>[
+  {
+    "codigo": "REGLA_FORMAT_CUIT",
+    "nombre": "Formatear CUIT con guiones",
+    "tipo": "TRANSFORMACION",
+    "prioridad": 5,
+    "configuracion": {
+      "condiciones": [
+        {"campo": "cuit", "operador": "IS_NOT_NULL"}
+      ],
+      "acciones": [{
+        "operacion": "SET",
+        "campo": "cuit",
+        "funcionPersonalizada": `
+          const digits = value.replace(/[^0-9]/g, '');
+          if (digits.length === 11) {
+            return digits.substring(0,2) + '-' +
+                   digits.substring(2,10) + '-' +
+                   digits.substring(10);
+          }
+          return value;
+        `
+      }]
+    }
+  },
+  {
+    "codigo": "REGLA_CUENTA_INTERNET",
+    "nombre": "Cuenta contable para servicios de Internet",
+    "tipo": "TRANSFORMACION",
+    "prioridad": 20,
+    "configuracion": {
+      "condiciones": [
+        {"campo": "lineItems[].descripcion", "operador": "CONTAINS", "valor": "Internet"}
+      ],
+      "acciones": [{
+        "operacion": "SET",
+        "campo": "lineItems[].cuentaContable",
+        "valor": "5.1.2.001"
+      }]
+    }
+  },
+  {
+    "codigo": "REGLA_DIMENSION_YPF",
+    "nombre": "Dimensión LOG-003 para combustibles YPF",
+    "tipo": "TRANSFORMACION",
+    "prioridad": 25,
+    "configuracion": {
+      "condiciones": [
+        {"campo": "cuit", "operador": "EQUALS", "valor": "30-98765432-1"}
+      ],
+      "acciones": [{
+        "operacion": "SET",
+        "campo": "lineItems[].codigoDimension",
+        "valor": "LOG-003"
+      }]
+    }
+  }
+]</code></pre>
+
+            <h4>Paso 6: Carga de Reglas en Parse</h4>
+            <p>Dos métodos para cargar reglas generadas:</p>
+
+            <div class="workflow-step">
+                <h4>Método 1: UI Manual</h4>
+                <ol>
+                    <li>Acceder a <code>/configuracion/reglas</code></li>
+                    <li>Click "Nueva Regla"</li>
+                    <li>Copiar JSON generado</li>
+                    <li>Guardar</li>
+                </ol>
+            </div>
+
+            <div class="workflow-step">
+                <h4>Método 2: Script SQL (Bulk Insert)</h4>
+                <pre><code>-- backend/src/scripts/import-reglas.sql
+INSERT INTO reglas_negocio (id, codigo, nombre, tipo, configuracion, activa, prioridad, tenantId)
+VALUES
+  (gen_random_uuid(), 'REGLA_FORMAT_CUIT', '...', 'TRANSFORMACION', '{...}'::jsonb, true, 5, 'tenant-id'),
+  (gen_random_uuid(), 'REGLA_CUENTA_INTERNET', '...', 'TRANSFORMACION', '{...}'::jsonb, true, 20, 'tenant-id'),
+  ...
+;</code></pre>
+            </div>
+
+            <h4>Paso 7: Validación con Sample Histórico</h4>
+            <p>Probar reglas contra subset de documentos conocidos:</p>
+
+            <ol>
+                <li>Re-procesar 20 documentos históricos (con reglas activadas)</li>
+                <li>Comparar resultados vs datos reales</li>
+                <li>Calcular métricas:</li>
+            </ol>
+
+            <pre><code>Métricas de Precisión:
+┌────────────────────┬─────────┬─────────┬──────────┐
+│ Campo              │ Aciertos│ Errores │ Precisión│
+├────────────────────┼─────────┼─────────┼──────────┤
+│ Proveedor          │ 20/20   │ 0       │ 100%     │
+│ CUIT               │ 20/20   │ 0       │ 100%     │
+│ Fecha              │ 20/20   │ 0       │ 100%     │
+│ Total              │ 19/20   │ 1       │ 95%      │
+│ Cuenta Contable    │ 18/20   │ 2       │ 90%      │
+│ Dimensión          │ 17/20   │ 3       │ 85%      │
+└────────────────────┴─────────┴─────────┴──────────┘
+
+🎯 OBJETIVO: 95%+ de precisión en todos los campos críticos</code></pre>
+
+            <p>Si precisión < 95%, iterar:</p>
+            <ol>
+                <li>Analizar errores específicos</li>
+                <li>Ajustar condiciones de reglas</li>
+                <li>Añadir reglas adicionales</li>
+                <li>Re-probar</li>
+            </ol>
+
+            <div class="success">
+                <h4><span class="emoji">✅</span>Criterios de Éxito para Deployment</h4>
+                <ul>
+                    <li><strong>Precisión general:</strong> ≥95% en campos críticos</li>
+                    <li><strong>Falsos positivos:</strong> <5% (datos incorrectos que parecen correctos)</li>
+                    <li><strong>Coverage:</strong> ≥80% de campos completados automáticamente</li>
+                    <li><strong>Performance:</strong> <30 segundos por documento</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 6: PATRONES COMUNES -->
+        <div id="patrones-comunes" class="section">
+            <h2>6. Patrones Comunes de Resolución</h2>
+
+            <h3>Patrón 1: Ignorar Entidad Incorrecta</h3>
+            <div class="highlight">
+                <h4>Problema</h4>
+                <p>La IA extrae datos del receptor (cliente) en lugar del emisor (proveedor).</p>
+
+                <h4>Síntoma</h4>
+                <p>Campo <code>razonSocial</code> siempre contiene el mismo nombre (el del cliente).</p>
+
+                <h4>Solución 1: Prompt (Preventivo)</h4>
+                <pre><code>⚠️ CRÍTICO: IGNORAR los siguientes datos (pertenecen al RECEPTOR):
+- Razón Social: "MI EMPRESA SA"
+- CUIT: "30-12345678-9"
+
+Buscar ÚNICAMENTE datos del EMISOR (parte superior del documento).</code></pre>
+
+                <h4>Solución 2: Regla de Negocio (Correctivo)</h4>
+                <pre><code>{
+  "codigo": "REGLA_LIMPIAR_CLIENTE",
+  "tipo": "TRANSFORMACION",
+  "prioridad": 5,
+  "configuracion": {
+    "condiciones": [
+      {"campo": "razonSocial", "operador": "EQUALS", "valor": "MI EMPRESA SA"}
+    ],
+    "acciones": [
+      {"operacion": "SET", "campo": "razonSocial", "valor": null},
+      {"operacion": "LOOKUP", "campo": "razonSocial",
+       "lookupTable": "parametros_maestros",
+       "lookupField": "parametros_json->>'cuit'",
+       "lookupValue": "{{cuit}}",
+       "returnField": "nombre"}
+    ]
+  }
+}</code></pre>
+            </div>
+
+            <h3>Patrón 2: Lookup de Datos Faltantes</h3>
+            <div class="highlight">
+                <h4>Problema</h4>
+                <p>IA extrae datos principales pero faltan códigos internos (cuenta contable, centro costo, etc.).</p>
+
+                <h4>Síntoma</h4>
+                <p>Campos como <code>cuentaContable</code>, <code>codigoDimension</code> siempre vienen null.</p>
+
+                <h4>Solución: Parámetros Maestros + Lookup</h4>
+
+                <p><strong>Paso 1:</strong> Cargar tabla maestra</p>
+                <pre><code>-- Tabla: parametros_maestros
+| codigo    | nombre            | tipo_campo | parametros_json                              |
+|-----------|-------------------|------------|----------------------------------------------|
+| PROV001   | Movistar SA       | proveedor  | {"cuit": "30-12345678-9", "dimension": "ADM"}|
+| PROV002   | YPF SA            | proveedor  | {"cuit": "30-98765432-1", "dimension": "LOG"}|
+| CTA001    | Servicios Telecom | cuenta     | {"codigo": "5.1.2.001"}                      |</code></pre>
+
+                <p><strong>Paso 2:</strong> Crear regla de lookup</p>
+                <pre><code>{
+  "codigo": "REGLA_LOOKUP_DIMENSION",
+  "tipo": "TRANSFORMACION",
+  "prioridad": 20,
+  "configuracion": {
+    "condiciones": [
+      {"campo": "cuit", "operador": "IS_NOT_NULL"},
+      {"campo": "codigoDimension", "operador": "IS_NULL"}
+    ],
+    "acciones": [{
+      "operacion": "LOOKUP_JSON",
+      "campo": "codigoDimension",
+      "lookupTable": "parametros_maestros",
+      "lookupField": "parametros_json->>'cuit'",
+      "lookupValue": "{{cuit}}",
+      "returnField": "parametros_json->>'dimension'"
+    }]
+  }
+}</code></pre>
+            </div>
+
+            <h3>Patrón 3: Normalización de Formato</h3>
+            <div class="highlight">
+                <h4>Problema</h4>
+                <p>Datos extraídos en formatos inconsistentes (ej: CUIT con/sin guiones, fechas DD/MM vs YYYY-MM-DD).</p>
+
+                <h4>Síntoma</h4>
+                <p>Mismo valor representado de múltiples formas: <code>"30-12345678-9"</code>, <code>"30123456789"</code>, <code>"30 12345678 9"</code>.</p>
+
+                <h4>Solución: Función de Transformación</h4>
+                <pre><code>{
+  "codigo": "REGLA_NORMALIZAR_CUIT",
+  "tipo": "TRANSFORMACION",
+  "prioridad": 5,
+  "configuracion": {
+    "condiciones": [
+      {"campo": "cuit", "operador": "IS_NOT_NULL"}
+    ],
+    "acciones": [{
+      "operacion": "SET",
+      "campo": "cuit",
+      "funcionPersonalizada": `
+        // Eliminar todo excepto dígitos
+        const digits = value.replace(/[^0-9]/g, '');
+
+        // Validar longitud
+        if (digits.length !== 11) {
+          throw new Error('CUIT debe tener 11 dígitos');
+        }
+
+        // Formatear: XX-XXXXXXXX-X
+        return digits.substring(0,2) + '-' +
+               digits.substring(2,10) + '-' +
+               digits.substring(10);
+      `
+    }]
+  }
+}</code></pre>
+            </div>
+
+            <h3>Patrón 4: Validación de Consistencia</h3>
+            <div class="highlight">
+                <h4>Problema</h4>
+                <p>Necesito verificar que datos extraídos cumplen reglas de negocio (ej: suma de líneas = total).</p>
+
+                <h4>Síntoma</h4>
+                <p>Discrepancias matemáticas que indican error de extracción.</p>
+
+                <h4>Solución: Regla de Validación</h4>
+                <pre><code>{
+  "codigo": "REGLA_VALIDAR_TOTAL",
+  "tipo": "VALIDACION",
+  "prioridad": 50,
+  "configuracion": {
+    "condiciones": [{
+      "campo": "importe",
+      "operador": "IS_NOT_NULL"
+    }],
+    "acciones": [{
+      "operacion": "VALIDATE",
+      "funcionPersonalizada": `
+        // Sumar líneas
+        const sumaLineas = data.lineItems?.reduce(
+          (sum, item) => sum + (item.totalLinea || 0),
+          0
+        ) || 0;
+
+        // Tolerancia de 1 peso (por redondeos)
+        const diff = Math.abs(sumaLineas - data.importe);
+
+        if (diff > 1) {
+          throw new Error(
+            'Total no coincide con suma de líneas. ' +
+            'Esperado: ' + sumaLineas + ', Extraído: ' + data.importe
+          );
+        }
+      `
+    }]
+  }
+}</code></pre>
+            </div>
+
+            <h3>Patrón 5: Clasificación Condicional</h3>
+            <div class="highlight">
+                <h4>Problema</h4>
+                <p>Necesito aplicar lógica diferente según tipo de documento o proveedor.</p>
+
+                <h4>Síntoma</h4>
+                <p>Facturas de Proveedor A tienen estructura diferente a Proveedor B.</p>
+
+                <h4>Solución: Reglas Condicionales con Prioridad</h4>
+                <pre><code>// Regla 1: Detectar proveedor especial
+{
+  "codigo": "REGLA_DETECT_PROVEEDOR_ESPECIAL",
+  "tipo": "TRANSFORMACION",
+  "prioridad": 10,
+  "configuracion": {
+    "condiciones": [
+      {"campo": "cuit", "operador": "IN", "valor": ["30-11111111-1", "30-22222222-2"]}
+    ],
+    "acciones": [{
+      "operacion": "SET",
+      "campo": "_metadata.proveedorEspecial",
+      "valor": true
+    }]
+  }
+}
+
+// Regla 2: Procesamiento especial
+{
+  "codigo": "REGLA_PROCESO_ESPECIAL",
+  "tipo": "TRANSFORMACION",
+  "prioridad": 20,
+  "configuracion": {
+    "condiciones": [
+      {"campo": "_metadata.proveedorEspecial", "operador": "EQUALS", "valor": true}
+    ],
+    "acciones": [{
+      "operacion": "SET",
+      "campo": "lineItems[].cuentaContable",
+      "valor": "5.9.9.999"  // Cuenta especial
+    }]
+  }
+}</code></pre>
+            </div>
+
+            <h3>Patrón 6: Enriquecimiento Multi-Paso</h3>
+            <div class="highlight">
+                <h4>Problema</h4>
+                <p>Necesito hacer lookups en cascada (buscar A para obtener B, luego usar B para buscar C).</p>
+
+                <h4>Síntoma</h4>
+                <p>Datos relacionales: CUIT → Proveedor → Categoría → Cuenta.</p>
+
+                <h4>Solución: Múltiples Reglas con Prioridades Ordenadas</h4>
+                <pre><code>// Paso 1: CUIT → Código Proveedor (prioridad 10)
+{
+  "codigo": "REGLA_LOOKUP_PROVEEDOR",
+  "prioridad": 10,
+  "acciones": [{
+    "operacion": "LOOKUP_JSON",
+    "campo": "codigoProveedor",
+    "lookupTable": "parametros_maestros",
+    "lookupField": "parametros_json->>'cuit'",
+    "lookupValue": "{{cuit}}",
+    "returnField": "codigo"
+  }]
+}
+
+// Paso 2: Código Proveedor → Categoría (prioridad 20)
+{
+  "codigo": "REGLA_LOOKUP_CATEGORIA",
+  "prioridad": 20,
+  "acciones": [{
+    "operacion": "LOOKUP_JSON",
+    "campo": "categoria",
+    "lookupTable": "parametros_maestros",
+    "lookupField": "codigo",
+    "lookupValue": "{{codigoProveedor}}",
+    "returnField": "parametros_json->>'categoria'"
+  }]
+}
+
+// Paso 3: Categoría → Cuenta Contable (prioridad 30)
+{
+  "codigo": "REGLA_LOOKUP_CUENTA",
+  "prioridad": 30,
+  "acciones": [{
+    "operacion": "LOOKUP",
+    "campo": "cuentaContable",
+    "lookupTable": "parametros_maestros",
+    "lookupField": "nombre",
+    "lookupValue": "{{categoria}}",
+    "returnField": "codigo"
+  }]
+}</code></pre>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 7: DEBUGGING -->
+        <div id="debugging" class="section">
+            <h2>7. Debugging y Mejora Continua</h2>
+
+            <h3>Estrategias de Debugging</h3>
+
+            <h4>1. Logs del Backend</h4>
+            <p>Parse genera logs detallados en cada fase:</p>
+
+            <pre><code>// Desarrollo
+cd backend
+npm run dev
+
+// Producción (PM2)
+pm2 logs parse-backend --lines 100
+
+// Buscar errores específicos
+pm2 logs parse-backend | grep "ERROR"</code></pre>
+
+            <p><strong>Logs clave a buscar:</strong></p>
+            <ul>
+                <li><code>📊 Análisis de calidad de imagen:</code> - Métricas de pre-procesamiento</li>
+                <li><code>🔍 [CLASIFICADOR]</code> - Resultado de clasificación</li>
+                <li><code>🤖 [EXTRACTOR]</code> - Datos extraídos por IA</li>
+                <li><code>⚙️ [REGLAS]</code> - Ejecución de reglas de negocio</li>
+                <li><code>❌ [ERROR]</code> - Errores de procesamiento</li>
+            </ul>
+
+            <h4>2. Inspección de Base de Datos</h4>
+            <pre><code>-- Ver documentos con errores
+SELECT id, nombreArchivo, estadoProcesamiento,
+       datosExtraidos->>'error' as error_msg
+FROM documentos_procesados
+WHERE estadoProcesamiento = 'error'
+ORDER BY fechaProcesamiento DESC
+LIMIT 10;
+
+-- Ver datos extraídos de un documento específico
+SELECT datosExtraidos
+FROM documentos_procesados
+WHERE id = 'documento-id';
+
+-- Analizar tasa de éxito de prompts
+SELECT clave, nombre, vecesUsado,
+       ROUND(tasaExito::numeric, 2) as tasa_exito_pct
+FROM ai_prompts
+WHERE activo = true
+ORDER BY tasaExito DESC;
+
+-- Ver ejecuciones de reglas
+SELECT r.nombre, e.exitosa, e.mensaje, e.createdAt
+FROM reglas_ejecuciones e
+JOIN reglas_negocio r ON e.reglaId = r.id
+WHERE e.createdAt > NOW() - INTERVAL '1 day'
+  AND e.exitosa = false
+ORDER BY e.createdAt DESC;</code></pre>
+
+            <h4>3. Scripts de Testing</h4>
+            <p>Parse incluye scripts para probar componentes individuales:</p>
+
+            <pre><code>cd backend/src/scripts
+
+# Probar pipeline completo (clasificación + extracción)
+node test-pipeline.js path/to/invoice.pdf
+
+# Probar Claude Vision
+node test-claude-vision.js path/to/invoice.pdf
+
+# Probar optimización de imágenes
+node test-image-optimization.js
+
+# Probar aplicación de reglas
+node test-aplicar-reglas.js
+
+# Probar prompt específico
+node test-prompt.js EXTRACCION_FACTURA_A path/to/sample.txt</code></pre>
+
+            <h4>4. Debugging de Prompts</h4>
+            <div class="workflow-step">
+                <h4>Proceso de Debugging de Prompts</h4>
+                <ol>
+                    <li><strong>Identificar falla:</strong> ¿Qué campo no se extrae correctamente?</li>
+                    <li><strong>Revisar prompt actual:</strong> Acceder a <code>/prompts-ia</code> y leer instrucciones</li>
+                    <li><strong>Analizar documento problema:</strong> Ver PDF manualmente, identificar dónde está el dato</li>
+                    <li><strong>Ajustar prompt:</strong> Agregar instrucciones específicas para ese caso</li>
+                    <li><strong>Probar:</strong> Usar script <code>test-prompt.js</code> con documento problema</li>
+                    <li><strong>Validar:</strong> Re-procesar 10-20 documentos adicionales para evitar regresiones</li>
+                    <li><strong>Desplegar:</strong> Guardar nueva versión del prompt</li>
+                </ol>
+            </div>
+
+            <h4>5. Debugging de Reglas de Negocio</h4>
+            <div class="workflow-step">
+                <h4>Checklist de Debugging de Reglas</h4>
+                <ul>
+                    <li><strong>¿La regla está activa?</strong> Verificar campo <code>activa = true</code></li>
+                    <li><strong>¿La prioridad es correcta?</strong> Verificar que se ejecute en el orden esperado</li>
+                    <li><strong>¿Las condiciones se cumplen?</strong> Agregar logs temporales para verificar</li>
+                    <li><strong>¿El campo objetivo existe?</strong> Verificar que <code>campo</code> en acción sea válido</li>
+                    <li><strong>¿Hay errores en JavaScript?</strong> Si usa <code>funcionPersonalizada</code>, verificar sintaxis</li>
+                    <li><strong>¿El lookup encuentra datos?</strong> Verificar que tabla maestra tenga registros</li>
+                </ul>
+            </div>
+
+            <h3>Métricas de Monitoreo Continuo</h3>
+
+            <h4>Dashboard de KPIs (Recomendado)</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Métrica</th>
+                        <th>Objetivo</th>
+                        <th>Cómo Medirla</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Tasa de Éxito General</td>
+                        <td>≥ 95%</td>
+                        <td><code>COUNT(estado='completado') / COUNT(*)</code></td>
+                    </tr>
+                    <tr>
+                        <td>Tiempo Promedio de Procesamiento</td>
+                        <td>< 30 seg</td>
+                        <td><code>AVG(fechaProcesamiento - createdAt)</code></td>
+                    </tr>
+                    <tr>
+                        <td>Tasa de Éxito por Prompt</td>
+                        <td>≥ 90%</td>
+                        <td>Campo <code>tasaExito</code> en tabla <code>ai_prompts</code></td>
+                    </tr>
+                    <tr>
+                        <td>Cobertura de Campos</td>
+                        <td>≥ 80%</td>
+                        <td><code>COUNT(campo IS NOT NULL) / COUNT(campos_totales)</code></td>
+                    </tr>
+                    <tr>
+                        <td>Documentos Requieren Revisión Manual</td>
+                        <td>< 10%</td>
+                        <td>Documentos con validaciones fallidas</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h4>Query para Generar Reporte Semanal</h4>
+            <pre><code>-- Reporte de procesamiento última semana
+SELECT
+  DATE(fechaProcesamiento) as fecha,
+  COUNT(*) as total_documentos,
+  COUNT(CASE WHEN estadoProcesamiento = 'completado' THEN 1 END) as exitosos,
+  COUNT(CASE WHEN estadoProcesamiento = 'error' THEN 1 END) as fallidos,
+  ROUND(
+    COUNT(CASE WHEN estadoProcesamiento = 'completado' THEN 1 END)::numeric /
+    COUNT(*)::numeric * 100,
+    2
+  ) as tasa_exito_pct,
+  ROUND(AVG(EXTRACT(EPOCH FROM (fechaProcesamiento - createdAt))), 2) as tiempo_promedio_seg
+FROM documentos_procesados
+WHERE fechaProcesamiento > NOW() - INTERVAL '7 days'
+  AND tenantId = 'your-tenant-id'
+GROUP BY DATE(fechaProcesamiento)
+ORDER BY fecha DESC;</code></pre>
+
+            <h3>Mejora Continua</h3>
+
+            <div class="workflow">
+                <h4>Ciclo de Mejora Continua (Semanal/Mensual)</h4>
+
+                <div class="workflow-step">
+                    <h4>Semana 1: Recolección de Feedback</h4>
+                    <ul>
+                        <li>Revisar documentos marcados como "error"</li>
+                        <li>Solicitar feedback de usuarios: ¿qué datos se corrigen manualmente?</li>
+                        <li>Exportar logs de errores</li>
+                    </ul>
+                </div>
+
+                <div class="workflow-step">
+                    <h4>Semana 2: Análisis de Patrones</h4>
+                    <ul>
+                        <li>Agrupar errores por tipo (extracción, validación, lookup)</li>
+                        <li>Identificar proveedores/documentos problemáticos</li>
+                        <li>Detectar campos con baja cobertura</li>
+                    </ul>
+                </div>
+
+                <div class="workflow-step">
+                    <h4>Semana 3: Implementación de Mejoras</h4>
+                    <ul>
+                        <li>Ajustar prompts para casos problemáticos</li>
+                        <li>Crear nuevas reglas de negocio</li>
+                        <li>Agregar datos a parámetros maestros</li>
+                        <li>Considerar prompts especializados nuevos</li>
+                    </ul>
+                </div>
+
+                <div class="workflow-step">
+                    <h4>Semana 4: Validación y Despliegue</h4>
+                    <ul>
+                        <li>Probar cambios con documentos históricos</li>
+                        <li>Medir impacto en métricas</li>
+                        <li>Desplegar a producción</li>
+                        <li>Documentar cambios</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="info">
+                <h4><span class="emoji">💡</span>Estrategia de Versionado</h4>
+                <p>
+                    Parse auto-versiona prompts y reglas. Antes de hacer cambios grandes,
+                    considerar crear versión nueva (ej: <code>EXTRACCION_FACTURA_A_V2</code>)
+                    y probar en paralelo con A/B testing.
+                </p>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 8: CASOS DE USO -->
+        <div id="casos-uso" class="section">
+            <h2>8. Casos de Uso Ejemplo</h2>
+
+            <h3>Caso 1: Empresa de Servicios - Facturas de Proveedores Recurrentes</h3>
+
+            <div class="workflow">
+                <h4>Contexto</h4>
+                <p>
+                    <strong>Cliente:</strong> Consultora IT con 50 empleados<br>
+                    <strong>Documentos:</strong> ~300 facturas/mes (telecom, servicios, alquileres)<br>
+                    <strong>Objetivo:</strong> Automatizar ingreso a sistema contable (Tango)
+                </p>
+
+                <h4>Implementación</h4>
+                <ol>
+                    <li><strong>Datos históricos solicitados:</strong>
+                        <ul>
+                            <li>Exportación de Tango: últimos 6 meses de compras</li>
+                            <li>PDFs de facturas correspondientes (150 documentos)</li>
+                        </ul>
+                    </li>
+                    <li><strong>Análisis:</strong> 10 proveedores representan 80% del volumen</li>
+                    <li><strong>Prompts creados:</strong>
+                        <ul>
+                            <li><code>EXTRACCION_FACTURA_SERVICIOS</code> (genérico)</li>
+                            <li><code>EXTRACCION_FACTURA_TELECOM</code> (especializado para Movistar/Claro)</li>
+                        </ul>
+                    </li>
+                    <li><strong>Reglas creadas:</strong>
+                        <ul>
+                            <li>Lookup de cuenta contable por tipo de servicio (15 reglas)</li>
+                            <li>Asignación de centro de costo por proveedor (10 reglas)</li>
+                            <li>Validación de montos >$50.000 (requiere aprobación)</li>
+                        </ul>
+                    </li>
+                    <li><strong>Parámetros maestros:</strong>
+                        <ul>
+                            <li>10 proveedores con CUIT + cuenta + centro costo</li>
+                            <li>20 tipos de servicio con cuenta contable asignada</li>
+                        </ul>
+                    </li>
+                    <li><strong>Sincronización SQL:</strong> Export diario a Tango (SQL Server)</li>
+                </ol>
+
+                <h4>Resultados</h4>
+                <ul>
+                    <li>✅ Precisión: 97% en campos críticos</li>
+                    <li>✅ Reducción de tiempo: de 2 horas/día a 15 minutos/día</li>
+                    <li>✅ ROI: 3 meses</li>
+                </ul>
+            </div>
+
+            <h3>Caso 2: Importadora - Despachos de Aduana</h3>
+
+            <div class="workflow">
+                <h4>Contexto</h4>
+                <p>
+                    <strong>Cliente:</strong> Importadora de electrónica<br>
+                    <strong>Documentos:</strong> Despachos de aduana (50/mes), facturas de fletes, seguros<br>
+                    <strong>Objetivo:</strong> Trackear costos de importación (FOB, CIF, aranceles)
+                </p>
+
+                <h4>Implementación</h4>
+                <ol>
+                    <li><strong>Datos históricos:</strong> 100 despachos con costos detallados en Excel</li>
+                    <li><strong>Prompts creados:</strong>
+                        <ul>
+                            <li><code>EXTRACCION_DESPACHO_ADUANA</code> (campos: FOB, flete, seguro, aranceles, IVA)</li>
+                            <li><code>EXTRACCION_FACTURA_IMPORTACION</code> (para facturas del exterior)</li>
+                        </ul>
+                    </li>
+                    <li><strong>Reglas creadas:</strong>
+                        <ul>
+                            <li>Cálculo automático: CIF = FOB + Flete + Seguro</li>
+                            <li>Validación: Aranceles = CIF * tasa_arancel</li>
+                            <li>Conversión de moneda (USD → ARS) usando cotización del día</li>
+                        </ul>
+                    </li>
+                    <li><strong>Custom fields:</strong> Agregados al schema (posicionArancelaria, paisOrigen)</li>
+                </ol>
+
+                <h4>Resultados</h4>
+                <ul>
+                    <li>✅ Precisión: 92% (aduanas tienen variabilidad alta)</li>
+                    <li>✅ Visibilidad de costos en tiempo real</li>
+                    <li>✅ Auditoría: trazabilidad completa documento → contabilización</li>
+                </ul>
+            </div>
+
+            <h3>Caso 3: Cadena de Retail - Tickets de Compras Menores</h3>
+
+            <div class="workflow">
+                <h4>Contexto</h4>
+                <p>
+                    <strong>Cliente:</strong> Cadena de supermercados (20 sucursales)<br>
+                    <strong>Documentos:</strong> Tickets de compras menores (insumos, mantenimiento) - 1000/mes<br>
+                    <strong>Objetivo:</strong> Controlar gastos de caja chica por sucursal
+                </p>
+
+                <h4>Implementación</h4>
+                <ol>
+                    <li><strong>Datos históricos:</strong> Planilla Excel con tickets de 3 meses (300 registros)</li>
+                    <li><strong>Prompts creados:</strong>
+                        <ul>
+                            <li><code>CLASIFICADOR_RETAIL</code> (detecta: ticket, factura, recibo)</li>
+                            <li><code>EXTRACCION_TICKET</code> (campos básicos: comercio, fecha, total)</li>
+                        </ul>
+                    </li>
+                    <li><strong>Reglas creadas:</strong>
+                        <ul>
+                            <li>Categorización automática (ferretería → "Mantenimiento", limpieza → "Insumos")</li>
+                            <li>Validación: tickets >$10.000 requieren justificación</li>
+                            <li>Asignación de sucursal según usuario que carga</li>
+                        </ul>
+                    </li>
+                    <li><strong>Mobile-first:</strong> Usuarios toman foto con celular, suben a Parse vía app</li>
+                </ol>
+
+                <h4>Resultados</h4>
+                <ul>
+                    <li>✅ Adopción: 100% de sucursales en 2 semanas</li>
+                    <li>✅ Visibilidad: dashboard de gastos en tiempo real</li>
+                    <li>✅ Ahorro: detectaron $200.000/mes en gastos duplicados</li>
+                </ul>
+            </div>
+
+            <h3>Caso 4: Estudio Contable - Multi-Cliente</h3>
+
+            <div class="workflow">
+                <h4>Contexto</h4>
+                <p>
+                    <strong>Cliente:</strong> Estudio contable que atiende 50 PyMEs<br>
+                    <strong>Documentos:</strong> Facturas de compra de todos los clientes (~2000/mes)<br>
+                    <strong>Objetivo:</strong> Ofrecer servicio de digitalización a clientes
+                </p>
+
+                <h4>Implementación</h4>
+                <ol>
+                    <li><strong>Multi-tenancy:</strong> 1 tenant por cliente del estudio</li>
+                    <li><strong>Prompts:</strong> Universales (mismo para todos los clientes)</li>
+                    <li><strong>Reglas:</strong> Cada cliente tiene sus propias reglas customizadas</li>
+                    <li><strong>Parámetros maestros:</strong> Cada cliente carga sus proveedores/cuentas</li>
+                    <li><strong>Workflow:</strong>
+                        <ul>
+                            <li>Clientes envían PDFs por email</li>
+                            <li>Mailgun → Parse (auto-upload)</li>
+                            <li>Parse procesa y notifica</li>
+                            <li>Contador revisa y exporta a sistema del cliente</li>
+                        </ul>
+                    </li>
+                </ol>
+
+                <h4>Resultados</h4>
+                <ul>
+                    <li>✅ Escalabilidad: 50 clientes en plataforma única</li>
+                    <li>✅ Reducción de carga: 60% menos tiempo en data entry</li>
+                    <li>✅ Nuevo servicio: monetización como "servicio de digitalización"</li>
+                </ul>
+            </div>
+        </div>
+
+        <footer>
+            <p>
+                <strong>Parse Framework</strong> - Guía de Implementación v1.0<br>
+                Generado: <script>document.write(new Date().toLocaleDateString('es-AR'))</script><br>
+                Para soporte técnico, consultar: <code>/docs</code> o contactar al equipo de desarrollo
+            </p>
+        </footer>
+    </div>
+</body>
+</html>
