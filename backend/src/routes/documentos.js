@@ -2803,8 +2803,8 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo) {
             documentoId: documentoId,
             numero: item.numero ? parseInt(item.numero, 10) : (idx + 1),
             descripcion: item.descripcion || 'Sin descripción',
-            codigoProducto: item.codigoProducto || null,
-            codigoProductoOriginal: item.codigoProducto || null, // Guardar valor parseado
+            codigoProducto: null, // Se completa con reglas de negocio
+            codigoProductoOriginal: item.codigoProductoOriginal || null, // Valor extraído por IA
             cantidad: parseFloat(item.cantidad) || 1,
             unidad: item.unidad || 'un',
             precioUnitario: parseFloat(item.precioUnitario) || 0,
