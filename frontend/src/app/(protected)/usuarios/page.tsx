@@ -601,7 +601,7 @@ export default function UsuariosPage() {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-text-secondary">
-                                {user.tenant ? user.tenant.nombre : 'Sin empresa'}
+                                {user.tenants ? user.tenants.nombre : 'Sin empresa'}
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">

@@ -83,7 +83,7 @@ export interface User {
   emailVerified?: boolean;
   superuser?: boolean;
   tenantId?: string;
-  tenant?: Tenant;
+  tenants?: Tenant;
   createdAt: string;
   updatedAt: string;
   delegaciones?: { id: string }[];
@@ -1501,6 +1501,134 @@ export const documentosApi = {
     };
   }> => {
     const response = await api.post('/documentos/aplicar-reglas');
+    return response.data;
+  }
+};
+
+// ============================================
+// SUGERENCIAS IA
+// ============================================
+
+export interface SugerenciaIA {
+  id: string;
+  reglaId: string;
+  entidadTipo: string;
+  entidadId: string;
+  campoDestino: string;
+  textoAnalizado: string;
+  valorSugerido: {
+    codigo?: string;
+    nombre?: string;
+    valor?: any;
+  };
+  confianza: number;
+  razon?: string;
+  estado: 'pendiente' | 'aprobada' | 'rechazada' | 'aplicada';
+  revisadoPor?: string;
+  revisadoAt?: string;
+  valorFinal?: any;
+  tenantId?: string;
+  createdAt: string;
+  updatedAt: string;
+  reglas_negocio?: {
+    id: string;
+    codigo: string;
+    nombre: string;
+  };
+  users?: {
+    id: string;
+    nombre: string;
+    apellido: string;
+  };
+}
+
+export interface SugerenciaIAStats {
+  pendientes: number;
+  aprobadas: number;
+  rechazadas: number;
+  aplicadas: number;
+  total: number;
+  promedioConfianza: number;
+}
+
+export const sugerenciasIAApi = {
+  // Listar sugerencias con filtros
+  list: async (params?: {
+    estado?: string;
+    reglaId?: string;
+    entidadTipo?: string;
+    confianzaMin?: number;
+    confianzaMax?: number;
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    success: boolean;
+    data: SugerenciaIA[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      pages: number;
+    };
+  }> => {
+    const response = await api.get('/sugerencias-ia', { params });
+    return response.data;
+  },
+
+  // Obtener estadísticas
+  stats: async (): Promise<{
+    success: boolean;
+    data: SugerenciaIAStats;
+  }> => {
+    const response = await api.get('/sugerencias-ia/stats');
+    return response.data;
+  },
+
+  // Obtener una sugerencia específica
+  get: async (id: string): Promise<{
+    success: boolean;
+    data: SugerenciaIA;
+  }> => {
+    const response = await api.get(`/sugerencias-ia/${id}`);
+    return response.data;
+  },
+
+  // Aprobar sugerencia
+  aprobar: async (id: string, valorFinal?: any): Promise<{
+    success: boolean;
+    data: SugerenciaIA;
+    message: string;
+  }> => {
+    const response = await api.post(`/sugerencias-ia/${id}/aprobar`, { valorFinal });
+    return response.data;
+  },
+
+  // Rechazar sugerencia
+  rechazar: async (id: string, razonRechazo?: string): Promise<{
+    success: boolean;
+    data: SugerenciaIA;
+    message: string;
+  }> => {
+    const response = await api.post(`/sugerencias-ia/${id}/rechazar`, { razonRechazo });
+    return response.data;
+  },
+
+  // Aprobar múltiples sugerencias
+  aprobarBatch: async (ids: string[], confianzaMinima?: number): Promise<{
+    success: boolean;
+    data: { aprobadas: number };
+    message: string;
+  }> => {
+    const response = await api.post('/sugerencias-ia/aprobar-batch', { ids, confianzaMinima });
+    return response.data;
+  },
+
+  // Eliminar sugerencia
+  delete: async (id: string): Promise<{
+    success: boolean;
+    message: string;
+  }> => {
+    const response = await api.delete(`/sugerencias-ia/${id}`);
     return response.data;
   }
 };

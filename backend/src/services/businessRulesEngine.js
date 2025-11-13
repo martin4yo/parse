@@ -246,6 +246,31 @@ class BusinessRulesEngine {
   }
 
   /**
+   * Verifica si una regla aplica al contexto actual
+   * @param {string} aplicaA - A qué aplica la regla: TODOS, LINEAS, IMPUESTOS, DOCUMENTO
+   * @param {string} contexto - Contexto actual: LINEA_DOCUMENTO, IMPUESTO_DOCUMENTO, DOCUMENTO, etc.
+   * @returns {boolean}
+   */
+  checkContextMatch(aplicaA, contexto) {
+    // Si no se especifica, aplica a todo
+    if (!aplicaA || aplicaA === 'TODOS') {
+      return true;
+    }
+
+    // Mapeo de contextos
+    const contextMap = {
+      'LINEAS': ['LINEA_DOCUMENTO', 'LINEA'],
+      'IMPUESTOS': ['IMPUESTO_DOCUMENTO', 'IMPUESTO'],
+      'DOCUMENTO': ['DOCUMENTO', 'DOCUMENTO_PROCESADO'],
+      'RENDICION': ['DKT_IMPORT', 'IMPORTACION_DKT']
+    };
+
+    // Verificar si el contexto actual está en la lista de contextos válidos para esta regla
+    const validContexts = contextMap[aplicaA] || [];
+    return validContexts.includes(contexto);
+  }
+
+  /**
    * Aplicar reglas a un item de rendición
    */
   async applyRules(itemData, resumenData, options = {}) {
@@ -277,7 +302,19 @@ class BusinessRulesEngine {
       try {
         const config = rule.configuracion;
         const isValidationRule = rule.tipo === 'VALIDACION';
-        
+
+        // 0. Filtrar regla según contexto (LINEAS vs IMPUESTOS vs DOCUMENTO vs TODOS)
+        const aplicaA = config.aplicaA || 'TODOS'; // Por defecto aplica a todo
+        const shouldApplyBasedOnContext = this.checkContextMatch(aplicaA, contexto);
+
+        if (!shouldApplyBasedOnContext) {
+          // Saltar esta regla si no aplica al contexto actual
+          if (logExecution) {
+            console.log(`⏭️ Regla "${rule.nombre}" se salta (aplicaA: ${aplicaA}, contexto: ${contexto})`);
+          }
+          continue;
+        }
+
         // 1. Aplicar transformaciones de campo si existen
         // IMPORTANTE: usar result en lugar de fullData para que vea los cambios de reglas anteriores
         let transformedData = result;
@@ -352,6 +389,9 @@ class BusinessRulesEngine {
                 } else if (operacion === 'LOOKUP_CHAIN') {
                   // Realizar lookup encadenado entre múltiples tablas
                   await this.applyLookupChain(result, fullData, accion, transformedData);
+                } else if (operacion === 'AI_LOOKUP') {
+                  // Realizar búsqueda con IA en tabla de parámetros
+                  await this.applyAILookup(result, fullData, accion, transformedData, rule, contexto);
                 } else if (operacion === 'EXTRACT_REGEX') {
                   // Extraer valor usando expresión regular
                   this.applyExtractRegex(result, fullData, accion, transformedData);
@@ -486,6 +526,7 @@ class BusinessRulesEngine {
       valorConsulta,   // Valor a buscar o campo de donde obtenerlo (ej: 'resumen.numeroTarjeta', 'FIJO_123')
       campoResultado,  // Campo que queremos obtener (ej: 'nombre', 'codigo_dimension')
       campoJSON,       // Campo específico dentro del JSON a extraer (ej: 'cuentaContable')
+      filtroAdicional, // Filtros adicionales (ej: {tipo_campo: 'codigo_producto', activo: true})
       valorDefecto     // Valor por defecto si no encuentra nada
     } = accion;
 
@@ -516,7 +557,7 @@ class BusinessRulesEngine {
 
       switch (tabla) {
         case 'parametros_maestros':
-          lookupResult = await this.lookupParametrosMaestros(campoConsulta, valorBusqueda, campoResultado, campoJSON);
+          lookupResult = await this.lookupParametrosMaestros(campoConsulta, valorBusqueda, campoResultado, campoJSON, filtroAdicional);
           break;
           
         case 'user_tarjetas_credito':
@@ -832,10 +873,15 @@ class BusinessRulesEngine {
   /**
    * Lookup específico para parámetros maestros
    */
-  async lookupParametrosMaestros(campoConsulta, valorBusqueda, campoResultado, campoJSON = null) {
+  async lookupParametrosMaestros(campoConsulta, valorBusqueda, campoResultado, campoJSON = null, filtroAdicional = null) {
     const where = {};
     where[campoConsulta] = valorBusqueda;
     where.activo = true;
+
+    // Agregar filtros adicionales si existen
+    if (filtroAdicional && typeof filtroAdicional === 'object') {
+      Object.assign(where, filtroAdicional);
+    }
 
     const parametro = await prisma.parametros_maestros.findFirst({
       where,
@@ -850,7 +896,16 @@ class BusinessRulesEngine {
 
     // Si se especifica campoJSON y el resultado es un objeto, extraer el campo del JSON
     if (campoJSON && resultado && typeof resultado === 'object') {
-      resultado = resultado[campoJSON] || null;
+      // Soportar notación de punto para JSON anidado: "cuentas.compra"
+      if (campoJSON.includes('.')) {
+        const parts = campoJSON.split('.');
+        for (const part of parts) {
+          resultado = resultado?.[part];
+          if (resultado === undefined) break;
+        }
+      } else {
+        resultado = resultado[campoJSON] || null;
+      }
     }
 
     return resultado;
@@ -1344,6 +1399,161 @@ class BusinessRulesEngine {
         total: r.totalReglasAplicadas
       }))
     };
+  }
+
+  /**
+   * Mapear contexto a tipo de entidad para sugerencias IA
+   */
+  mapContextToEntityType(contexto) {
+    const contextMap = {
+      'LINEA_DOCUMENTO': 'documento_lineas',
+      'LINEA': 'documento_lineas',
+      'IMPUESTO_DOCUMENTO': 'documento_impuestos',
+      'IMPUESTO': 'documento_impuestos',
+      'DOCUMENTO': 'documentos_procesados',
+      'DOCUMENTO_PROCESADO': 'documentos_procesados',
+      'DKT_IMPORT': 'items_rendicion',
+      'IMPORTACION_DKT': 'items_rendicion'
+    };
+    return contextMap[contexto] || 'documento_lineas'; // Por defecto documento_lineas
+  }
+
+  /**
+   * Realizar búsqueda con IA en tabla de parámetros
+   *
+   * Usa IA para encontrar la mejor coincidencia semántica
+   */
+  async applyAILookup(result, fullData, accion, transformedData = null, rule, contexto = 'LINEA_DOCUMENTO') {
+    const aiClassificationService = require('./aiClassificationService');
+    const {
+      campo,                      // Campo donde guardar el resultado
+      campoTexto,                 // Campo de donde obtener el texto a analizar
+      tabla,                      // Tabla a consultar (ej: 'parametros_maestros')
+      filtro,                     // Filtro para la tabla (ej: { tipo_campo: 'categoria', activo: true })
+      campoRetorno,               // Campo a retornar (codigo, nombre, parametros_json.subcuenta)
+      umbralConfianza,            // Umbral mínimo de confianza (0.0 - 1.0)
+      requiereAprobacion,         // Si requiere aprobación manual
+      instruccionesAdicionales,   // Instrucciones opcionales para la IA
+      valorDefecto,               // Valor por defecto si no encuentra o baja confianza
+      aiProvider,                 // Proveedor de IA (gemini, openai, anthropic) - opcional
+      aiModel                     // Modelo específico - opcional
+    } = accion;
+
+    try {
+      console.log(`🤖 [AI_LOOKUP] Iniciando clasificación con IA...`);
+
+      // Obtener el texto a analizar
+      const dataToUse = transformedData || fullData;
+      let texto;
+
+      if (campoTexto.startsWith('{') && campoTexto.endsWith('}')) {
+        const fieldPath = campoTexto.slice(1, -1);
+        texto = this.getNestedValue(dataToUse, fieldPath);
+      } else {
+        texto = campoTexto;
+      }
+
+      if (!texto || texto.trim() === '') {
+        console.warn(`[AI_LOOKUP] Texto vacío, usando valor por defecto`);
+        if (valorDefecto !== undefined) {
+          this.setNestedValue(result, campo, valorDefecto);
+        }
+        return;
+      }
+
+      // Obtener opciones desde la tabla
+      if (tabla !== 'parametros_maestros') {
+        throw new Error(`AI_LOOKUP solo soporta tabla 'parametros_maestros' por ahora`);
+      }
+
+      const where = { ...filtro };
+
+      // Filtrar por tenant si está configurado
+      if (this.tenantId) {
+        where.tenantId = this.tenantId;
+      }
+
+      const opciones = await prisma.parametros_maestros.findMany({
+        where,
+        orderBy: { orden: 'asc' }
+      });
+
+      if (opciones.length === 0) {
+        console.warn(`[AI_LOOKUP] No hay opciones disponibles con el filtro especificado`);
+        if (valorDefecto !== undefined) {
+          this.setNestedValue(result, campo, valorDefecto);
+        }
+        return;
+      }
+
+      console.log(`[AI_LOOKUP] Encontradas ${opciones.length} opciones`);
+
+      // Llamar al servicio de clasificación
+      const resultado = await aiClassificationService.clasificar({
+        texto,
+        opciones,
+        campoRetorno,
+        instruccionesAdicionales,
+        aiProvider,
+        aiModel
+      });
+
+      console.log(`[AI_LOOKUP] Resultado: ${resultado.valorRetorno} (confianza: ${resultado.confianza})`);
+
+      // Decidir qué hacer según confianza y requerimiento de aprobación
+      const confianzaMinima = umbralConfianza || 0.85;
+      const necesitaAprobacion = requiereAprobacion !== false; // Por defecto true
+
+      // Mapear contexto a tipo de entidad correcto
+      const entidadTipo = this.mapContextToEntityType(contexto);
+
+      if (resultado.confianza >= confianzaMinima && !necesitaAprobacion) {
+        // Aplicar directamente
+        this.setNestedValue(result, campo, resultado.valorRetorno);
+
+        // Guardar en sugerencias como "aplicada"
+        await aiClassificationService.guardarSugerencia({
+          reglaId: rule.id,
+          entidadTipo,
+          entidadId: fullData.id || 'temp',
+          campoDestino: campo,
+          textoAnalizado: texto,
+          resultado,
+          estado: 'aplicada',
+          tenantId: this.tenantId
+        });
+
+        console.log(`✅ [AI_LOOKUP] Valor aplicado automáticamente (${entidadTipo})`);
+
+      } else {
+        // Guardar como sugerencia pendiente
+        await aiClassificationService.guardarSugerencia({
+          reglaId: rule.id,
+          entidadTipo,
+          entidadId: fullData.id || 'temp',
+          campoDestino: campo,
+          textoAnalizado: texto,
+          resultado,
+          estado: 'pendiente',
+          tenantId: this.tenantId
+        });
+
+        console.log(`⏳ [AI_LOOKUP] Sugerencia pendiente de aprobación (${entidadTipo})`);
+
+        // Aplicar valor por defecto si existe
+        if (valorDefecto !== undefined) {
+          this.setNestedValue(result, campo, valorDefecto);
+        }
+      }
+
+    } catch (error) {
+      console.error(`[AI_LOOKUP] Error:`, error.message);
+
+      // En caso de error, aplicar valor por defecto
+      if (accion.valorDefecto !== undefined) {
+        this.setNestedValue(result, campo, accion.valorDefecto);
+      }
+    }
   }
 
   /**

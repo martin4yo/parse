@@ -297,6 +297,9 @@ class AIConfigService {
   async getAvailableModels() {
     try {
       const models = await prisma.ai_models.findMany({
+        where: {
+          active: true  // Solo modelos activos (filtrar obsoletos)
+        },
         orderBy: [
           { provider: 'asc' },
           { orderIndex: 'asc' }

@@ -428,11 +428,17 @@ router.get('/meta/acciones', authWithTenant, async (req, res) => {
       descripcion: 'Busca un valor dentro de campos JSON de parámetros maestros',
       parametros: ['campo', 'tipoCampo', 'campoJSON', 'valorConsulta', 'campoResultado', 'valorDefecto']
     },
-    { 
-      codigo: 'LOOKUP_CHAIN', 
-      nombre: 'Consulta Encadenada', 
+    {
+      codigo: 'LOOKUP_CHAIN',
+      nombre: 'Consulta Encadenada',
       descripcion: 'Realiza múltiples lookups encadenados entre tablas relacionadas',
       parametros: ['campo', 'valorConsulta', 'cadena', 'valorDefecto']
+    },
+    {
+      codigo: 'AI_LOOKUP',
+      nombre: 'Buscar con IA',
+      descripcion: 'Usa IA para encontrar la mejor coincidencia semántica en parámetros maestros',
+      parametros: ['campo', 'campoTexto', 'tabla', 'filtro', 'campoRetorno', 'umbralConfianza', 'requiereAprobacion', 'instruccionesAdicionales', 'valorDefecto']
     }
   ]);
 });
@@ -440,31 +446,45 @@ router.get('/meta/acciones', authWithTenant, async (req, res) => {
 // GET /reglas/meta/tablas-lookup - Obtener tablas disponibles para lookup
 router.get('/meta/tablas-lookup', authWithTenant, async (req, res) => {
   res.json([
-    { 
-      codigo: 'parametros_maestros', 
+    {
+      codigo: 'parametros_maestros',
       nombre: 'Parámetros Maestros',
-      descripcion: 'Tabla de parámetros de configuración',
-      campos: ['codigo', 'nombre', 'tipo_campo', 'valor_padre', 'orden']
+      descripcion: 'Tabla de parámetros de configuración (productos, proveedores, categorías, etc.)',
+      campos: ['codigo', 'nombre', 'tipo_campo', 'valor_padre', 'parametros_json']
     },
-    { 
-      codigo: 'user_tarjetas_credito', 
-      nombre: 'Tarjetas de Crédito',
-      descripcion: 'Información de tarjetas y sus titulares',
-      campos: ['numeroTarjeta', 'user.nombre', 'user.apellido', 'user.email', 'banco.nombre', 'tipoTarjeta.nombre']
-    },
-    { 
-      codigo: 'usuarios', 
+    {
+      codigo: 'usuarios',
       nombre: 'Usuarios',
       descripcion: 'Datos de usuarios del sistema',
       campos: ['id', 'nombre', 'apellido', 'email', 'rol', 'activo']
-    },
-    { 
-      codigo: 'banco_tipo_tarjeta', 
-      nombre: 'Bancos y Tipos de Tarjeta',
-      descripcion: 'Configuración de bancos y tipos de tarjetas',
-      campos: ['codigo', 'banco.nombre', 'tipoTarjeta.nombre', 'activo']
     }
   ]);
+});
+
+// GET /reglas/meta/tipos-campo - Obtener tipos de campo únicos de parametros_maestros
+router.get('/meta/tipos-campo', authWithTenant, async (req, res) => {
+  try {
+    const tiposCampo = await prisma.parametros_maestros.findMany({
+      where: req.filterByTenant({
+        activo: true
+      }),
+      select: {
+        tipo_campo: true
+      },
+      distinct: ['tipo_campo'],
+      orderBy: {
+        tipo_campo: 'asc'
+      }
+    });
+
+    // Mapear a array de strings
+    const tipos = tiposCampo.map(t => t.tipo_campo).filter(Boolean);
+
+    res.json(tipos);
+  } catch (error) {
+    console.error('Error fetching tipos_campo:', error);
+    res.status(500).json({ error: 'Error al obtener tipos de campo' });
+  }
 });
 
 // GET /reglas/meta/estados - Obtener estados disponibles para validaciones

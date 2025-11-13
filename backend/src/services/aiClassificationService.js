@@ -1,0 +1,436 @@
+/**
+ * Servicio de Clasificación con IA
+ *
+ * Usa IA para encontrar la mejor coincidencia de un texto
+ * contra una lista de opciones de parametros_maestros
+ */
+
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const prisma = require('../lib/prisma');
+
+class AIClassificationService {
+
+  /**
+   * Clasifica un texto contra opciones de parametros_maestros
+   *
+   * @param {Object} params
+   * @param {string} params.texto - Texto a analizar
+   * @param {Array} params.opciones - Array de opciones de parametros_maestros
+   * @param {string} params.campoRetorno - Campo a retornar (codigo, nombre, parametros_json.campo)
+   * @param {string} params.instruccionesAdicionales - Instrucciones opcionales para la IA
+   * @param {string} params.aiProvider - Proveedor de IA (gemini, openai, anthropic)
+   * @param {string} params.aiModel - Modelo específico a usar
+   * @returns {Promise<Object>} {opcionElegida, valorRetorno, confianza, razon}
+   */
+  async clasificar({ texto, opciones, campoRetorno, instruccionesAdicionales = '', aiProvider = null, aiModel = null }) {
+    try {
+      // Defaults desde variables de entorno
+      const provider = aiProvider || process.env.AI_LOOKUP_PROVIDER || 'gemini';
+      const model = aiModel || process.env.AI_LOOKUP_MODEL || 'gemini-1.5-flash';
+
+      console.log('🤖 [AI Classification] Iniciando clasificación...');
+      console.log(`   Provider: ${provider}`);
+      console.log(`   Model: ${model}`);
+      console.log(`   Texto: "${texto}"`);
+      console.log(`   Opciones: ${opciones.length}`);
+      console.log(`   Campo retorno: ${campoRetorno}`);
+
+      if (!texto || texto.trim() === '') {
+        throw new Error('El texto a analizar no puede estar vacío');
+      }
+
+      if (!opciones || opciones.length === 0) {
+        throw new Error('No hay opciones disponibles para clasificar');
+      }
+
+      // Construir el prompt
+      const prompt = this.construirPrompt(texto, opciones, instruccionesAdicionales);
+
+      // Llamar a la IA según el proveedor
+      const resultado = await this.llamarIA(prompt, provider, model);
+
+      // Validar y extraer el resultado
+      const opcionSeleccionada = opciones[resultado.opcionElegida - 1];
+
+      if (!opcionSeleccionada) {
+        throw new Error(`Opción ${resultado.opcionElegida} no válida`);
+      }
+
+      // Extraer el valor del campo solicitado
+      const valorRetorno = this.extraerCampo(opcionSeleccionada, campoRetorno);
+
+      console.log('✅ [AI Classification] Clasificación exitosa');
+      console.log(`   Opción: ${opcionSeleccionada.nombre || opcionSeleccionada.codigo}`);
+      console.log(`   Valor: ${valorRetorno}`);
+      console.log(`   Confianza: ${resultado.confianza}`);
+
+      return {
+        opcionElegida: opcionSeleccionada,
+        valorRetorno: valorRetorno,
+        confianza: resultado.confianza,
+        razon: resultado.razon
+      };
+
+    } catch (error) {
+      console.error('❌ [AI Classification] Error:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Construye el prompt para la IA
+   */
+  construirPrompt(texto, opciones, instruccionesAdicionales) {
+    const opcionesFormateadas = opciones.map((opt, index) => {
+      const campos = [];
+      if (opt.codigo) campos.push(`Código: ${opt.codigo}`);
+      if (opt.nombre) campos.push(`Nombre: ${opt.nombre}`);
+      if (opt.descripcion) campos.push(`Descripción: ${opt.descripcion}`);
+      if (opt.parametros_json) {
+        campos.push(`Metadata: ${JSON.stringify(opt.parametros_json)}`);
+      }
+
+      return `${index + 1}. ${campos.join(', ')}`;
+    }).join('\n');
+
+    return `
+Eres un experto en clasificación de datos comerciales y financieros. Tu tarea es encontrar la mejor coincidencia entre un texto y una lista de opciones predefinidas.
+
+TEXTO A ANALIZAR:
+"${texto}"
+
+OPCIONES DISPONIBLES:
+${opcionesFormateadas}
+
+${instruccionesAdicionales ? `INSTRUCCIONES ESPECÍFICAS:\n${instruccionesAdicionales}\n\n` : ''}METODOLOGÍA DE CLASIFICACIÓN:
+1. Analiza las palabras clave principales del texto
+2. Identifica el tipo, categoría o naturaleza del elemento descrito
+3. Busca coincidencias por:
+   - Similitud semántica (significado similar aunque distintas palabras)
+   - Palabras clave compartidas
+   - Tipo o categoría del producto/servicio
+   - Características técnicas o descriptivas
+4. Prioriza coincidencias específicas sobre genéricas
+5. Si hay múltiples coincidencias posibles, elige la más específica
+6. Si ninguna opción es apropiada, elige la más cercana o genérica
+
+NIVEL DE CONFIANZA:
+- 0.9-1.0: Coincidencia exacta o casi exacta
+- 0.7-0.89: Coincidencia clara por similitud semántica
+- 0.5-0.69: Coincidencia razonable pero con dudas
+- 0.3-0.49: Coincidencia débil o aproximada
+- 0.0-0.29: No hay buena coincidencia, es solo una aproximación
+
+Responde ÚNICAMENTE con JSON válido en este formato exacto:
+{
+  "opcionElegida": <número del 1 al ${opciones.length}>,
+  "confianza": <número decimal entre 0.0 y 1.0>,
+  "razon": "<explicación breve de máximo 200 caracteres>"
+}
+    `.trim();
+  }
+
+  /**
+   * Llama al proveedor de IA correspondiente
+   */
+  async llamarIA(prompt, provider, model) {
+    try {
+      let responseText;
+
+      switch (provider.toLowerCase()) {
+        case 'gemini':
+          responseText = await this.llamarGemini(prompt, model);
+          break;
+
+        case 'openai':
+          responseText = await this.llamarOpenAI(prompt, model);
+          break;
+
+        case 'anthropic':
+        case 'claude':
+          responseText = await this.llamarClaude(prompt, model);
+          break;
+
+        default:
+          throw new Error(`Proveedor de IA no soportado: ${provider}`);
+      }
+
+      console.log('📨 [AI] Respuesta raw:', responseText.substring(0, 200));
+
+      // Limpiar y parsear respuesta JSON
+      const jsonText = this.limpiarRespuestaJSON(responseText);
+      const parsed = JSON.parse(jsonText);
+
+      // Validar estructura
+      if (!parsed.opcionElegida || typeof parsed.confianza !== 'number' || !parsed.razon) {
+        throw new Error('Respuesta de IA con formato inválido');
+      }
+
+      // Asegurar que confianza está entre 0 y 1
+      if (parsed.confianza > 1) {
+        parsed.confianza = parsed.confianza / 100;
+      }
+
+      return {
+        opcionElegida: parseInt(parsed.opcionElegida),
+        confianza: parseFloat(parsed.confianza),
+        razon: parsed.razon.substring(0, 200) // Limitar longitud
+      };
+
+    } catch (error) {
+      console.error(`❌ [AI] Error al llamar a ${provider}:`, error.message);
+      throw new Error(`Error de IA (${provider}): ${error.message}`);
+    }
+  }
+
+  /**
+   * Llama a Google Gemini con retry y fallback
+   */
+  async llamarGemini(prompt, model) {
+    const maxRetries = 3;
+    const baseDelay = 1000; // 1 segundo
+
+    // Modelos de fallback si el principal está sobrecargado
+    const fallbackModels = [
+      'gemini-2.0-flash',
+      'gemini-flash-latest',
+      'gemini-2.5-pro'
+    ];
+
+    // Intentar con el modelo especificado
+    let lastError;
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        console.log(`🔄 [Gemini] Intento ${i + 1}/${maxRetries} con modelo: ${model}`);
+
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const geminiModel = genAI.getGenerativeModel({
+          model: model,
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 256
+          }
+        });
+
+        const result = await geminiModel.generateContent(prompt);
+        console.log(`✅ [Gemini] Éxito con ${model}`);
+        return result.response.text();
+
+      } catch (error) {
+        lastError = error;
+        const isOverloaded = error.message?.includes('503') || error.message?.includes('overloaded');
+
+        if (isOverloaded && i < maxRetries - 1) {
+          const delay = baseDelay * Math.pow(2, i); // Exponential backoff
+          console.log(`⏳ [Gemini] Modelo sobrecargado, reintentando en ${delay}ms...`);
+          await this.sleep(delay);
+        } else if (!isOverloaded) {
+          // Si no es error de sobrecarga, no reintentar
+          throw error;
+        }
+      }
+    }
+
+    // Si todos los reintentos fallaron, intentar con modelos de fallback
+    console.log(`⚠️ [Gemini] ${model} no disponible, probando modelos alternativos...`);
+
+    for (const fallbackModel of fallbackModels) {
+      // No reintentar con el mismo modelo
+      if (fallbackModel === model) continue;
+
+      try {
+        console.log(`🔄 [Gemini] Intentando con fallback: ${fallbackModel}`);
+
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const geminiModel = genAI.getGenerativeModel({
+          model: fallbackModel,
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 256
+          }
+        });
+
+        const result = await geminiModel.generateContent(prompt);
+        console.log(`✅ [Gemini] Éxito con modelo alternativo: ${fallbackModel}`);
+        return result.response.text();
+
+      } catch (error) {
+        console.log(`❌ [Gemini] Fallback ${fallbackModel} también falló: ${error.message}`);
+        // Continuar con el siguiente modelo
+      }
+    }
+
+    // Si todo falló, lanzar el último error
+    throw lastError;
+  }
+
+  /**
+   * Utilidad para esperar (sleep)
+   */
+  async sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Llama a OpenAI
+   */
+  async llamarOpenAI(prompt, model) {
+    const { OpenAI } = require('openai');
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    });
+
+    const completion = await openai.chat.completions.create({
+      model: model,
+      messages: [
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.2,
+      max_tokens: 256
+    });
+
+    return completion.choices[0].message.content;
+  }
+
+  /**
+   * Llama a Anthropic Claude
+   */
+  async llamarClaude(prompt, model) {
+    const Anthropic = require('@anthropic-ai/sdk');
+    const anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY
+    });
+
+    const message = await anthropic.messages.create({
+      model: model,
+      max_tokens: 256,
+      temperature: 0.2,
+      messages: [
+        { role: 'user', content: prompt }
+      ]
+    });
+
+    return message.content[0].text;
+  }
+
+  /**
+   * Limpia la respuesta JSON de la IA
+   */
+  limpiarRespuestaJSON(texto) {
+    // Remover markdown code blocks
+    let cleaned = texto.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+
+    // Buscar el JSON entre llaves
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      cleaned = jsonMatch[0];
+    }
+
+    // Limpiar caracteres extraños
+    cleaned = cleaned.trim();
+
+    return cleaned;
+  }
+
+  /**
+   * Extrae un campo de un objeto, soportando notación de punto para JSON
+   * Ejemplos: "codigo", "nombre", "parametros_json.subcuenta"
+   */
+  extraerCampo(objeto, campoPath) {
+    const partes = campoPath.split('.');
+    let valor = objeto;
+
+    for (const parte of partes) {
+      if (valor === null || valor === undefined) {
+        return null;
+      }
+      valor = valor[parte];
+    }
+
+    return valor;
+  }
+
+  /**
+   * Guarda una sugerencia de IA en la base de datos
+   */
+  async guardarSugerencia({
+    reglaId,
+    entidadTipo,
+    entidadId,
+    campoDestino,
+    textoAnalizado,
+    resultado,
+    estado = 'pendiente',
+    tenantId = null
+  }) {
+    try {
+      const crypto = require('crypto');
+
+      const sugerencia = await prisma.sugerencias_ia.create({
+        data: {
+          id: crypto.randomUUID(),
+          reglaId,
+          entidadTipo,
+          entidadId,
+          campoDestino,
+          textoAnalizado,
+          valorSugerido: {
+            codigo: resultado.opcionElegida.codigo,
+            nombre: resultado.opcionElegida.nombre,
+            valor: resultado.valorRetorno
+          },
+          confianza: resultado.confianza,
+          razon: resultado.razon,
+          estado,
+          tenantId,
+          updatedAt: new Date()
+        }
+      });
+
+      console.log('💾 [AI] Sugerencia guardada:', sugerencia.id);
+
+      return sugerencia;
+
+    } catch (error) {
+      console.error('❌ [AI] Error al guardar sugerencia:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Aplica una sugerencia al item/documento
+   */
+  async aplicarSugerencia(sugerenciaId, valorFinal = null, revisadoPor = null) {
+    try {
+      const sugerencia = await prisma.sugerencias_ia.findUnique({
+        where: { id: sugerenciaId }
+      });
+
+      if (!sugerencia) {
+        throw new Error('Sugerencia no encontrada');
+      }
+
+      // Actualizar la sugerencia
+      await prisma.sugerencias_ia.update({
+        where: { id: sugerenciaId },
+        data: {
+          estado: 'aplicada',
+          valorFinal: valorFinal || sugerencia.valorSugerido,
+          revisadoPor,
+          revisadoAt: new Date(),
+          updatedAt: new Date()
+        }
+      });
+
+      console.log('✅ [AI] Sugerencia aplicada:', sugerenciaId);
+
+      return sugerencia;
+
+    } catch (error) {
+      console.error('❌ [AI] Error al aplicar sugerencia:', error.message);
+      throw error;
+    }
+  }
+}
+
+module.exports = new AIClassificationService();

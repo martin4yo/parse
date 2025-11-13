@@ -189,20 +189,21 @@ router.post('/', authWithTenant, async (req, res) => {
       });
     }
     
-    // Verificar si ya existe el código para este tipo de campo
+    // Verificar si ya existe el código para este tipo de campo y tenant
     const existingParametro = await prisma.parametros_maestros.findUnique({
       where: {
-        tipo_campo_codigo: {
+        tipo_campo_codigo_tenantId: {
           tipo_campo,
-          codigo
+          codigo,
+          tenantId: req.tenantId || null
         }
       }
     });
-    
+
     if (existingParametro) {
       return res.status(409).json({
         error: 'Parámetro duplicado',
-        message: `Ya existe un parámetro con código "${codigo}" para el tipo de campo "${tipo_campo}"`
+        message: `Ya existe un parámetro con código "${codigo}" para el tipo de campo "${tipo_campo}" en este tenant`
       });
     }
     
@@ -281,23 +282,24 @@ router.put('/:id', authWithTenant, async (req, res) => {
       });
     }
     
-    // Verificar si ya existe otro parámetro con el mismo código y tipo (solo si se están actualizando)
-    if ((codigo !== undefined && codigo !== existingParametro.codigo) || 
+    // Verificar si ya existe otro parámetro con el mismo código, tipo y tenant (solo si se están actualizando)
+    if ((codigo !== undefined && codigo !== existingParametro.codigo) ||
         (tipo_campo !== undefined && tipo_campo !== existingParametro.tipo_campo)) {
       const duplicateParametro = await prisma.parametros_maestros.findFirst({
         where: {
           tipo_campo: tipo_campo !== undefined ? tipo_campo.trim() : existingParametro.tipo_campo,
           codigo: codigo !== undefined ? codigo.trim() : existingParametro.codigo,
+          tenantId: existingParametro.tenantId,
           id: {
             not: parseInt(id)
           }
         }
       });
-      
+
       if (duplicateParametro) {
         return res.status(409).json({
           error: 'Parámetro duplicado',
-          message: `Ya existe otro parámetro con código "${codigo || existingParametro.codigo}" para el tipo de campo "${tipo_campo || existingParametro.tipo_campo}"`
+          message: `Ya existe otro parámetro con código "${codigo || existingParametro.codigo}" para el tipo de campo "${tipo_campo || existingParametro.tipo_campo}" en este tenant`
         });
       }
     }

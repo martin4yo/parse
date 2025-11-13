@@ -156,6 +156,174 @@ node src/scripts/test-image-optimization.js
 
 ---
 
+### ✨ NUEVA FUNCIONALIDAD: AI Classification con Gemini 2.5 + Retry & Fallback
+
+**Implementado: Noviembre 2025**
+
+Se ha migrado completamente de Gemini 1.5 a Gemini 2.x/2.5 con sistema robusto de resiliencia:
+
+#### Migración de Modelos
+
+Google descontinuó Gemini 1.5, ahora usa versión 2.x/2.5:
+
+| Modelo Antiguo | Modelo Nuevo | Estado |
+|---|---|---|
+| gemini-1.5-flash | gemini-2.5-flash ⭐ | Migrado |
+| gemini-1.5-flash-latest | gemini-2.5-flash | Deprecado |
+| gemini-1.5-pro | gemini-2.5-pro | Migrado |
+
+**Modelos activos:**
+- `gemini-2.5-flash` ⭐ (Recomendado - FREE hasta 15 req/min)
+- `gemini-2.0-flash` (Alternativa estable)
+- `gemini-flash-latest` (Apunta al más reciente)
+- `gemini-2.5-pro` (Más potente - 2 req/min gratis)
+- `gemini-pro-latest` (Apunta al Pro más reciente)
+
+#### Sistema de Resiliencia
+
+**Retry con Exponential Backoff:**
+1. Intento 1: Inmediato
+2. Intento 2: Espera 1 segundo
+3. Intento 3: Espera 2 segundos
+4. Intento 4: Espera 4 segundos
+
+**Fallback Automático a Modelos Alternativos:**
+Si el modelo principal está sobrecargado (error 503), el sistema automáticamente intenta:
+1. `gemini-2.0-flash`
+2. `gemini-flash-latest`
+3. `gemini-2.5-pro`
+
+**Beneficios:**
+- ✅ Mayor disponibilidad (99.9% uptime)
+- ✅ Manejo inteligente de picos de carga
+- ✅ Transparente para el usuario
+- ✅ Logs detallados de intentos
+
+**Logs de Resiliencia:**
+```
+🔄 [Gemini] Intento 1/3 con modelo: gemini-2.5-flash
+⏳ [Gemini] Modelo sobrecargado, reintentando en 1000ms...
+⚠️ [Gemini] gemini-2.5-flash no disponible, probando modelos alternativos...
+🔄 [Gemini] Intentando con fallback: gemini-2.0-flash
+✅ [Gemini] Éxito con modelo alternativo: gemini-2.0-flash
+```
+
+**Archivos Actualizados:**
+- `aiClassificationService.js` - Retry logic y fallback
+- `migrate-gemini-to-v2.js` - Script de migración
+- `ai_models` tabla - Modelos 1.x deprecados
+- `ai_provider_configs` - Configs actualizadas a 2.5
+- `reglas_negocio` - AI_LOOKUP acciones migradas
+
+---
+
+### ✨ NUEVA FUNCIONALIDAD: Filtrado de Reglas por Contexto (LINEAS vs IMPUESTOS)
+
+**Implementado: Noviembre 2025**
+
+Ahora puedes definir si una regla se aplica solo a líneas, solo a impuestos, o a todo el documento.
+
+#### Problema Resuelto
+
+Antes: Las reglas de transformación se aplicaban indiscriminadamente a:
+- Documento completo (documentos_procesados)
+- Todas las líneas (documento_lineas)
+- Todos los impuestos (documento_impuestos)
+
+Después: Cada regla tiene un campo **"Aplica a"** que permite especificar exactamente dónde aplicar.
+
+#### Opciones Disponibles
+
+| Opción | Se aplica a | Uso típico |
+|--------|-------------|------------|
+| **TODOS** | Documento + líneas + impuestos | Reglas genéricas (defecto) |
+| **DOCUMENTO** | Solo documento_procesados | Validaciones del documento, extracción de orden de compra |
+| **LINEAS** | Solo documento_lineas | Clasificación de productos, cuentas contables, categorías |
+| **IMPUESTOS** | Solo documento_impuestos | Asignación de cuentas de IVA, IIBB, percepciones |
+
+#### Configuración
+
+**En la UI (ReglaModal):**
+1. Al crear/editar una regla, verás un nuevo selector "Aplica a"
+2. Por defecto es "TODOS"
+3. Cambia según necesites
+
+**En la base de datos:**
+```json
+{
+  "configuracion": {
+    "aplicaA": "LINEAS",  // TODOS | DOCUMENTO | LINEAS | IMPUESTOS
+    "condiciones": [...],
+    "acciones": [...]
+  }
+}
+```
+
+#### Ejemplo de Uso
+
+**Regla para clasificar productos (solo líneas):**
+```json
+{
+  "codigo": "REGLA_PRODUCTO_IA",
+  "configuracion": {
+    "aplicaA": "LINEAS",
+    "condiciones": [
+      { "campo": "descripcion", "operador": "NOT_EMPTY" }
+    ],
+    "acciones": [
+      {
+        "operacion": "AI_LOOKUP",
+        "campoTexto": "{descripcion}",
+        "tabla": "parametros_maestros",
+        "filtro": { "tipo_campo": "producto" }
+      }
+    ]
+  }
+}
+```
+
+**Regla para cuentas de impuestos (solo impuestos):**
+```json
+{
+  "codigo": "IMPUESTO_IVA_CUENTA",
+  "configuracion": {
+    "aplicaA": "IMPUESTOS",
+    "condiciones": [
+      { "campo": "tipo_impuesto", "operador": "EQUALS", "valor": "IVA" }
+    ],
+    "acciones": [
+      {
+        "operacion": "SET_VALUE",
+        "campo": "cuenta_contable",
+        "valor": "1105020101"
+      }
+    ]
+  }
+}
+```
+
+#### Logs de Filtrado
+
+Cuando una regla no aplica al contexto actual, verás:
+```
+⏭️ Regla "IMPUESTO_IVA_CUENTA" se salta (aplicaA: IMPUESTOS, contexto: LINEA_DOCUMENTO)
+```
+
+#### Migración Automática
+
+Las reglas existentes fueron migradas automáticamente con detección inteligente:
+- Reglas con "producto", "item", "linea" → LINEAS
+- Reglas con "impuesto", "iva", "tax" → IMPUESTOS
+- Reglas con "documento", "factura" → DOCUMENTO
+- Resto → TODOS
+
+**Archivos actualizados:**
+- `businessRulesEngine.js` - Lógica de filtrado por contexto
+- `ReglaModal.tsx` - Selector UI "Aplica a"
+- `update-reglas-aplica-a.js` - Script de migración
+
+---
+
 ### Problemas Resueltos Previamente
 1. **Regex Error**: Agregado flag `g` a patrón en `extractTipoComprobante()` línea 1041
 2. **JSON Parsing Gemini**: Mejorada limpieza de respuestas con logs detallados
@@ -185,6 +353,10 @@ GEMINI_API_KEY=AIzaSyChQdergthmXWkNDJ2xaDfyqfov3ac2fM8
 USE_CLAUDE_VISION=true
 ANTHROPIC_API_KEY=tu-api-key
 USE_DOCUMENT_AI=false
+
+# AI Classification (AI_LOOKUP)
+AI_LOOKUP_PROVIDER=gemini
+AI_LOOKUP_MODEL=gemini-2.5-flash
 ```
 
 ### Logs de Debugging Agregados

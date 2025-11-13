@@ -826,10 +826,16 @@ export default function ComprobantesPage() {
     }).format(num);
   };
 
-  // Función para ejecutar asociación automática
+  // Función para ejecutar asociación automática con SSE
   const handleAutoAssociation = async () => {
     try {
       setProcessingAssociation(true);
+      setAssociationProgress({
+        current: 0,
+        total: 0,
+        currentDocumentName: '',
+        currentCupon: ''
+      });
 
       // Obtener documentos pendientes (completados y no exportados)
       const pendingDocuments = documentos.filter(doc =>
@@ -842,38 +848,110 @@ export default function ComprobantesPage() {
           icon: <Info className="h-5 w-5" />,
           duration: 3000
         });
+        setProcessingAssociation(false);
         return;
       }
 
-      toast.loading('Aplicando reglas de completado...', { duration: 2000 });
+      // Conectar a SSE (token por query param porque EventSource no soporta headers custom)
+      const token = localStorage.getItem('token');
 
-      const response = await api.post('/documentos/aplicar-reglas');
-
-      if (response.data.success) {
-        const { total, procesados, transformados } = response.data;
-
-        if (transformados > 0) {
-          toast.success(
-            `Reglas aplicadas: ${transformados} de ${procesados} documentos transformados`
-          );
-        } else {
-          toast(
-            `Se procesaron ${procesados} documentos. No se aplicaron transformaciones.`,
-            {
-              icon: <AlertCircle className="h-5 w-5 text-amber-500" />,
-              duration: 4000
-            }
-          );
-        }
-
-        // Refrescar la grilla para mostrar los cambios
-        await loadDocumentos();
+      if (!token) {
+        toast.error('Token de autenticación no encontrado');
+        setProcessingAssociation(false);
+        return;
       }
+
+      const eventSource = new EventSource(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/documentos/aplicar-reglas/stream?token=${token}`
+      );
+
+      eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        switch (data.type) {
+          case 'start':
+            toast.loading(data.message, { duration: 1000 });
+            break;
+
+          case 'info':
+            if (data.total) {
+              setAssociationProgress(prev => ({ ...prev, total: data.total }));
+            }
+            break;
+
+          case 'progress':
+            setAssociationProgress({
+              current: data.current,
+              total: data.total,
+              currentDocumentName: data.documentName,
+              currentCupon: ''
+            });
+            break;
+
+          case 'document-processed':
+            toast.success(`${data.documentName}: ${data.reglas} regla(s) aplicada(s)`, {
+              duration: 1500
+            });
+            break;
+
+          case 'error':
+            toast.error(`Error en ${data.documentName}: ${data.error}`);
+            break;
+
+          case 'complete':
+            eventSource.close();
+            setProcessingAssociation(false);
+
+            const totalTransformaciones = (data.transformados?.documentos || 0) +
+                                         (data.transformados?.lineas || 0) +
+                                         (data.transformados?.impuestos || 0);
+
+            if (totalTransformaciones > 0) {
+              toast.success(
+                `Reglas aplicadas: ${data.transformados.documentos} documentos, ${data.transformados.lineas} líneas, ${data.transformados.impuestos} impuestos`
+              );
+            } else {
+              toast(
+                `Se procesaron ${data.procesados} documentos. No se aplicaron transformaciones.`,
+                {
+                  icon: <AlertCircle className="h-5 w-5 text-amber-500" />,
+                  duration: 4000
+                }
+              );
+            }
+
+            // Refrescar la grilla
+            loadDocumentos();
+
+            // Limpiar progreso
+            setTimeout(() => {
+              setAssociationProgress({
+                current: 0,
+                total: 0,
+                currentDocumentName: '',
+                currentCupon: ''
+              });
+            }, 1000);
+            break;
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('Error en SSE:', error);
+        eventSource.close();
+        setProcessingAssociation(false);
+        toast.error('Error al aplicar reglas de completado');
+        setAssociationProgress({
+          current: 0,
+          total: 0,
+          currentDocumentName: '',
+          currentCupon: ''
+        });
+      };
 
     } catch (error) {
       console.error('Error aplicando reglas:', error);
       toast.error('Error al aplicar reglas de completado');
-    } finally {
       setProcessingAssociation(false);
       setAssociationProgress({
         current: 0,
@@ -1841,23 +1919,29 @@ export default function ComprobantesPage() {
 
                           {/* Contenido principal */}
                           <div className="p-4">
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
+                              <div>
+                                <span className="text-xs font-medium text-gray-500 uppercase">Cód. Original</span>
+                                <p className="text-sm font-semibold text-palette-purple mt-1">
+                                  {linea.codigoProductoOriginal || '-'}
+                                </p>
+                              </div>
                               <div>
                                 <span className="text-xs font-medium text-gray-500 uppercase">Cantidad</span>
                                 <p className="text-sm font-semibold text-gray-900 mt-1">
-                                  {Number(linea.cantidad).toFixed(2)} {linea.unidad || ''}
+                                  {formatNumber(Number(linea.cantidad))} {linea.unidad || ''}
                                 </p>
                               </div>
                               <div>
                                 <span className="text-xs font-medium text-gray-500 uppercase">Precio Unit.</span>
                                 <p className="text-sm font-semibold text-gray-900 mt-1">
-                                  ${Number(linea.precioUnitario).toFixed(2)}
+                                  ${formatNumber(Number(linea.precioUnitario))}
                                 </p>
                               </div>
                               <div>
                                 <span className="text-xs font-medium text-gray-500 uppercase">Subtotal</span>
                                 <p className="text-sm font-semibold text-gray-900 mt-1">
-                                  ${Number(linea.subtotal).toFixed(2)}
+                                  ${formatNumber(Number(linea.subtotal))}
                                 </p>
                               </div>
                               <div>
@@ -1869,7 +1953,7 @@ export default function ComprobantesPage() {
                               <div>
                                 <span className="text-xs font-medium text-gray-500 uppercase">Total Línea</span>
                                 <p className="text-lg font-bold text-blue-600 mt-1">
-                                  ${Number(linea.totalLinea).toFixed(2)}
+                                  ${formatNumber(Number(linea.totalLinea))}
                                 </p>
                               </div>
                             </div>
@@ -2706,6 +2790,91 @@ export default function ComprobantesPage() {
       {/* Modal de Asociación Manual */}
       {/* Modal de visualización de documentos */}
       <DocumentViewerProvider documentViewer={documentViewer} />
+
+      {/* Overlay de procesamiento de reglas */}
+      {processingAssociation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop con desenfoque */}
+          <div className="absolute inset-0 bg-palette-dark/40 backdrop-blur-sm"></div>
+
+          {/* Contenedor del indicador */}
+          <div className="relative z-10 bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center space-y-6 min-w-[450px] max-w-[500px]">
+            {/* Spinner animado con colores de la paleta */}
+            <div className="relative">
+              <div className="w-24 h-24 border-4 border-palette-pink/30 rounded-full"></div>
+              <div className="absolute top-0 left-0 w-24 h-24 border-4 border-palette-purple rounded-full border-t-transparent animate-spin"></div>
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                <Zap className="w-10 h-10 text-palette-purple animate-pulse" />
+              </div>
+            </div>
+
+            {/* Texto de estado */}
+            <div className="text-center space-y-2">
+              <h3 className="text-2xl font-bold text-palette-dark">
+                Aplicando Reglas de Negocio
+              </h3>
+              <p className="text-sm text-gray-600">
+                Procesando documentos y aplicando transformaciones...
+              </p>
+            </div>
+
+            {/* Barra de progreso con documento actual */}
+            {associationProgress.total > 0 && (
+              <div className="w-full space-y-4">
+                {/* Información del documento actual */}
+                {associationProgress.currentDocumentName && (
+                  <div className="bg-palette-cream/30 border border-palette-cream rounded-lg p-3">
+                    <p className="text-xs text-palette-dark/60 font-medium mb-1">Procesando:</p>
+                    <p className="text-sm text-palette-dark font-semibold truncate">
+                      {associationProgress.currentDocumentName}
+                    </p>
+                  </div>
+                )}
+
+                {/* Progreso numérico */}
+                <div className="flex justify-between items-center text-sm">
+                  <span className="font-semibold text-palette-dark">
+                    {associationProgress.current} de {associationProgress.total} documentos
+                  </span>
+                  <span className="text-2xl font-bold text-palette-purple">
+                    {Math.round((associationProgress.current / associationProgress.total) * 100)}%
+                  </span>
+                </div>
+
+                {/* Barra de progreso */}
+                <div className="relative">
+                  <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                    <div
+                      className="h-3 rounded-full transition-all duration-500 ease-out"
+                      style={{
+                        width: `${(associationProgress.current / associationProgress.total) * 100}%`,
+                        background: 'linear-gradient(90deg, #8E6AAA 0%, #F1ABB5 100%)'
+                      }}
+                    >
+                      <div className="h-full w-full bg-white/20 animate-pulse"></div>
+                    </div>
+                  </div>
+
+                  {/* Indicador de pulso en el extremo */}
+                  <div
+                    className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-palette-purple rounded-full shadow-lg transition-all duration-500"
+                    style={{
+                      left: `calc(${(associationProgress.current / associationProgress.total) * 100}% - 8px)`
+                    }}
+                  >
+                    <div className="absolute inset-0 bg-palette-purple rounded-full animate-ping opacity-75"></div>
+                  </div>
+                </div>
+
+                {/* Mensaje motivacional */}
+                <p className="text-xs text-center text-palette-dark/50 italic">
+                  Optimizando tus documentos...
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       </div>
     </div>

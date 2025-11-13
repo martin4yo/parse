@@ -5,6 +5,7 @@ import { X, Plus, Trash2, Eye, Play, Save, AlertCircle, Info, Settings, CheckCir
 import { Button } from '@/components/ui/Button';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { AILookupForm } from './AILookupForm';
 
 interface ReglaNegocio {
   id?: string;
@@ -24,6 +25,7 @@ interface ReglaNegocio {
     stopOnMatch: boolean;
     mensajeError?: string;
     severidad?: string;
+    aplicaA?: 'TODOS' | 'LINEAS' | 'IMPUESTOS' | 'DOCUMENTO';
   };
   createdAt?: string;
   updatedAt?: string;
@@ -124,7 +126,8 @@ export default function ReglaModal({
       logicOperator: 'AND',
       stopOnMatch: false,
       mensajeError: '',
-      severidad: 'ERROR'
+      severidad: 'ERROR',
+      aplicaA: 'TODOS'
     }
   });
 
@@ -132,6 +135,22 @@ export default function ReglaModal({
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'general' | 'transformaciones' | 'condiciones' | 'acciones' | 'preview'>('general');
   const [errores, setErrores] = useState<string[]>([]);
+  const [tiposCampo, setTiposCampo] = useState<string[]>([]);
+
+  // Cargar tipos de campo disponibles
+  useEffect(() => {
+    const fetchTiposCampo = async () => {
+      try {
+        const response = await api.get('/reglas/meta/tipos-campo');
+        setTiposCampo(response.data);
+      } catch (error) {
+        console.error('Error al cargar tipos de campo:', error);
+        // Fallback a valores por defecto si falla
+        setTiposCampo(['proveedor', 'tipo_producto', 'codigo_producto', 'tipo_comprobante', 'codigo_dimension']);
+      }
+    };
+    fetchTiposCampo();
+  }, []);
 
   // Inicializar formulario cuando cambia la regla
   useEffect(() => {
@@ -141,7 +160,8 @@ export default function ReglaModal({
         fechaVigencia: regla.fechaVigencia ? regla.fechaVigencia.split('T')[0] : '',
         configuracion: {
           ...regla.configuracion,
-          transformacionesCampo: regla.configuracion.transformacionesCampo || []
+          transformacionesCampo: regla.configuracion.transformacionesCampo || [],
+          aplicaA: regla.configuracion.aplicaA || 'TODOS'
         }
       });
     } else {
@@ -160,7 +180,8 @@ export default function ReglaModal({
           logicOperator: 'AND',
           stopOnMatch: false,
           mensajeError: '',
-          severidad: 'ERROR'
+          severidad: 'ERROR',
+          aplicaA: 'TODOS'
         }
       });
     }
@@ -250,12 +271,12 @@ export default function ReglaModal({
   const actualizarAccion = (index: number, field: string, value: any) => {
     const acciones = [...formData.configuracion.acciones];
     acciones[index] = { ...acciones[index], [field]: value };
-    
+
     // Limpiar campos no utilizados según el tipo de operación
     if (field === 'operacion') {
       if (value === 'LOOKUP') {
         // Limpiar y configurar campos específicos de LOOKUP
-        const { tipoCampo, campoJSON, cadena, ...baseAction } = acciones[index];
+        const { tipoCampo, campoJSON, cadena, campoTexto, filtro, umbralConfianza, requiereAprobacion, instruccionesAdicionales, ...baseAction } = acciones[index];
         acciones[index] = {
           ...baseAction,
           tabla: '',
@@ -266,7 +287,7 @@ export default function ReglaModal({
         };
       } else if (value === 'LOOKUP_JSON') {
         // Limpiar y configurar campos específicos de LOOKUP_JSON
-        const { tabla, campoConsulta, campoResultado, cadena, ...baseAction } = acciones[index];
+        const { tabla, campoConsulta, campoResultado, cadena, campoTexto, filtro, umbralConfianza, requiereAprobacion, instruccionesAdicionales, ...baseAction } = acciones[index];
         acciones[index] = {
           ...baseAction,
           tipoCampo: '',
@@ -277,23 +298,36 @@ export default function ReglaModal({
         };
       } else if (value === 'LOOKUP_CHAIN') {
         // Limpiar y configurar campos específicos de LOOKUP_CHAIN
-        const { tabla, campoConsulta, campoResultado, tipoCampo, campoJSON, ...baseAction } = acciones[index];
+        const { tabla, campoConsulta, campoResultado, tipoCampo, campoJSON, campoTexto, filtro, umbralConfianza, requiereAprobacion, instruccionesAdicionales, ...baseAction } = acciones[index];
         acciones[index] = {
           ...baseAction,
           valorConsulta: '',
           cadena: [],
           valorDefecto: ''
         };
+      } else if (value === 'AI_LOOKUP') {
+        // Limpiar y configurar campos específicos de AI_LOOKUP
+        const { tabla, campoConsulta, valorConsulta, cadena, tipoCampo, campoJSON, valor, ...baseAction } = acciones[index];
+        acciones[index] = {
+          ...baseAction,
+          campoTexto: '',
+          filtro: { tipo_campo: '', activo: true },
+          campoRetorno: 'codigo',
+          umbralConfianza: 0.85,
+          requiereAprobacion: true,
+          instruccionesAdicionales: '',
+          valorDefecto: ''
+        };
       } else {
         // Limpiar todos los campos específicos de lookup para operaciones normales (SET, APPEND, etc.)
-        const { tabla, campoConsulta, valorConsulta, campoResultado, valorDefecto, tipoCampo, campoJSON, cadena, ...accionLimpia } = acciones[index];
+        const { tabla, campoConsulta, valorConsulta, campoResultado, valorDefecto, tipoCampo, campoJSON, cadena, campoTexto, filtro, umbralConfianza, requiereAprobacion, instruccionesAdicionales, ...accionLimpia } = acciones[index];
         acciones[index] = {
           ...accionLimpia,
           valor: ''
         };
       }
     }
-    
+
     handleConfigChange('acciones', acciones);
   };
 
@@ -362,6 +396,10 @@ export default function ReglaModal({
                 if (!paso.campoResultado) errores.push(`Acción ${i + 1}, Paso ${pIndex + 1}: Campo resultado es obligatorio`);
               });
             }
+          } else if (acc.operacion === 'AI_LOOKUP') {
+            if (!acc.campoTexto) errores.push(`Acción ${i + 1}: Campo de texto a analizar es obligatorio para AI_LOOKUP`);
+            if (!acc.filtro) errores.push(`Acción ${i + 1}: Filtro para parámetros maestros es obligatorio para AI_LOOKUP`);
+            if (!acc.campoRetorno) errores.push(`Acción ${i + 1}: Campo a retornar es obligatorio para AI_LOOKUP`);
           } else if (['SET', 'APPEND'].includes(acc.operacion)) {
             if (!acc.valor) errores.push(`Acción ${i + 1}: Valor es obligatorio para ${acc.operacion}`);
           }
@@ -565,6 +603,25 @@ export default function ReglaModal({
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Aplica a *
+                  </label>
+                  <select
+                    value={formData.configuracion.aplicaA || 'TODOS'}
+                    onChange={(e) => handleConfigChange('aplicaA', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="TODOS">Todos (documento, líneas e impuestos)</option>
+                    <option value="DOCUMENTO">Solo documento</option>
+                    <option value="LINEAS">Solo líneas/items</option>
+                    <option value="IMPUESTOS">Solo impuestos</option>
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Define si esta regla se aplica al documento completo, solo a las líneas, o solo a los impuestos
+                  </p>
                 </div>
               </div>
 
@@ -1036,7 +1093,7 @@ export default function ReglaModal({
                       </div>
 
                       {/* Campos para operaciones normales (SET, APPEND, etc.) */}
-                      {accion.operacion && accion.operacion !== 'LOOKUP' && accion.operacion !== 'LOOKUP_JSON' && accion.operacion !== 'LOOKUP_CHAIN' && (
+                      {accion.operacion && accion.operacion !== 'LOOKUP' && accion.operacion !== 'LOOKUP_JSON' && accion.operacion !== 'LOOKUP_CHAIN' && accion.operacion !== 'AI_LOOKUP' && (
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Valor
@@ -1084,8 +1141,44 @@ export default function ReglaModal({
                                 value={accion.campoConsulta || ''}
                                 onChange={(e) => actualizarAccion(index, 'campoConsulta', e.target.value)}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="ej: numeroTarjeta"
+                                placeholder="ej: codigo, id, email"
                               />
+                              <p className="mt-1 text-xs text-gray-500">
+                                Campo por el cual buscar en la tabla
+                              </p>
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Filtros Adicionales (opcional)
+                              </label>
+                              <textarea
+                                rows={2}
+                                defaultValue={accion.filtroAdicional ? JSON.stringify(accion.filtroAdicional, null, 2) : ''}
+                                onBlur={(e) => {
+                                  const valor = e.target.value.trim();
+
+                                  // Si está vacío, limpiar
+                                  if (!valor) {
+                                    actualizarAccion(index, 'filtroAdicional', null);
+                                    return;
+                                  }
+
+                                  // Validar JSON
+                                  try {
+                                    const parsed = JSON.parse(valor);
+                                    actualizarAccion(index, 'filtroAdicional', parsed);
+                                  } catch (err) {
+                                    toast.error('El filtro adicional debe ser un JSON válido');
+                                    e.target.value = accion.filtroAdicional ? JSON.stringify(accion.filtroAdicional, null, 2) : '';
+                                  }
+                                }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                                placeholder='{"tipo_campo": "codigo_producto", "activo": true}'
+                              />
+                              <p className="mt-1 text-xs text-gray-500">
+                                JSON con condiciones adicionales para filtrar. Se validará al salir del campo.
+                              </p>
                             </div>
 
                             <div>
@@ -1110,8 +1203,27 @@ export default function ReglaModal({
                                 value={accion.campoResultado || ''}
                                 onChange={(e) => actualizarAccion(index, 'campoResultado', e.target.value)}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="ej: user.codigoDimension"
+                                placeholder="ej: nombre, codigo, parametros_json"
                               />
+                              <p className="mt-1 text-xs text-gray-500">
+                                Campo de la tabla a obtener
+                              </p>
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Campo JSON (opcional)
+                              </label>
+                              <input
+                                type="text"
+                                value={accion.campoJSON || ''}
+                                onChange={(e) => actualizarAccion(index, 'campoJSON', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="ej: cuenta_contable, cuentas.compra"
+                              />
+                              <p className="mt-1 text-xs text-gray-500">
+                                Si el campo resultado es JSON, especifica qué propiedad extraer
+                              </p>
                             </div>
 
                             <div className="md:col-span-2">
@@ -1125,6 +1237,16 @@ export default function ReglaModal({
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 placeholder="Valor si no se encuentra resultado"
                               />
+                            </div>
+
+                            <div className="md:col-span-2 bg-blue-100 p-3 rounded border border-blue-300">
+                              <p className="text-xs text-blue-900 font-medium mb-2">💡 Ejemplos de uso de Campo JSON:</p>
+                              <div className="space-y-1 text-xs text-blue-800">
+                                <div>• Simple: <code className="bg-white px-1 rounded">cuenta_contable</code> → Extrae el valor directo</div>
+                                <div>• Anidado: <code className="bg-white px-1 rounded">cuentas.compra</code> → Extrae de objeto anidado</div>
+                                <div>• Array: <code className="bg-white px-1 rounded">cuentas[0].numero</code> → Extrae del primer elemento</div>
+                                <div>• Complejo: <code className="bg-white px-1 rounded">contabilidad.subcuenta.codigo</code> → Navega niveles</div>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1146,11 +1268,11 @@ export default function ReglaModal({
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                               >
                                 <option value="">Seleccionar tipo</option>
-                                <option value="proveedor">Proveedor</option>
-                                <option value="tipo_producto">Tipo Producto</option>
-                                <option value="codigo_producto">Código Producto</option>
-                                <option value="tipo_comprobante">Tipo Comprobante</option>
-                                <option value="codigo_dimension">Código Dimensión</option>
+                                {tiposCampo.map(tipo => (
+                                  <option key={tipo} value={tipo}>
+                                    {tipo.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                                  </option>
+                                ))}
                               </select>
                             </div>
 
@@ -1416,6 +1538,20 @@ export default function ReglaModal({
                           </div>
                         </div>
                       )}
+
+                      {/* Campos específicos para AI_LOOKUP */}
+                      {accion.operacion === 'AI_LOOKUP' && (
+                        <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                          <AILookupForm
+                            value={accion}
+                            onChange={(newValue) => {
+                              const acciones = [...formData.configuracion.acciones];
+                              acciones[index] = newValue;
+                              handleConfigChange('acciones', acciones);
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1501,8 +1637,10 @@ export default function ReglaModal({
                           <div className="font-medium text-green-800">{acc.campo}</div>
                           <div className="text-green-600">
                             {acciones.find(a => a.codigo === acc.operacion)?.nombre}
-                            {acc.operacion === 'LOOKUP' ? 
-                              ` → ${acc.tabla}.${acc.campoResultado}` : 
+                            {acc.operacion === 'LOOKUP' ?
+                              ` → ${acc.tabla}.${acc.campoResultado}` :
+                            acc.operacion === 'AI_LOOKUP' ?
+                              ` → IA: ${acc.campoTexto} (${acc.campoRetorno})` :
                               ` → ${acc.valor}`
                             }
                           </div>

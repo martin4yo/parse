@@ -112,6 +112,226 @@ async function validateAndUpdateAssociation(documento, resumen_tarjeta, userId) 
   return { proveedorId, updateData: {}, rendicionItemId: null };
 }
 
+// GET /api/documentos/aplicar-reglas/stream - Aplicar reglas con progreso en tiempo real (SSE)
+// NOTA: Esta ruta debe estar ANTES del router.use(authWithTenant) porque EventSource no puede enviar headers personalizados
+router.get('/aplicar-reglas/stream', async (req, res) => {
+  try {
+    // Obtener token de query param (EventSource no soporta headers custom)
+    const token = req.query.token;
+    if (!token) {
+      res.status(401).json({ error: 'Token no proporcionado' });
+      return;
+    }
+
+    // Verificar token manualmente
+    const jwt = require('jsonwebtoken');
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (error) {
+      res.status(401).json({ error: 'Token inválido' });
+      return;
+    }
+
+    const userId = decoded.id;
+    const tenantId = decoded.tenantId;
+
+    // Configurar SSE
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const sendProgress = (data) => {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    console.log('🔄 Iniciando aplicación de reglas de completado (SSE)...');
+    sendProgress({ type: 'start', message: 'Cargando documentos...' });
+
+    // Obtener documentos completados sin exportar del usuario
+    const documentos = await prisma.documentos_procesados.findMany({
+      where: {
+        usuarioId: userId,
+        tenantId: tenantId,
+        estadoProcesamiento: 'completado',
+        exportado: false
+      },
+      include: {
+        documento_lineas: true,
+        documento_impuestos: true
+      }
+    });
+
+    if (documentos.length === 0) {
+      sendProgress({
+        type: 'complete',
+        message: 'No hay documentos pendientes para aplicar reglas',
+        total: 0,
+        procesados: 0,
+        transformados: 0
+      });
+      res.end();
+      return;
+    }
+
+    sendProgress({
+      type: 'info',
+      message: `Encontrados ${documentos.length} documentos`,
+      total: documentos.length
+    });
+
+    // Inicializar el motor de reglas
+    const rulesEngine = new BusinessRulesEngine(tenantId);
+    await rulesEngine.loadRules('TRANSFORMACION', true, prisma);
+
+    if (rulesEngine.rules.length === 0) {
+      sendProgress({
+        type: 'complete',
+        message: 'No hay reglas de transformación configuradas',
+        total: documentos.length,
+        procesados: 0,
+        transformados: 0
+      });
+      res.end();
+      return;
+    }
+
+    sendProgress({ type: 'info', message: 'Reglas de transformación cargadas' });
+
+    let documentosTransformados = 0;
+    let documentosProcesados = 0;
+    let lineasTransformadas = 0;
+    let impuestosTransformados = 0;
+
+    // Procesar cada documento
+    for (let i = 0; i < documentos.length; i++) {
+      const documento = documentos[i];
+
+      try {
+        documentosProcesados++;
+
+        // Enviar progreso
+        sendProgress({
+          type: 'progress',
+          current: i + 1,
+          total: documentos.length,
+          documentName: documento.nombreArchivo,
+          percentage: Math.round(((i + 1) / documentos.length) * 100)
+        });
+
+        // Aplicar reglas
+        const ruleResult = await rulesEngine.applyRulesToDocument(documento, {
+          logExecution: false,
+          contexto: 'APLICACION_REGLAS'
+        });
+
+        // Actualizar documento si hubo cambios
+        if (ruleResult.totalReglasAplicadas > 0) {
+          const docTransformado = ruleResult.documento;
+
+          // Actualizar documento principal
+          if (ruleResult.reglasAplicadas.documento > 0) {
+            const updateData = {
+              razonSocialExtraida: docTransformado.razonSocialExtraida || documento.razonSocialExtraida,
+              cuitExtraido: docTransformado.cuitExtraido || documento.cuitExtraido,
+              codigoProveedor: docTransformado.codigoProveedor || documento.codigoProveedor,
+              numeroComprobanteExtraido: docTransformado.numeroComprobanteExtraido || documento.numeroComprobanteExtraido,
+              tipoComprobanteExtraido: docTransformado.tipoComprobanteExtraido || documento.tipoComprobanteExtraido,
+              fechaExtraida: docTransformado.fechaExtraida || documento.fechaExtraida,
+              importeExtraido: docTransformado.importeExtraido || documento.importeExtraido,
+              netoGravadoExtraido: docTransformado.netoGravadoExtraido || documento.netoGravadoExtraido,
+              exentoExtraido: docTransformado.exentoExtraido || documento.exentoExtraido,
+              impuestosExtraido: docTransformado.impuestosExtraido || documento.impuestosExtraido
+            };
+
+            await prisma.documentos_procesados.update({
+              where: { id: documento.id },
+              data: updateData
+            });
+
+            documentosTransformados++;
+          }
+
+          // Actualizar líneas
+          if (ruleResult.reglasAplicadas.lineas > 0 && docTransformado.documento_lineas) {
+            for (const linea of docTransformado.documento_lineas) {
+              await prisma.documento_lineas.update({
+                where: { id: linea.id },
+                data: {
+                  descripcion: linea.descripcion,
+                  codigoProducto: linea.codigoProducto,
+                  tipoProducto: linea.tipoProducto,
+                  cantidad: linea.cantidad,
+                  precioUnitario: linea.precioUnitario,
+                  subtotal: linea.subtotal,
+                  cuentaContable: linea.cuentaContable,
+                  codigoDimension: linea.codigoDimension,
+                  subcuenta: linea.subcuenta
+                }
+              });
+              lineasTransformadas++;
+            }
+          }
+
+          // Actualizar impuestos
+          if (ruleResult.reglasAplicadas.impuestos > 0 && docTransformado.documento_impuestos) {
+            for (const impuesto of docTransformado.documento_impuestos) {
+              await prisma.documento_impuestos.update({
+                where: { id: impuesto.id },
+                data: {
+                  tipo: impuesto.tipo,
+                  alicuota: impuesto.alicuota,
+                  importe: impuesto.importe,
+                  baseImponible: impuesto.baseImponible,
+                  cuentaContable: impuesto.cuentaContable,
+                  subcuenta: impuesto.subcuenta,
+                  codigoDimension: impuesto.codigoDimension
+                }
+              });
+              impuestosTransformados++;
+            }
+          }
+
+          sendProgress({
+            type: 'document-processed',
+            documentName: documento.nombreArchivo,
+            reglas: ruleResult.totalReglasAplicadas
+          });
+        }
+
+      } catch (ruleError) {
+        console.error(`❌ Error procesando ${documento.nombreArchivo}:`, ruleError);
+        sendProgress({
+          type: 'error',
+          documentName: documento.nombreArchivo,
+          error: ruleError.message
+        });
+      }
+    }
+
+    // Enviar resultado final
+    sendProgress({
+      type: 'complete',
+      message: 'Reglas aplicadas correctamente',
+      total: documentos.length,
+      procesados: documentosProcesados,
+      transformados: {
+        documentos: documentosTransformados,
+        lineas: lineasTransformadas,
+        impuestos: impuestosTransformados
+      }
+    });
+
+    res.end();
+
+  } catch (error) {
+    console.error('❌ Error aplicando reglas:', error);
+    res.write(`data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`);
+    res.end();
+  }
+});
+
 // Aplicar middleware de autenticación a todas las rutas
 router.use(authWithTenant);
 
@@ -713,6 +933,7 @@ router.post('/:id/lineas', authWithTenant, async (req, res) => {
         numero: parseInt(numero),
         descripcion: descripcion,
         codigoProducto: codigoProducto || null,
+        codigoProductoOriginal: null, // No hay original en creación manual
         cantidad: parseFloat(cantidad),
         unidad: unidad || null,
         precioUnitario: parseFloat(precioUnitario),
@@ -2449,6 +2670,7 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo) {
             numero: item.numero ? parseInt(item.numero, 10) : (idx + 1),
             descripcion: item.descripcion || 'Sin descripción',
             codigoProducto: item.codigoProducto || null,
+            codigoProductoOriginal: item.codigoProducto || null, // Guardar valor parseado
             cantidad: parseFloat(item.cantidad) || 1,
             unidad: item.unidad || 'un',
             precioUnitario: parseFloat(item.precioUnitario) || 0,
@@ -3349,8 +3571,7 @@ router.post('/aplicar-reglas', authWithTenant, async (req, res) => {
               importeExtraido: docTransformado.importeExtraido || documento.importeExtraido,
               netoGravadoExtraido: docTransformado.netoGravadoExtraido || documento.netoGravadoExtraido,
               exentoExtraido: docTransformado.exentoExtraido || documento.exentoExtraido,
-              impuestosExtraido: docTransformado.impuestosExtraido || documento.impuestosExtraido,
-              updatedAt: new Date()
+              impuestosExtraido: docTransformado.impuestosExtraido || documento.impuestosExtraido
             };
 
             // Detectar cambios específicos en documento
