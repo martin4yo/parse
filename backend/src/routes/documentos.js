@@ -135,6 +135,7 @@ router.get('/aplicar-reglas/stream', async (req, res) => {
 
     const userId = decoded.id;
     const tenantId = decoded.tenantId;
+    const forzarReprocesamiento = req.query.forzarReprocesamiento === 'true';
 
     // Configurar SSE
     res.setHeader('Content-Type', 'text/event-stream');
@@ -147,16 +148,25 @@ router.get('/aplicar-reglas/stream', async (req, res) => {
     };
 
     console.log('🔄 Iniciando aplicación de reglas de completado (SSE)...');
+    console.log(`   Forzar reprocesamiento: ${forzarReprocesamiento ? 'SÍ' : 'NO'}`);
     sendProgress({ type: 'start', message: 'Cargando documentos...' });
+
+    // Construir filtro: solo documentos sin reglas aplicadas, a menos que se fuerce reprocesamiento
+    const whereCondition = {
+      usuarioId: userId,
+      tenantId: tenantId,
+      estadoProcesamiento: 'completado',
+      exportado: false
+    };
+
+    // Si NO se fuerza reprocesamiento, filtrar solo los que no tienen reglas aplicadas
+    if (!forzarReprocesamiento) {
+      whereCondition.reglasAplicadas = false;
+    }
 
     // Obtener documentos completados sin exportar del usuario
     const documentos = await prisma.documentos_procesados.findMany({
-      where: {
-        usuarioId: userId,
-        tenantId: tenantId,
-        estadoProcesamiento: 'completado',
-        exportado: false
-      },
+      where: whereCondition,
       include: {
         documento_lineas: true,
         documento_impuestos: true
@@ -299,6 +309,15 @@ router.get('/aplicar-reglas/stream', async (req, res) => {
             reglas: ruleResult.totalReglasAplicadas
           });
         }
+
+        // Marcar documento como procesado por reglas
+        await prisma.documentos_procesados.update({
+          where: { id: documento.id },
+          data: {
+            reglasAplicadas: true,
+            fechaReglasAplicadas: new Date()
+          }
+        });
 
       } catch (ruleError) {
         console.error(`❌ Error procesando ${documento.nombreArchivo}:`, ruleError);
@@ -673,13 +692,65 @@ router.get('/:id/lineas', authWithTenant, async (req, res) => {
     }
 
     // Obtener line items
-    const lineas = await prisma.documento_lineas.findMany({
+    let lineas = await prisma.documento_lineas.findMany({
       where: {
         documentoId: id,
         tenantId: tenantId
       },
       orderBy: { numero: 'asc' }
     });
+
+    // Enrich lines with parameter names
+    if (lineas.length > 0) {
+      // Get all unique codes for each field type
+      const codigosProducto = [...new Set(lineas.map(l => l.codigoProducto).filter(Boolean))];
+      const codigosDimension = [...new Set(lineas.map(l => l.codigoDimension).filter(Boolean))];
+      const subcuentas = [...new Set(lineas.map(l => l.subcuenta).filter(Boolean))];
+
+      // Fetch parameter names in parallel
+      const [productosMap, dimensionesMap, subcuentasMap] = await Promise.all([
+        codigosProducto.length > 0
+          ? prisma.parametros_maestros.findMany({
+              where: {
+                tipo_campo: 'codigo_producto',
+                codigo: { in: codigosProducto },
+                ...(tenantId ? { tenantId } : {})
+              },
+              select: { codigo: true, nombre: true }
+            }).then(results => new Map(results.map(r => [r.codigo, r.nombre])))
+          : Promise.resolve(new Map()),
+
+        codigosDimension.length > 0
+          ? prisma.parametros_maestros.findMany({
+              where: {
+                tipo_campo: 'codigo_dimension',
+                codigo: { in: codigosDimension },
+                ...(tenantId ? { tenantId } : {})
+              },
+              select: { codigo: true, nombre: true }
+            }).then(results => new Map(results.map(r => [r.codigo, r.nombre])))
+          : Promise.resolve(new Map()),
+
+        subcuentas.length > 0
+          ? prisma.parametros_maestros.findMany({
+              where: {
+                tipo_campo: 'subcuenta',
+                codigo: { in: subcuentas },
+                ...(tenantId ? { tenantId } : {})
+              },
+              select: { codigo: true, nombre: true }
+            }).then(results => new Map(results.map(r => [r.codigo, r.nombre])))
+          : Promise.resolve(new Map())
+      ]);
+
+      // Enrich each line with the corresponding names
+      lineas = lineas.map(linea => ({
+        ...linea,
+        codigoProductoNombre: linea.codigoProducto ? productosMap.get(linea.codigoProducto) || null : null,
+        codigoDimensionNombre: linea.codigoDimension ? dimensionesMap.get(linea.codigoDimension) || null : null,
+        subcuentaNombre: linea.subcuenta ? subcuentasMap.get(linea.subcuenta) || null : null
+      }));
+    }
 
     // Calcular totales
     const totales = {
@@ -1099,6 +1170,64 @@ router.delete('/impuestos/:id', authWithTenant, async (req, res) => {
   }
 });
 
+// Helper function to enrich document lines with parameter names
+async function enrichDocumentWithParameterNames(documento, tenantId) {
+  if (!documento.documento_lineas || documento.documento_lineas.length === 0) {
+    return documento;
+  }
+
+  // Get all unique codes for each field type
+  const codigosProducto = [...new Set(documento.documento_lineas.map(l => l.codigoProducto).filter(Boolean))];
+  const codigosDimension = [...new Set(documento.documento_lineas.map(l => l.codigoDimension).filter(Boolean))];
+  const subcuentas = [...new Set(documento.documento_lineas.map(l => l.subcuenta).filter(Boolean))];
+
+  // Fetch parameter names in parallel
+  const [productosMap, dimensionesMap, subcuentasMap] = await Promise.all([
+    codigosProducto.length > 0
+      ? prisma.parametros_maestros.findMany({
+          where: {
+            tipo_campo: 'codigo_producto',
+            codigo: { in: codigosProducto },
+            ...(tenantId ? { tenantId } : {})
+          },
+          select: { codigo: true, nombre: true }
+        }).then(results => new Map(results.map(r => [r.codigo, r.nombre])))
+      : Promise.resolve(new Map()),
+
+    codigosDimension.length > 0
+      ? prisma.parametros_maestros.findMany({
+          where: {
+            tipo_campo: 'codigo_dimension',
+            codigo: { in: codigosDimension },
+            ...(tenantId ? { tenantId } : {})
+          },
+          select: { codigo: true, nombre: true }
+        }).then(results => new Map(results.map(r => [r.codigo, r.nombre])))
+      : Promise.resolve(new Map()),
+
+    subcuentas.length > 0
+      ? prisma.parametros_maestros.findMany({
+          where: {
+            tipo_campo: 'subcuenta',
+            codigo: { in: subcuentas },
+            ...(tenantId ? { tenantId } : {})
+          },
+          select: { codigo: true, nombre: true }
+        }).then(results => new Map(results.map(r => [r.codigo, r.nombre])))
+      : Promise.resolve(new Map())
+  ]);
+
+  // Enrich each line with the corresponding names
+  documento.documento_lineas = documento.documento_lineas.map(linea => ({
+    ...linea,
+    codigoProductoNombre: linea.codigoProducto ? productosMap.get(linea.codigoProducto) || null : null,
+    codigoDimensionNombre: linea.codigoDimension ? dimensionesMap.get(linea.codigoDimension) || null : null,
+    subcuentaNombre: linea.subcuenta ? subcuentasMap.get(linea.subcuenta) || null : null
+  }));
+
+  return documento;
+}
+
 // GET /api/documentos - Obtener documentos del usuario
 router.get('/', authWithTenant, async (req, res) => {
   try {
@@ -1118,7 +1247,7 @@ router.get('/', authWithTenant, async (req, res) => {
       where.tipo = tipo;
     }
 
-    const documentos = await prisma.documentos_procesados.findMany({
+    let documentos = await prisma.documentos_procesados.findMany({
       where,
       orderBy: {
         createdAt: 'desc'
@@ -1128,6 +1257,11 @@ router.get('/', authWithTenant, async (req, res) => {
         documento_impuestos: true
       }
     });
+
+    // Enrich documents with parameter names
+    documentos = await Promise.all(
+      documentos.map(doc => enrichDocumentWithParameterNames(doc, req.tenantId))
+    );
 
     // Si se solicitan métricas, calcularlas
     let metrics = null;
@@ -3493,17 +3627,27 @@ router.post('/aplicar-reglas', authWithTenant, async (req, res) => {
   try {
     const userId = req.user.id;
     const tenantId = req.tenantId;
+    const { forzarReprocesamiento = false } = req.body;
 
     console.log('🔄 Iniciando aplicación de reglas de completado...');
+    console.log(`   Forzar reprocesamiento: ${forzarReprocesamiento ? 'SÍ' : 'NO'}`);
+
+    // Construir filtro: solo documentos sin reglas aplicadas, a menos que se fuerce reprocesamiento
+    const whereCondition = {
+      usuarioId: userId,
+      tenantId: tenantId,
+      estadoProcesamiento: 'completado',
+      exportado: false
+    };
+
+    // Si NO se fuerza reprocesamiento, filtrar solo los que no tienen reglas aplicadas
+    if (!forzarReprocesamiento) {
+      whereCondition.reglasAplicadas = false;
+    }
 
     // Obtener documentos completados sin exportar del usuario
     const documentos = await prisma.documentos_procesados.findMany({
-      where: {
-        usuarioId: userId,
-        tenantId: tenantId,
-        estadoProcesamiento: 'completado',
-        exportado: false
-      },
+      where: whereCondition,
       include: {
         documento_lineas: true,
         documento_impuestos: true
@@ -3641,6 +3785,16 @@ router.post('/aplicar-reglas', authWithTenant, async (req, res) => {
           console.log(`✅ Documento ${documento.nombreArchivo} (${documento.id.substring(0, 8)}...):`);
           console.log(`   📐 ${ruleResult.totalReglasAplicadas} regla(s) aplicada(s) (Doc: ${ruleResult.reglasAplicadas.documento}, Líneas: ${ruleResult.reglasAplicadas.lineas}, Impuestos: ${ruleResult.reglasAplicadas.impuestos})`);
         }
+
+        // Marcar documento como procesado por reglas
+        await prisma.documentos_procesados.update({
+          where: { id: documento.id },
+          data: {
+            reglasAplicadas: true,
+            fechaReglasAplicadas: new Date()
+          }
+        });
+
       } catch (ruleError) {
         console.error(`❌ Error aplicando reglas al documento ${documento.id}:`, ruleError);
         // Continuar con el siguiente documento aunque falle la regla
@@ -3663,6 +3817,54 @@ router.post('/aplicar-reglas', authWithTenant, async (req, res) => {
 
   } catch (error) {
     console.error('❌ Error aplicando reglas:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// POST /api/documentos/:id/desmarcar-reglas - Desmarcar que se aplicaron reglas a un documento
+router.post('/:id/desmarcar-reglas', authWithTenant, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const tenantId = req.tenantId;
+
+    // Verificar que el documento existe y pertenece al usuario/tenant
+    const documento = await prisma.documentos_procesados.findFirst({
+      where: {
+        id: id,
+        usuarioId: userId,
+        tenantId: tenantId
+      }
+    });
+
+    if (!documento) {
+      return res.status(404).json({
+        success: false,
+        error: 'Documento no encontrado'
+      });
+    }
+
+    // Desmarcar el documento
+    await prisma.documentos_procesados.update({
+      where: { id: id },
+      data: {
+        reglasAplicadas: false,
+        fechaReglasAplicadas: null
+      }
+    });
+
+    console.log(`🔄 Documento ${id.substring(0, 8)}... desmarcado para reprocesamiento`);
+
+    res.json({
+      success: true,
+      message: 'Documento desmarcado correctamente. Se volverán a aplicar reglas en el próximo procesamiento.'
+    });
+
+  } catch (error) {
+    console.error('❌ Error desmarcando documento:', error);
     res.status(500).json({
       success: false,
       error: error.message

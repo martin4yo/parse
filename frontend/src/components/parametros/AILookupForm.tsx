@@ -21,7 +21,9 @@ export function AILookupForm({ value, onChange }: AILookupFormProps) {
     instruccionesAdicionales: value?.instruccionesAdicionales || '',
     valorDefecto: value?.valorDefecto || '',
     aiProvider: value?.aiProvider || 'gemini',
-    aiModel: value?.aiModel || ''
+    aiModel: value?.aiModel || '',
+    usarPrefiltro: value?.usarPrefiltro !== undefined ? value.usarPrefiltro : 'auto',
+    maxCandidatos: value?.maxCandidatos || 50
   });
 
   const [filtroError, setFiltroError] = useState('');
@@ -85,7 +87,9 @@ export function AILookupForm({ value, onChange }: AILookupFormProps) {
         instruccionesAdicionales: newData.instruccionesAdicionales || undefined,
         valorDefecto: newData.valorDefecto || undefined,
         aiProvider: newData.aiProvider,
-        aiModel: newData.aiModel || undefined
+        aiModel: newData.aiModel || undefined,
+        usarPrefiltro: newData.usarPrefiltro === 'auto' ? null : newData.usarPrefiltro === 'true',
+        maxCandidatos: parseInt(newData.maxCandidatos) || 50
       });
     } catch (e) {
       // Si el JSON es inválido, no emitir el cambio completo todavía
@@ -310,6 +314,74 @@ export function AILookupForm({ value, onChange }: AILookupFormProps) {
         </div>
       </div>
 
+      {/* Configuración de Pre-filtro */}
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+        <h4 className="text-sm font-medium text-amber-900 mb-3 flex items-center gap-2">
+          <Sparkles className="w-4 h-4" />
+          Optimización de Pre-filtro
+        </h4>
+
+        <div className="space-y-4">
+          {/* Usar Pre-filtro */}
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1">
+              Modo de Pre-filtro
+            </label>
+            <select
+              value={formData.usarPrefiltro}
+              onChange={(e) => handleChange('usarPrefiltro', e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg"
+            >
+              <option value="auto">Automático (recomendado)</option>
+              <option value="true">Siempre activado</option>
+              <option value="false">Desactivado</option>
+            </select>
+            <p className="text-xs text-amber-700 mt-2">
+              <strong>Automático:</strong> Activa pre-filtro si hay más opciones que el límite de candidatos<br/>
+              <strong>Siempre activado:</strong> Pre-filtra incluso con pocas opciones<br/>
+              <strong>Desactivado:</strong> Envía todas las opciones a la IA (puede exceder límites)
+            </p>
+          </div>
+
+          {/* Max Candidatos */}
+          {formData.usarPrefiltro !== 'false' && (
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1">
+                Máximo de candidatos: {formData.maxCandidatos}
+              </label>
+              <input
+                type="range"
+                min="10"
+                max="200"
+                step="10"
+                value={formData.maxCandidatos}
+                onChange={(e) => handleChange('maxCandidatos', parseInt(e.target.value))}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-text-secondary mt-1">
+                <span>10</span>
+                <span>50</span>
+                <span>100</span>
+                <span>200</span>
+              </div>
+              <p className="text-xs text-amber-700 mt-2">
+                Número máximo de opciones a enviar a la IA después del pre-filtro.
+                <br/><strong>Recomendado: 30-50</strong> para catálogos grandes (&gt;1000 opciones)
+              </p>
+            </div>
+          )}
+
+          <div className="bg-white border border-amber-100 rounded p-2">
+            <p className="text-xs text-amber-800">
+              <strong>🚀 ¿Por qué usar pre-filtro?</strong>
+              <br/>Si tienes muchas opciones (ej: 2500 productos), el pre-filtro reduce costos y evita errores de límite de tokens.
+              <br/>Funciona haciendo una búsqueda de texto rápida antes de enviar a la IA.
+              {' '}<strong>La IA sigue decidiendo el resultado final.</strong>
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Ejemplo de resultado */}
       <div className="bg-gray-50 border rounded-lg p-4">
         <p className="text-sm font-medium text-text-primary mb-2">Vista previa de la configuración:</p>
@@ -325,7 +397,9 @@ export function AILookupForm({ value, onChange }: AILookupFormProps) {
   instruccionesAdicionales: formData.instruccionesAdicionales || undefined,
   valorDefecto: formData.valorDefecto || undefined,
   aiProvider: formData.aiProvider,
-  aiModel: formData.aiModel || undefined
+  aiModel: formData.aiModel || undefined,
+  usarPrefiltro: formData.usarPrefiltro === 'auto' ? null : formData.usarPrefiltro === 'true',
+  maxCandidatos: parseInt(formData.maxCandidatos) || 50
 }, null, 2)}
         </pre>
       </div>

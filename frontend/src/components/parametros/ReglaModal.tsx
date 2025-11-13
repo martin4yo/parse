@@ -64,6 +64,14 @@ interface Accion {
     descripcion?: string;
     filtroAdicional?: Record<string, any>;
   }>;
+  // Nuevos campos para AI_LOOKUP
+  campoTexto?: string;
+  filtro?: Record<string, any>;
+  filtroAdicional?: Record<string, any>;
+  umbralConfianza?: number;
+  requiereAprobacion?: boolean;
+  instruccionesAdicionales?: string;
+  campoRetorno?: string;
 }
 
 interface TipoRegla {
@@ -276,7 +284,7 @@ export default function ReglaModal({
     if (field === 'operacion') {
       if (value === 'LOOKUP') {
         // Limpiar y configurar campos específicos de LOOKUP
-        const { tipoCampo, campoJSON, cadena, campoTexto, filtro, umbralConfianza, requiereAprobacion, instruccionesAdicionales, ...baseAction } = acciones[index];
+        const { tipoCampo, campoJSON, cadena, ...baseAction } = acciones[index];
         acciones[index] = {
           ...baseAction,
           tabla: '',
@@ -287,7 +295,7 @@ export default function ReglaModal({
         };
       } else if (value === 'LOOKUP_JSON') {
         // Limpiar y configurar campos específicos de LOOKUP_JSON
-        const { tabla, campoConsulta, campoResultado, cadena, campoTexto, filtro, umbralConfianza, requiereAprobacion, instruccionesAdicionales, ...baseAction } = acciones[index];
+        const { tabla, campoConsulta, campoResultado, cadena, ...baseAction } = acciones[index];
         acciones[index] = {
           ...baseAction,
           tipoCampo: '',

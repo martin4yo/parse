@@ -36,6 +36,7 @@ export const SmartSelector: React.FC<SmartSelectorProps> = ({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true); // Flag para carga inicial
 
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -84,9 +85,9 @@ export const SmartSelector: React.FC<SmartSelectorProps> = ({
       
       setOptions(data);
       setFilteredOptions(data);
-      
-      // Si hay un valor inicial, encontrar su índice
-      if (value && !searchTerm) {
+
+      // Si hay un valor inicial y es la primera carga, encontrar su índice
+      if (value && !searchTerm && isInitialLoad) {
         console.log('DEBUG SmartSelector: Looking for value in options:', {
           value,
           dataLength: data.length,
@@ -128,17 +129,22 @@ export const SmartSelector: React.FC<SmartSelectorProps> = ({
   
   const handleSearchChange = (term: string) => {
     setSearchTerm(term);
-    
+
+    // Marcar que ya no es la carga inicial
+    if (isInitialLoad) {
+      setIsInitialLoad(false);
+    }
+
     // Limpiar timeout anterior
     if (searchTimeout) {
       clearTimeout(searchTimeout);
     }
-    
+
     // Establecer nuevo timeout para búsqueda
     const timeout = setTimeout(() => {
       loadOptionsWithSearch(term);
     }, 300); // 300ms de debounce
-    
+
     setSearchTimeout(timeout);
   };
 
@@ -377,37 +383,37 @@ export const SmartSelector: React.FC<SmartSelectorProps> = ({
 
         {!loading && !error && filteredOptions.length > 0 && (
           <ul ref={listRef} className="py-1">
-            {filteredOptions.map((option, index) => (
-              <li
-                key={`${option.id}-${option.codigo}`}
-                className={`px-4 py-2 cursor-pointer text-sm transition-colors ${
-                  index === selectedIndex
-                    ? 'bg-blue-100 text-blue-900'
-                    : 'hover:bg-gray-100'
-                }`}
-                onClick={() => handleSelect(option)}
-                onMouseEnter={() => setSelectedIndex(index)}
-              >
-                <div className="flex justify-between items-start">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-gray-900 truncate">
-                      {option.codigo}
-                    </div>
-                    <div className="text-gray-600 truncate">
-                      {option.nombre}
-                    </div>
-                    {option.descripcion && option.descripcion !== option.nombre && (
-                      <div className="text-xs text-gray-500 truncate">
-                        {option.descripcion}
+            {filteredOptions.map((option, index) => {
+              const displayText = `${option.codigo} - ${option.nombre}`;
+              const fullDescription = option.descripcion && option.descripcion !== option.nombre
+                ? `${option.codigo} - ${option.nombre}\n${option.descripcion}`
+                : displayText;
+
+              return (
+                <li
+                  key={`${option.id}-${option.codigo}`}
+                  className={`px-4 py-2 cursor-pointer text-sm transition-colors ${
+                    index === selectedIndex
+                      ? 'bg-blue-100 text-blue-900'
+                      : 'hover:bg-gray-100'
+                  }`}
+                  onClick={() => handleSelect(option)}
+                  onMouseEnter={() => setSelectedIndex(index)}
+                  title={fullDescription}
+                >
+                  <div className="flex justify-between items-center gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-gray-900 truncate">
+                        {displayText}
                       </div>
+                    </div>
+                    {index === selectedIndex && (
+                      <ChevronDown className="h-4 w-4 text-blue-500 flex-shrink-0" />
                     )}
                   </div>
-                  {index === selectedIndex && (
-                    <ChevronDown className="h-4 w-4 text-blue-500 ml-2 flex-shrink-0" />
-                  )}
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         )}
         </div>

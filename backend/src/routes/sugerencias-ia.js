@@ -213,7 +213,11 @@ router.post('/:id/aprobar', authWithTenant, async (req, res) => {
       });
     }
 
-    const valorAAplicar = valorFinal || sugerencia.valorSugerido;
+    // Extraer el valor del objeto JSON si es necesario
+    let valorAAplicar = valorFinal || sugerencia.valorSugerido;
+    if (typeof valorAAplicar === 'object' && valorAAplicar !== null) {
+      valorAAplicar = valorAAplicar.valor;
+    }
 
     // Aplicar el valor a la entidad correspondiente
     let entidadActualizada;
@@ -223,33 +227,30 @@ router.post('/:id/aprobar', authWithTenant, async (req, res) => {
           entidadActualizada = await prisma.documento_lineas.update({
             where: { id: sugerencia.entidadId },
             data: {
-              [sugerencia.campoAfectado]: valorAAplicar,
-              updatedAt: new Date()
+              [sugerencia.campoDestino]: valorAAplicar
             }
           });
-          console.log(`✅ Aplicado ${sugerencia.campoAfectado} = "${valorAAplicar}" en documento_lineas:${sugerencia.entidadId}`);
+          console.log(`✅ Aplicado ${sugerencia.campoDestino} = "${valorAAplicar}" en documento_lineas:${sugerencia.entidadId}`);
           break;
 
         case 'documento_impuestos':
           entidadActualizada = await prisma.documento_impuestos.update({
             where: { id: sugerencia.entidadId },
             data: {
-              [sugerencia.campoAfectado]: valorAAplicar,
-              updatedAt: new Date()
+              [sugerencia.campoDestino]: valorAAplicar
             }
           });
-          console.log(`✅ Aplicado ${sugerencia.campoAfectado} = "${valorAAplicar}" en documento_impuestos:${sugerencia.entidadId}`);
+          console.log(`✅ Aplicado ${sugerencia.campoDestino} = "${valorAAplicar}" en documento_impuestos:${sugerencia.entidadId}`);
           break;
 
         case 'documentos_procesados':
           entidadActualizada = await prisma.documentos_procesados.update({
             where: { id: sugerencia.entidadId },
             data: {
-              [sugerencia.campoAfectado]: valorAAplicar,
-              updatedAt: new Date()
+              [sugerencia.campoDestino]: valorAAplicar
             }
           });
-          console.log(`✅ Aplicado ${sugerencia.campoAfectado} = "${valorAAplicar}" en documentos_procesados:${sugerencia.entidadId}`);
+          console.log(`✅ Aplicado ${sugerencia.campoDestino} = "${valorAAplicar}" en documentos_procesados:${sugerencia.entidadId}`);
           break;
 
         default:
@@ -267,8 +268,7 @@ router.post('/:id/aprobar', authWithTenant, async (req, res) => {
         estado: 'aplicada',
         valorFinal: valorAAplicar,
         revisadoPor: req.userId,
-        revisadoAt: new Date(),
-        updatedAt: new Date()
+        revisadoAt: new Date()
       }
     });
 
@@ -395,14 +395,19 @@ router.post('/aprobar-batch', authWithTenant, async (req, res) => {
     // Aplicar cada sugerencia individualmente
     for (const sugerencia of sugerencias) {
       try {
+        // Extraer el valor del objeto JSON si es necesario
+        let valorAAplicar = sugerencia.valorSugerido;
+        if (typeof valorAAplicar === 'object' && valorAAplicar !== null) {
+          valorAAplicar = valorAAplicar.valor;
+        }
+
         // Aplicar el valor a la entidad correspondiente
         switch (sugerencia.entidadTipo) {
           case 'documento_lineas':
             await prisma.documento_lineas.update({
               where: { id: sugerencia.entidadId },
               data: {
-                [sugerencia.campoAfectado]: sugerencia.valorSugerido,
-                updatedAt: new Date()
+                [sugerencia.campoDestino]: valorAAplicar
               }
             });
             break;
@@ -411,8 +416,7 @@ router.post('/aprobar-batch', authWithTenant, async (req, res) => {
             await prisma.documento_impuestos.update({
               where: { id: sugerencia.entidadId },
               data: {
-                [sugerencia.campoAfectado]: sugerencia.valorSugerido,
-                updatedAt: new Date()
+                [sugerencia.campoDestino]: valorAAplicar
               }
             });
             break;
@@ -421,8 +425,7 @@ router.post('/aprobar-batch', authWithTenant, async (req, res) => {
             await prisma.documentos_procesados.update({
               where: { id: sugerencia.entidadId },
               data: {
-                [sugerencia.campoAfectado]: sugerencia.valorSugerido,
-                updatedAt: new Date()
+                [sugerencia.campoDestino]: valorAAplicar
               }
             });
             break;
@@ -436,15 +439,14 @@ router.post('/aprobar-batch', authWithTenant, async (req, res) => {
           where: { id: sugerencia.id },
           data: {
             estado: 'aplicada',
-            valorFinal: sugerencia.valorSugerido,
+            valorFinal: valorAAplicar,
             revisadoPor: req.userId,
-            revisadoAt: new Date(),
-            updatedAt: new Date()
+            revisadoAt: new Date()
           }
         });
 
         resultados.aplicadas++;
-        console.log(`✅ Sugerencia ${sugerencia.id} aplicada: ${sugerencia.campoAfectado} = "${sugerencia.valorSugerido}"`);
+        console.log(`✅ Sugerencia ${sugerencia.id} aplicada: ${sugerencia.campoDestino} = "${valorAAplicar}"`);
 
       } catch (error) {
         console.error(`❌ Error al aplicar sugerencia ${sugerencia.id}:`, error);

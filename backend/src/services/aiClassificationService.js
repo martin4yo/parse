@@ -20,9 +20,11 @@ class AIClassificationService {
    * @param {string} params.instruccionesAdicionales - Instrucciones opcionales para la IA
    * @param {string} params.aiProvider - Proveedor de IA (gemini, openai, anthropic)
    * @param {string} params.aiModel - Modelo específico a usar
+   * @param {boolean} params.usarPrefiltro - Si debe aplicar pre-filtro de texto (default: true si >100 opciones)
+   * @param {number} params.maxCandidatos - Máximo de candidatos después del pre-filtro (default: 50)
    * @returns {Promise<Object>} {opcionElegida, valorRetorno, confianza, razon}
    */
-  async clasificar({ texto, opciones, campoRetorno, instruccionesAdicionales = '', aiProvider = null, aiModel = null }) {
+  async clasificar({ texto, opciones, campoRetorno, instruccionesAdicionales = '', aiProvider = null, aiModel = null, usarPrefiltro = null, maxCandidatos = 50 }) {
     try {
       // Defaults desde variables de entorno
       const provider = aiProvider || process.env.AI_LOOKUP_PROVIDER || 'gemini';
@@ -32,7 +34,7 @@ class AIClassificationService {
       console.log(`   Provider: ${provider}`);
       console.log(`   Model: ${model}`);
       console.log(`   Texto: "${texto}"`);
-      console.log(`   Opciones: ${opciones.length}`);
+      console.log(`   Opciones iniciales: ${opciones.length}`);
       console.log(`   Campo retorno: ${campoRetorno}`);
 
       if (!texto || texto.trim() === '') {
@@ -43,14 +45,33 @@ class AIClassificationService {
         throw new Error('No hay opciones disponibles para clasificar');
       }
 
+      // Decidir si usar pre-filtro
+      // Modo automático: activar si hay más opciones que el límite de candidatos
+      const debeUsarPrefiltro = usarPrefiltro !== null
+        ? usarPrefiltro
+        : opciones.length > maxCandidatos;
+
+      let opcionesParaIA = opciones;
+
+      // Aplicar pre-filtro si está activado y hay más opciones que el límite
+      if (debeUsarPrefiltro && opciones.length > maxCandidatos) {
+        console.log(`🔍 [Pre-filtro] Activado (${opciones.length} opciones, límite: ${maxCandidatos})`);
+        opcionesParaIA = this.prefiltrarOpciones(texto, opciones, maxCandidatos);
+        console.log(`✅ [Pre-filtro] Reducido a ${opcionesParaIA.length} candidatos`);
+      } else if (usarPrefiltro === false) {
+        console.log(`⚠️  [Pre-filtro] Desactivado manualmente (${opciones.length} opciones)`);
+      } else {
+        console.log(`ℹ️  [Pre-filtro] No necesario (${opciones.length} opciones ≤ ${maxCandidatos})`);
+      }
+
       // Construir el prompt
-      const prompt = this.construirPrompt(texto, opciones, instruccionesAdicionales);
+      const prompt = this.construirPrompt(texto, opcionesParaIA, instruccionesAdicionales);
 
       // Llamar a la IA según el proveedor
       const resultado = await this.llamarIA(prompt, provider, model);
 
-      // Validar y extraer el resultado
-      const opcionSeleccionada = opciones[resultado.opcionElegida - 1];
+      // Validar y extraer el resultado (de las opciones filtradas)
+      const opcionSeleccionada = opcionesParaIA[resultado.opcionElegida - 1];
 
       if (!opcionSeleccionada) {
         throw new Error(`Opción ${resultado.opcionElegida} no válida`);
@@ -430,6 +451,131 @@ Responde ÚNICAMENTE con JSON válido en este formato exacto:
       console.error('❌ [AI] Error al aplicar sugerencia:', error.message);
       throw error;
     }
+  }
+
+  /**
+   * Pre-filtra opciones usando búsqueda de texto
+   * Reduce el número de opciones antes de enviarlas a la IA
+   *
+   * @param {string} texto - Texto a analizar
+   * @param {Array} opciones - Todas las opciones disponibles
+   * @param {number} maxResultados - Máximo de resultados a retornar
+   * @returns {Array} Opciones filtradas y ordenadas por relevancia
+   */
+  prefiltrarOpciones(texto, opciones, maxResultados = 50) {
+    // Normalizar texto de búsqueda
+    const textoNormalizado = this.normalizarTexto(texto);
+    const palabrasClave = textoNormalizado
+      .split(/\s+/)
+      .filter(p => p.length > 2); // Solo palabras de más de 2 letras
+
+    console.log(`   Palabras clave: ${palabrasClave.join(', ')}`);
+
+    // Calcular score para cada opción
+    const opcionesConScore = opciones.map(opcion => {
+      let score = 0;
+
+      // Normalizar campos de la opción
+      const codigo = this.normalizarTexto(opcion.codigo || '');
+      const nombre = this.normalizarTexto(opcion.nombre || '');
+      const descripcion = this.normalizarTexto(opcion.descripcion || '');
+
+      // Texto completo para búsqueda
+      const textoOpcion = `${codigo} ${nombre} ${descripcion}`;
+
+      // 1. Coincidencia exacta del código con cualquier palabra = máxima prioridad
+      palabrasClave.forEach(palabra => {
+        if (codigo === palabra) {
+          score += 100;
+        }
+      });
+
+      // 2. Código contiene la palabra
+      palabrasClave.forEach(palabra => {
+        if (codigo.includes(palabra)) {
+          score += 50;
+        }
+      });
+
+      // 3. Coincidencias en nombre
+      palabrasClave.forEach(palabra => {
+        if (nombre.includes(palabra)) {
+          score += 20;
+        }
+        // Coincidencia al inicio de una palabra en el nombre
+        const palabrasNombre = nombre.split(/\s+/);
+        if (palabrasNombre.some(p => p.startsWith(palabra))) {
+          score += 10;
+        }
+      });
+
+      // 4. Coincidencias en descripción (menor peso)
+      palabrasClave.forEach(palabra => {
+        if (descripcion.includes(palabra)) {
+          score += 5;
+        }
+      });
+
+      // 5. Bonus si coinciden múltiples palabras
+      const coincidencias = palabrasClave.filter(palabra =>
+        textoOpcion.includes(palabra)
+      ).length;
+
+      if (coincidencias > 1) {
+        score += coincidencias * 3; // Bonus por múltiples coincidencias
+      }
+
+      return {
+        ...opcion,
+        _score: score
+      };
+    });
+
+    // Filtrar solo opciones con score > 0 y ordenar
+    let opcionesFiltradas = opcionesConScore
+      .filter(o => o._score > 0)
+      .sort((a, b) => b._score - a._score)
+      .slice(0, maxResultados);
+
+    // FALLBACK: Si no hay coincidencias, tomar las primeras N opciones aleatorias
+    // para que la IA al menos tenga opciones para analizar
+    if (opcionesFiltradas.length === 0) {
+      console.log(`   ⚠️ [Pre-filtro] No se encontraron coincidencias. Usando fallback con ${Math.min(maxResultados, opciones.length)} opciones aleatorias`);
+      // Tomar opciones aleatorias para darle variedad a la IA
+      const opcionesAleatorias = [...opcionesConScore]
+        .sort(() => Math.random() - 0.5)
+        .slice(0, Math.min(maxResultados, opciones.length));
+      opcionesFiltradas = opcionesAleatorias;
+    }
+
+    // Remover el campo temporal _score
+    const resultado = opcionesFiltradas.map(({ _score, ...opcion }) => opcion);
+
+    // Log de debug
+    if (opcionesFiltradas.length > 0) {
+      console.log(`   Top 3 candidatos:`);
+      opcionesFiltradas.slice(0, 3).forEach((opt, i) => {
+        console.log(`     ${i + 1}. ${opt.codigo} - ${opt.nombre} (score: ${opt._score || 0})`);
+      });
+    }
+
+    return resultado;
+  }
+
+  /**
+   * Normaliza texto para búsqueda
+   * Convierte a minúsculas y elimina acentos
+   */
+  normalizarTexto(texto) {
+    if (!texto) return '';
+
+    return texto
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Quitar acentos
+      .replace(/[^\w\s]/g, ' ') // Reemplazar caracteres especiales por espacios
+      .replace(/\s+/g, ' ') // Normalizar espacios múltiples
+      .trim();
   }
 }
 

@@ -1436,7 +1436,9 @@ class BusinessRulesEngine {
       instruccionesAdicionales,   // Instrucciones opcionales para la IA
       valorDefecto,               // Valor por defecto si no encuentra o baja confianza
       aiProvider,                 // Proveedor de IA (gemini, openai, anthropic) - opcional
-      aiModel                     // Modelo específico - opcional
+      aiModel,                    // Modelo específico - opcional
+      usarPrefiltro,              // Si debe usar pre-filtro de texto (true/false/null=auto) - NEW
+      maxCandidatos               // Máximo de candidatos después del pre-filtro (default: 50) - NEW
     } = accion;
 
     try {
@@ -1495,7 +1497,9 @@ class BusinessRulesEngine {
         campoRetorno,
         instruccionesAdicionales,
         aiProvider,
-        aiModel
+        aiModel,
+        usarPrefiltro,        // Pasar configuración de pre-filtro
+        maxCandidatos         // Pasar límite de candidatos
       });
 
       console.log(`[AI_LOOKUP] Resultado: ${resultado.valorRetorno} (confianza: ${resultado.confianza})`);

@@ -175,6 +175,8 @@ model documentos_procesados {
   descuentoGlobalTipo       String?               @db.VarChar(20)
   monedaExtraida            String?               @db.VarChar(10)
   codigoProveedor           String?               @db.VarChar(50)
+  reglasAplicadas           Boolean               @default(false)
+  fechaReglasAplicadas      DateTime?
   documento_impuestos       documento_impuestos[]
   documento_lineas          documento_lineas[]
   tenants                   tenants               @relation(fields: [tenantId], references: [id])
@@ -183,6 +185,7 @@ model documentos_procesados {
   @@index([tenantId])
   @@index([tipo])
   @@index([exportado])
+  @@index([reglasAplicadas])
 }
 
 model menu_items {
@@ -329,7 +332,7 @@ model reglas_ejecuciones {
 
 model reglas_negocio {
   id                 String               @id
-  codigo             String               @unique
+  codigo             String
   nombre             String
   descripcion        String?
   tipo               String
@@ -347,8 +350,10 @@ model reglas_negocio {
   sugerencias_ia     sugerencias_ia[]
   tenants            tenants?             @relation(fields: [tenantId], references: [id])
 
+  @@unique([codigo, tenantId])
   @@index([prioridad])
   @@index([tipo, activa])
+  @@index([tenantId])
 }
 
 model sugerencias_ia {

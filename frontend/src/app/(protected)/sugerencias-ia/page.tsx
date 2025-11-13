@@ -263,7 +263,7 @@ export default function SugerenciasIAPage() {
               <Button
                 onClick={handleAprobarBatch}
                 size="sm"
-                variant="success"
+                variant="primary"
               >
                 <Check className="w-4 h-4 mr-1" />
                 Aprobar {selectedIds.size} seleccionadas
@@ -373,7 +373,7 @@ export default function SugerenciasIAPage() {
                       <Button
                         onClick={() => handleAprobar(sugerencia.id)}
                         size="sm"
-                        variant="success"
+                        variant="primary"
                         title="Aprobar"
                       >
                         <Check className="w-4 h-4" />

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Upload, Link2, FileText, CheckCircle, Clock, AlertCircle, Zap, ExternalLink, LinkIcon, Trash2, FileIcon, Image as ImageIcon, XCircle, Info, Receipt, Edit2, Edit, Unlink, Save, X, Calendar, MessageSquare, ScanText, Plus, Pencil } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Upload, Link2, FileText, CheckCircle, Clock, AlertCircle, Zap, ExternalLink, LinkIcon, Trash2, FileIcon, Image as ImageIcon, XCircle, Info, Receipt, Edit2, Edit, Unlink, Save, X, Calendar, MessageSquare, ScanText, Plus, Pencil, Sparkles, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { DocumentUploadModal } from '@/components/shared/DocumentUploadModal';
@@ -10,6 +10,7 @@ import { useDocumentViewer, formatComprobantesEfectivoData } from '@/hooks/useDo
 import { api, parametrosApi, ParametroMaestro } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { useConfirmDialog } from '@/hooks/useConfirm';
+import { SmartSelector } from '@/components/rendiciones/SmartSelector';
 
 interface DashboardMetrics {
   subidos: number;
@@ -44,6 +45,8 @@ interface DocumentoProcessado {
   tipoComprobanteExtraido?: string;
   observaciones?: string;
   exportado?: boolean;
+  reglasAplicadas?: boolean;
+  fechaReglasAplicadas?: string;
   documentosAsociados: any[];
   datosExtraidos?: any;
 }
@@ -64,6 +67,7 @@ export default function ComprobantesPage() {
   const [filterStatus, setFilterStatus] = useState('pendientes');
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [processingAssociation, setProcessingAssociation] = useState(false);
+  const [forzarReprocesamiento, setForzarReprocesamiento] = useState(false);
   const [processingDocuments, setProcessingDocuments] = useState<Set<string>>(new Set());
   const [associationProgress, setAssociationProgress] = useState({
     current: 0,
@@ -123,6 +127,18 @@ export default function ComprobantesPage() {
 
   // Estados para órdenes de compra
   const [tiposOrdenCompra, setTiposOrdenCompra] = useState<ParametroMaestro[]>([]);
+
+  // Estados para SmartSelector
+  const [showSmartSelector, setShowSmartSelector] = useState(false);
+  const [smartSelectorConfig, setSmartSelectorConfig] = useState<{
+    fieldType: string;
+    currentValue: string;
+    parentValue?: string;
+    entityType: 'item' | 'impuesto';
+    entityId: string;
+    fieldName: string;
+    position: { x: number; y: number };
+  } | null>(null);
 
   // Función para abrir el archivo
   const handleViewDocument = (documentId: string) => {
@@ -302,11 +318,70 @@ export default function ComprobantesPage() {
 
   // ========== FUNCIONES PARA LÍNEAS (ITEMS) ==========
 
+  // Función auxiliar para enriquecer códigos con nombres
+  const enrichWithNames = async (items: any[], fieldMappings: { field: string, tipoCampo: string, nameField: string }[]) => {
+    const enrichedItems = [...items];
+
+    // Cache para evitar llamadas repetidas
+    const cache: Record<string, Record<string, string>> = {};
+
+    for (const mapping of fieldMappings) {
+      const { field, tipoCampo, nameField } = mapping;
+
+      // Recolectar códigos únicos para este campo
+      const uniqueCodes = Array.from(new Set(
+        enrichedItems
+          .map(item => item[field])
+          .filter(code => code && code.trim() !== '')
+      ));
+
+      if (uniqueCodes.length === 0) continue;
+
+      // Inicializar cache para este tipo de campo
+      if (!cache[tipoCampo]) {
+        cache[tipoCampo] = {};
+
+        // Hacer UNA sola llamada a la API para este tipo de campo
+        try {
+          const response = await parametrosApi.getPorCampo(tipoCampo);
+
+          // Construir el cache con todos los parámetros de este tipo
+          response.parametros.forEach((p: ParametroMaestro) => {
+            cache[tipoCampo][p.codigo] = p.nombre;
+          });
+        } catch (error) {
+          console.error(`Error loading names for ${tipoCampo}`, error);
+        }
+      }
+
+      // Enriquecer items con los nombres del cache
+      enrichedItems.forEach(item => {
+        if (item[field] && cache[tipoCampo][item[field]]) {
+          item[nameField] = cache[tipoCampo][item[field]];
+        }
+      });
+    }
+
+    return enrichedItems;
+  };
+
   const loadDocumentoLineas = async (documentoId: string) => {
     try {
       setLoadingLineas(true);
       const response = await api.get(`/documentos/${documentoId}/lineas`);
-      setDocumentoLineas(response.data.lineas || []);
+      const lineas = response.data.lineas || [];
+
+      // Enriquecer con nombres de parametros_maestros
+      const lineasEnriquecidas = await enrichWithNames(lineas, [
+        { field: 'tipoProducto', tipoCampo: 'tipo_producto', nameField: 'tipoProductoNombre' },
+        { field: 'codigoProducto', tipoCampo: 'codigo_producto', nameField: 'codigoProductoNombre' },
+        { field: 'codigoDimension', tipoCampo: 'codigo_dimension', nameField: 'codigoDimensionNombre' },
+        { field: 'subcuenta', tipoCampo: 'subcuenta', nameField: 'subcuentaNombre' },
+        { field: 'cuentaContable', tipoCampo: 'cuenta_contable', nameField: 'cuentaContableNombre' },
+        { field: 'tipoOrdenCompra', tipoCampo: 'tipo_orden_compra', nameField: 'tipoOrdenCompraNombre' }
+      ]);
+
+      setDocumentoLineas(lineasEnriquecidas);
     } catch (error) {
       console.error('Error loading lineas:', error);
       toast.error('Error al cargar items del documento');
@@ -533,7 +608,16 @@ export default function ComprobantesPage() {
     try {
       setLoadingImpuestos(true);
       const response = await api.get(`/documentos/${documentoId}/impuestos`);
-      setDocumentoImpuestos(response.data.impuestos || []);
+      const impuestos = response.data.impuestos || [];
+
+      // Enriquecer con nombres de parametros_maestros
+      const impuestosEnriquecidos = await enrichWithNames(impuestos, [
+        { field: 'codigoDimension', tipoCampo: 'codigo_dimension', nameField: 'codigoDimensionNombre' },
+        { field: 'subcuenta', tipoCampo: 'subcuenta', nameField: 'subcuentaNombre' },
+        { field: 'cuentaContable', tipoCampo: 'cuenta_contable', nameField: 'cuentaContableNombre' }
+      ]);
+
+      setDocumentoImpuestos(impuestosEnriquecidos);
     } catch (error) {
       console.error('Error loading impuestos:', error);
       toast.error('Error al cargar impuestos del documento');
@@ -706,6 +790,63 @@ export default function ComprobantesPage() {
     }
   };
 
+  // Funciones para SmartSelector
+  const handleFieldClick = (
+    e: React.MouseEvent,
+    fieldType: string,
+    currentValue: string,
+    entityType: 'item' | 'impuesto',
+    entityId: string,
+    fieldName: string,
+    parentValue?: string
+  ) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    setSmartSelectorConfig({
+      fieldType,
+      currentValue,
+      parentValue,
+      entityType,
+      entityId,
+      fieldName,
+      position: { x: rect.left, y: rect.bottom + 5 }
+    });
+    setShowSmartSelector(true);
+  };
+
+  const handleSmartSelectorSelect = async (codigo: string, nombre: string) => {
+    if (!smartSelectorConfig) return;
+
+    const { entityType, entityId, fieldName } = smartSelectorConfig;
+
+    try {
+      const endpoint = entityType === 'item'
+        ? `/documentos/lineas/${entityId}`
+        : `/documentos/impuestos/${entityId}`;
+
+      await api.put(endpoint, { [fieldName]: codigo });
+
+      // Actualizar la lista local
+      if (entityType === 'item') {
+        await loadDocumentoLineas(selectedDocumentForEdit!.id);
+      } else {
+        await loadDocumentoImpuestos(selectedDocumentForEdit!.id);
+      }
+
+      toast.success(`${fieldName} actualizado correctamente`);
+    } catch (error) {
+      console.error('Error updating field:', error);
+      toast.error(`Error al actualizar ${fieldName}`);
+    } finally {
+      setShowSmartSelector(false);
+      setSmartSelectorConfig(null);
+    }
+  };
+
+  const handleSmartSelectorClose = () => {
+    setShowSmartSelector(false);
+    setSmartSelectorConfig(null);
+  };
 
   // Cargar datos reales de la API
   const loadDocumentos = async () => {
@@ -826,6 +967,21 @@ export default function ComprobantesPage() {
     }).format(num);
   };
 
+  // Función para desmarcar que se aplicaron reglas a un documento
+  const handleDesmarcarReglas = async (documentoId: string) => {
+    try {
+      const response = await api.post(`/documentos/${documentoId}/desmarcar-reglas`);
+
+      if (response.data.success) {
+        toast.success('Documento desmarcado. Se reprocesará con las reglas.');
+        loadDocumentos(); // Recargar la lista
+      }
+    } catch (error: any) {
+      console.error('Error desmarcando documento:', error);
+      toast.error(error.response?.data?.error || 'Error al desmarcar documento');
+    }
+  };
+
   // Función para ejecutar asociación automática con SSE
   const handleAutoAssociation = async () => {
     try {
@@ -862,7 +1018,7 @@ export default function ComprobantesPage() {
       }
 
       const eventSource = new EventSource(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/documentos/aplicar-reglas/stream?token=${token}`
+        `${process.env.NEXT_PUBLIC_API_URL}/api/documentos/aplicar-reglas/stream?token=${token}&forzarReprocesamiento=${forzarReprocesamiento}`
       );
 
       eventSource.onmessage = (event) => {
@@ -1124,27 +1280,53 @@ export default function ComprobantesPage() {
         {/* Botón derecho - Solo mostrar para tarjeta */}
         {(
         <div className="flex-shrink-0 mr-8">
-          <button
-            onClick={handleAutoAssociation}
-            disabled={processingAssociation}
-            className={`h-36 w-36 rounded-full shadow-lg flex flex-col items-center justify-center text-palette-dark transition-colors ${
-              processingAssociation 
-                ? 'bg-gray-400 cursor-not-allowed' 
-                : 'bg-green-500 hover:bg-green-600'
-            }`}
-          >
-            {processingAssociation ? (
-              <>
-                <Clock className="w-10 h-10 mb-2 animate-spin" />
-                <span className="text-sm font-medium text-center leading-tight">Procesando...</span>
-              </>
-            ) : (
-              <>
-                <Zap className="w-10 h-10 mb-2" />
-                <span className="text-sm font-medium text-center leading-tight">Aplicar<br/>Reglas</span>
-              </>
-            )}
-          </button>
+          <div className="flex flex-col items-center gap-3">
+            {/* Switch para forzar reprocesamiento */}
+            <div className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 shadow-sm border border-gray-200">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <span className="text-xs text-gray-600">Reprocesar todos</span>
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={forzarReprocesamiento}
+                    onChange={(e) => setForzarReprocesamiento(e.target.checked)}
+                    disabled={processingAssociation}
+                    className="sr-only"
+                  />
+                  <div className={`w-10 h-6 rounded-full transition-colors ${
+                    forzarReprocesamiento ? 'bg-green-500' : 'bg-gray-300'
+                  }`}>
+                    <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+                      forzarReprocesamiento ? 'translate-x-4' : ''
+                    }`}></div>
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            {/* Botón circular */}
+            <button
+              onClick={handleAutoAssociation}
+              disabled={processingAssociation}
+              className={`h-36 w-36 rounded-full shadow-lg flex flex-col items-center justify-center text-palette-dark transition-colors ${
+                processingAssociation
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-green-500 hover:bg-green-600'
+              }`}
+            >
+              {processingAssociation ? (
+                <>
+                  <Clock className="w-10 h-10 mb-2 animate-spin" />
+                  <span className="text-sm font-medium text-center leading-tight">Procesando...</span>
+                </>
+              ) : (
+                <>
+                  <Zap className="w-10 h-10 mb-2" />
+                  <span className="text-sm font-medium text-center leading-tight">Aplicar<br/>Reglas</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
         )}
       </div>
@@ -1415,22 +1597,24 @@ export default function ComprobantesPage() {
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
                       <div className="flex items-center justify-center space-x-2">
-                        {/* Botón de desasociar */}
+                        {/* Botón de desmarcar reglas aplicadas */}
                         <div className="w-6 flex justify-center">
-                          {doc.documentosAsociados.length > 0 && (
+                          {doc.reglasAplicadas ? (
                             <button
-                              className="text-orange-500 hover:text-orange-700 p-1"
-                              title="Desasociar comprobante"
-                              onClick={() => handleDisassociateDocument(doc)}
+                              onClick={() => handleDesmarcarReglas(doc.id)}
+                              className="text-purple-500 hover:text-purple-700 p-1"
+                              title="Desmarcar para reprocesar"
                             >
-                              <Unlink className="w-4 h-4" />
+                              <Sparkles className="w-4 h-4" />
                             </button>
+                          ) : (
+                            <div className="w-6 h-6"></div>
                           )}
                         </div>
-                        
+
                         {/* Botón de ver archivo - siempre presente */}
                         <div className="w-6 flex justify-center">
-                          <button 
+                          <button
                             className="text-gray-500 hover:text-gray-700 p-1"
                             title="Ver archivo"
                             onClick={() => handleViewDocument(doc.id)}
@@ -1438,10 +1622,10 @@ export default function ComprobantesPage() {
                             <ExternalLink className="w-4 h-4" />
                           </button>
                         </div>
-                        
+
                         {/* Botón de editar campos extraídos - siempre presente */}
                         <div className="w-6 flex justify-center">
-                          <button 
+                          <button
                             className="text-green-600 hover:text-green-700 p-1"
                             title="Editar datos extraídos"
                             onClick={() => handleOpenEditModal(doc)}
@@ -1449,7 +1633,7 @@ export default function ComprobantesPage() {
                             <Edit className="w-4 h-4" />
                           </button>
                         </div>
-                        
+
                         {/* Botón de observaciones - siempre presente */}
                         <div className="w-6 flex justify-center">
                           <button
@@ -1460,11 +1644,11 @@ export default function ComprobantesPage() {
                             <MessageSquare className="w-4 h-4" />
                           </button>
                         </div>
-                        
+
                         {/* Botón de eliminar - solo para documentos no asociados */}
                         <div className="w-6 flex justify-center">
                           {doc.documentosAsociados.length === 0 ? (
-                            <button 
+                            <button
                               className="text-red-500 hover:text-red-700 p-1"
                               title="Eliminar documento"
                               onClick={() => handleDeleteDocument(doc.id, doc.nombreArchivo)}
@@ -1472,7 +1656,7 @@ export default function ComprobantesPage() {
                               <Trash2 className="w-4 h-4" />
                             </button>
                           ) : (
-                            <div className="w-6 h-6"></div> // Espacio reservado invisible
+                            <div className="w-6 h-6"></div>
                           )}
                         </div>
                       </div>
@@ -1897,7 +2081,9 @@ export default function ComprobantesPage() {
                               <span className="bg-blue-600 text-white text-xs font-bold rounded-full w-7 h-7 flex items-center justify-center">
                                 {linea.numero}
                               </span>
-                              <h4 className="font-semibold text-gray-900 text-sm">{linea.descripcion}</h4>
+                              <h4 className="font-semibold text-gray-900 text-sm truncate" title={linea.descripcion}>
+                                {linea.descripcion}
+                              </h4>
                             </div>
                             <div className="flex items-center gap-2">
                               <button
@@ -1963,29 +2149,65 @@ export default function ComprobantesPage() {
 
                             {/* Campos contables */}
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 text-xs">
-                              <div className="bg-blue-50 p-2 rounded">
+                              <div
+                                className="bg-blue-50 p-2 rounded cursor-pointer hover:bg-blue-100 transition-colors"
+                                onClick={(e) => handleFieldClick(e, 'tipo_producto', linea.tipoProducto || '', 'item', linea.id, 'tipoProducto')}
+                                title="Click para editar"
+                              >
                                 <span className="font-medium text-gray-600 block mb-1">Tipo Producto</span>
-                                <span className="text-gray-800">{linea.tipoProducto || '-'}</span>
+                                <span className="text-gray-800 truncate block" title={linea.tipoProducto && linea.tipoProductoNombre ? `${linea.tipoProducto} - ${linea.tipoProductoNombre}` : linea.tipoProducto || '-'}>
+                                  {linea.tipoProducto ? `${linea.tipoProducto}${linea.tipoProductoNombre ? ` - ${linea.tipoProductoNombre}` : ''}` : '-'}
+                                </span>
                               </div>
-                              <div className="bg-blue-50 p-2 rounded">
+                              <div
+                                className="bg-blue-50 p-2 rounded cursor-pointer hover:bg-blue-100 transition-colors"
+                                onClick={(e) => handleFieldClick(e, 'codigo_producto', linea.codigoProducto || '', 'item', linea.id, 'codigoProducto', linea.tipoProducto)}
+                                title="Click para editar"
+                              >
                                 <span className="font-medium text-gray-600 block mb-1">Cód. Producto</span>
-                                <span className="text-gray-800">{linea.codigoProducto || '-'}</span>
+                                <span className="text-gray-800 truncate block" title={linea.codigoProducto && linea.codigoProductoNombre ? `${linea.codigoProducto} - ${linea.codigoProductoNombre}` : linea.codigoProducto || '-'}>
+                                  {linea.codigoProducto ? `${linea.codigoProducto}${linea.codigoProductoNombre ? ` - ${linea.codigoProductoNombre}` : ''}` : '-'}
+                                </span>
                               </div>
-                              <div className="bg-blue-50 p-2 rounded">
+                              <div
+                                className="bg-blue-50 p-2 rounded cursor-pointer hover:bg-blue-100 transition-colors"
+                                onClick={(e) => handleFieldClick(e, 'codigo_dimension', linea.codigoDimension || '', 'item', linea.id, 'codigoDimension')}
+                                title="Click para editar"
+                              >
                                 <span className="font-medium text-gray-600 block mb-1">Dimensión</span>
-                                <span className="text-gray-800">{linea.codigoDimension || '-'}</span>
+                                <span className="text-gray-800 truncate block" title={linea.codigoDimension && linea.codigoDimensionNombre ? `${linea.codigoDimension} - ${linea.codigoDimensionNombre}` : linea.codigoDimension || '-'}>
+                                  {linea.codigoDimension ? `${linea.codigoDimension}${linea.codigoDimensionNombre ? ` - ${linea.codigoDimensionNombre}` : ''}` : '-'}
+                                </span>
                               </div>
-                              <div className="bg-blue-50 p-2 rounded">
+                              <div
+                                className="bg-blue-50 p-2 rounded cursor-pointer hover:bg-blue-100 transition-colors"
+                                onClick={(e) => handleFieldClick(e, 'subcuenta', linea.subcuenta || '', 'item', linea.id, 'subcuenta', linea.codigoDimension)}
+                                title="Click para editar"
+                              >
                                 <span className="font-medium text-gray-600 block mb-1">Subcuenta</span>
-                                <span className="text-gray-800">{linea.subcuenta || '-'}</span>
+                                <span className="text-gray-800 truncate block" title={linea.subcuenta && linea.subcuentaNombre ? `${linea.subcuenta} - ${linea.subcuentaNombre}` : linea.subcuenta || '-'}>
+                                  {linea.subcuenta ? `${linea.subcuenta}${linea.subcuentaNombre ? ` - ${linea.subcuentaNombre}` : ''}` : '-'}
+                                </span>
                               </div>
-                              <div className="bg-blue-50 p-2 rounded">
+                              <div
+                                className="bg-blue-50 p-2 rounded cursor-pointer hover:bg-blue-100 transition-colors"
+                                onClick={(e) => handleFieldClick(e, 'cuenta_contable', linea.cuentaContable || '', 'item', linea.id, 'cuentaContable', linea.subcuenta)}
+                                title="Click para editar"
+                              >
                                 <span className="font-medium text-gray-600 block mb-1">Cuenta Contable</span>
-                                <span className="text-gray-800">{linea.cuentaContable || '-'}</span>
+                                <span className="text-gray-800 truncate block" title={linea.cuentaContable && linea.cuentaContableNombre ? `${linea.cuentaContable} - ${linea.cuentaContableNombre}` : linea.cuentaContable || '-'}>
+                                  {linea.cuentaContable ? `${linea.cuentaContable}${linea.cuentaContableNombre ? ` - ${linea.cuentaContableNombre}` : ''}` : '-'}
+                                </span>
                               </div>
-                              <div className="bg-blue-50 p-2 rounded">
+                              <div
+                                className="bg-blue-50 p-2 rounded cursor-pointer hover:bg-blue-100 transition-colors"
+                                onClick={(e) => handleFieldClick(e, 'tipo_orden_compra', linea.tipoOrdenCompra || '', 'item', linea.id, 'tipoOrdenCompra')}
+                                title="Click para editar"
+                              >
                                 <span className="font-medium text-gray-600 block mb-1">Tipo OC</span>
-                                <span className="text-gray-800">{linea.tipoOrdenCompra || '-'}</span>
+                                <span className="text-gray-800 truncate block" title={linea.tipoOrdenCompra && linea.tipoOrdenCompraNombre ? `${linea.tipoOrdenCompra} - ${linea.tipoOrdenCompraNombre}` : linea.tipoOrdenCompra || '-'}>
+                                  {linea.tipoOrdenCompra ? `${linea.tipoOrdenCompra}${linea.tipoOrdenCompraNombre ? ` - ${linea.tipoOrdenCompraNombre}` : ''}` : '-'}
+                                </span>
                               </div>
                               <div className="bg-blue-50 p-2 rounded">
                                 <span className="font-medium text-gray-600 block mb-1">Orden Compra</span>
@@ -2038,7 +2260,9 @@ export default function ComprobantesPage() {
                               <span className="bg-green-600 text-white text-xs font-bold rounded px-3 py-1">
                                 {impuesto.tipo}
                               </span>
-                              <h4 className="font-semibold text-gray-900 text-sm">{impuesto.descripcion}</h4>
+                              <h4 className="font-semibold text-gray-900 text-sm truncate" title={impuesto.descripcion}>
+                                {impuesto.descripcion}
+                              </h4>
                             </div>
                             <div className="flex items-center gap-2">
                               <button
@@ -2086,17 +2310,35 @@ export default function ComprobantesPage() {
 
                             {/* Campos contables */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                              <div className="bg-green-50 p-2 rounded">
+                              <div
+                                className="bg-green-50 p-2 rounded cursor-pointer hover:bg-green-100 transition-colors"
+                                onClick={(e) => handleFieldClick(e, 'codigo_dimension', impuesto.codigoDimension || '', 'impuesto', impuesto.id, 'codigoDimension')}
+                                title="Click para editar"
+                              >
                                 <span className="font-medium text-gray-600 block mb-1">Dimensión</span>
-                                <span className="text-gray-800">{impuesto.codigoDimension || '-'}</span>
+                                <span className="text-gray-800 truncate block" title={impuesto.codigoDimension && impuesto.codigoDimensionNombre ? `${impuesto.codigoDimension} - ${impuesto.codigoDimensionNombre}` : impuesto.codigoDimension || '-'}>
+                                  {impuesto.codigoDimension ? `${impuesto.codigoDimension}${impuesto.codigoDimensionNombre ? ` - ${impuesto.codigoDimensionNombre}` : ''}` : '-'}
+                                </span>
                               </div>
-                              <div className="bg-green-50 p-2 rounded">
+                              <div
+                                className="bg-green-50 p-2 rounded cursor-pointer hover:bg-green-100 transition-colors"
+                                onClick={(e) => handleFieldClick(e, 'subcuenta', impuesto.subcuenta || '', 'impuesto', impuesto.id, 'subcuenta', impuesto.codigoDimension)}
+                                title="Click para editar"
+                              >
                                 <span className="font-medium text-gray-600 block mb-1">Subcuenta</span>
-                                <span className="text-gray-800">{impuesto.subcuenta || '-'}</span>
+                                <span className="text-gray-800 truncate block" title={impuesto.subcuenta && impuesto.subcuentaNombre ? `${impuesto.subcuenta} - ${impuesto.subcuentaNombre}` : impuesto.subcuenta || '-'}>
+                                  {impuesto.subcuenta ? `${impuesto.subcuenta}${impuesto.subcuentaNombre ? ` - ${impuesto.subcuentaNombre}` : ''}` : '-'}
+                                </span>
                               </div>
-                              <div className="bg-green-50 p-2 rounded">
+                              <div
+                                className="bg-green-50 p-2 rounded cursor-pointer hover:bg-green-100 transition-colors"
+                                onClick={(e) => handleFieldClick(e, 'cuenta_contable', impuesto.cuentaContable || '', 'impuesto', impuesto.id, 'cuentaContable', impuesto.subcuenta)}
+                                title="Click para editar"
+                              >
                                 <span className="font-medium text-gray-600 block mb-1">Cuenta Contable</span>
-                                <span className="text-gray-800">{impuesto.cuentaContable || '-'}</span>
+                                <span className="text-gray-800 truncate block" title={impuesto.cuentaContable && impuesto.cuentaContableNombre ? `${impuesto.cuentaContable} - ${impuesto.cuentaContableNombre}` : impuesto.cuentaContable || '-'}>
+                                  {impuesto.cuentaContable ? `${impuesto.cuentaContable}${impuesto.cuentaContableNombre ? ` - ${impuesto.cuentaContableNombre}` : ''}` : '-'}
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -2874,6 +3116,18 @@ export default function ComprobantesPage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* SmartSelector para edición de campos */}
+      {showSmartSelector && smartSelectorConfig && (
+        <SmartSelector
+          value={smartSelectorConfig.currentValue}
+          fieldType={smartSelectorConfig.fieldType}
+          parentValue={smartSelectorConfig.parentValue}
+          onSelect={handleSmartSelectorSelect}
+          onClose={handleSmartSelectorClose}
+          position={smartSelectorConfig.position}
+        />
       )}
 
       </div>

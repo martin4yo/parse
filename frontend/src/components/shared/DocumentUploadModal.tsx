@@ -71,6 +71,7 @@ export const DocumentUploadModal = ({
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [successCount, setSuccessCount] = useState(0);
+  const [currentProcessingIndex, setCurrentProcessingIndex] = useState<number | null>(null);
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -79,6 +80,7 @@ export const DocumentUploadModal = ({
       setUploading(false);
       setDragActive(false);
       setSuccessCount(0);
+      setCurrentProcessingIndex(null);
     }
   }, [isOpen]);
 
@@ -178,9 +180,12 @@ export const DocumentUploadModal = ({
     // Procesar cada archivo
     for (let i = 0; i < files.length; i++) {
       const fileStatus = files[i];
-      
+
+      // Actualizar índice de procesamiento actual
+      setCurrentProcessingIndex(i);
+
       // Actualizar estado a uploading
-      setFiles(prev => prev.map((f, idx) => 
+      setFiles(prev => prev.map((f, idx) =>
         idx === i ? { ...f, status: 'uploading' } : f
       ));
 
@@ -255,9 +260,10 @@ export const DocumentUploadModal = ({
         toast.error(errorMsg);
       }
     }
-    
+
     setUploading(false);
-    
+    setCurrentProcessingIndex(null);
+
     // Llamar al callback con los documentos procesados
     if (processedDocuments.length > 0 && onDocumentProcessed) {
       onDocumentProcessed(allowMultiple ? processedDocuments : processedDocuments[0]);
@@ -518,27 +524,39 @@ export const DocumentUploadModal = ({
             )}
           </div>
 
-          <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-            {files.length > 0 && files.some(f => f.status === 'pending') && (
-              <Button
-                type="button"
-                onClick={handleUpload}
-                disabled={uploading}
-                className="w-full sm:w-auto sm:ml-3"
-              >
-                {uploading ? 'Procesando...' : 'Subir y procesar'}
-              </Button>
-            )}
-            {!autoCloseOnSuccess && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onClose}
-                className="mt-3 w-full sm:mt-0 sm:w-auto"
-              >
-                {files.some(f => f.status === 'completed') ? 'Cerrar' : 'Cancelar'}
-              </Button>
-            )}
+          <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row sm:justify-between sm:items-center">
+            {/* Contador de procesamiento */}
+            <div className="mb-3 sm:mb-0">
+              {uploading && currentProcessingIndex !== null && (
+                <span className="text-sm text-gray-600">
+                  Procesando comprobante {currentProcessingIndex + 1} de {files.length}
+                </span>
+              )}
+            </div>
+
+            {/* Botones */}
+            <div className="flex flex-col sm:flex-row-reverse gap-3 sm:gap-0">
+              {files.length > 0 && files.some(f => f.status === 'pending') && (
+                <Button
+                  type="button"
+                  onClick={handleUpload}
+                  disabled={uploading}
+                  className="w-full sm:w-auto sm:ml-3"
+                >
+                  {uploading ? 'Procesando...' : 'Subir y procesar'}
+                </Button>
+              )}
+              {!autoCloseOnSuccess && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onClose}
+                  className="w-full sm:w-auto"
+                >
+                  {files.some(f => f.status === 'completed') ? 'Cerrar' : 'Cancelar'}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>
