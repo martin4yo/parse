@@ -56,6 +56,9 @@ export function DistribucionesModal({
   const [showSubcuentaSelector, setShowSubcuentaSelector] = useState(false);
   const [selectorPosition, setSelectorPosition] = useState({ x: 0, y: 0 });
 
+  // Track si hubo edición manual por dimensión
+  const [edicionManualPorDimension, setEdicionManualPorDimension] = useState<Record<string, boolean>>({});
+
   useEffect(() => {
     if (isOpen && entidadId) {
       loadDistribuciones();
@@ -93,6 +96,16 @@ export function DistribucionesModal({
       if (distribucionesMapeadas.length > 0 && !selectedDistribucionId) {
         setSelectedDistribucionId(distribucionesMapeadas[0].id);
       }
+
+      // Marcar dimensiones con subcuentas como "editadas manualmente"
+      // para evitar auto-redistribución de datos guardados
+      const flagsEdicion: Record<string, boolean> = {};
+      distribucionesMapeadas.forEach((dist: Distribucion) => {
+        if (dist.subcuentas.length > 0) {
+          flagsEdicion[dist.id] = true;
+        }
+      });
+      setEdicionManualPorDimension(flagsEdicion);
     } catch (error) {
       console.error('Error cargando distribuciones:', error);
       toast.error('Error al cargar las distribuciones');
@@ -148,9 +161,35 @@ export function DistribucionesModal({
       orden: distribucionSeleccionada.subcuentas.length + 1
     };
 
+    const nuevasSubcuentas = [...distribucionSeleccionada.subcuentas, nuevaSubcuenta];
+
+    // Si no hubo edición manual, redistribuir automáticamente
+    if (!edicionManualPorDimension[selectedDistribucionId]) {
+      const cantidadSubcuentas = nuevasSubcuentas.length;
+      const porcentajeBase = Math.floor((100 / cantidadSubcuentas) * 100) / 100; // Redondear hacia abajo
+      const importeBase = Math.floor((totalEntidad / cantidadSubcuentas) * 100) / 100;
+
+      // Asignar porcentaje base a todas
+      nuevasSubcuentas.forEach((sub, index) => {
+        sub.porcentaje = porcentajeBase;
+        sub.importe = importeBase;
+      });
+
+      // Calcular residuo y ajustar última subcuenta para que sume exactamente 100%
+      const totalAsignado = porcentajeBase * cantidadSubcuentas;
+      const residuoPorcentaje = parseFloat((100 - totalAsignado).toFixed(2));
+      const importeResiduo = parseFloat((totalEntidad - (importeBase * cantidadSubcuentas)).toFixed(2));
+
+      const ultimaSubcuenta = nuevasSubcuentas[cantidadSubcuentas - 1];
+      ultimaSubcuenta.porcentaje = parseFloat((porcentajeBase + residuoPorcentaje).toFixed(2));
+      ultimaSubcuenta.importe = parseFloat((importeBase + importeResiduo).toFixed(2));
+
+      console.log(`✨ Auto-distribución: ${cantidadSubcuentas} subcuentas (${porcentajeBase}% base, última ajustada a ${ultimaSubcuenta.porcentaje}%)`);
+    }
+
     setDistribuciones(distribuciones.map(d =>
       d.id === selectedDistribucionId
-        ? { ...d, subcuentas: [...d.subcuentas, nuevaSubcuenta] }
+        ? { ...d, subcuentas: nuevasSubcuentas }
         : d
     ));
 
@@ -167,9 +206,46 @@ export function DistribucionesModal({
   const handleEliminarSubcuenta = (subcuentaId: string) => {
     if (!selectedDistribucionId) return;
 
+    const distribucion = distribuciones.find(d => d.id === selectedDistribucionId);
+    if (!distribucion) return;
+
+    const nuevasSubcuentas = distribucion.subcuentas.filter(s => s.id !== subcuentaId);
+
+    // Si se eliminan todas las subcuentas, resetear el flag de edición manual
+    if (nuevasSubcuentas.length === 0) {
+      setEdicionManualPorDimension(prev => ({
+        ...prev,
+        [selectedDistribucionId]: false
+      }));
+      console.log('🔄 Se eliminaron todas las subcuentas, auto-distribución reactivada');
+    }
+    // Si todavía quedan subcuentas y NO hubo edición manual, redistribuir automáticamente
+    else if (!edicionManualPorDimension[selectedDistribucionId]) {
+      const cantidadSubcuentas = nuevasSubcuentas.length;
+      const porcentajeBase = Math.floor((100 / cantidadSubcuentas) * 100) / 100;
+      const importeBase = Math.floor((totalEntidad / cantidadSubcuentas) * 100) / 100;
+
+      // Asignar porcentaje base a todas
+      nuevasSubcuentas.forEach(sub => {
+        sub.porcentaje = porcentajeBase;
+        sub.importe = importeBase;
+      });
+
+      // Calcular residuo y ajustar última subcuenta para que sume exactamente 100%
+      const totalAsignado = porcentajeBase * cantidadSubcuentas;
+      const residuoPorcentaje = parseFloat((100 - totalAsignado).toFixed(2));
+      const importeResiduo = parseFloat((totalEntidad - (importeBase * cantidadSubcuentas)).toFixed(2));
+
+      const ultimaSubcuenta = nuevasSubcuentas[cantidadSubcuentas - 1];
+      ultimaSubcuenta.porcentaje = parseFloat((porcentajeBase + residuoPorcentaje).toFixed(2));
+      ultimaSubcuenta.importe = parseFloat((importeBase + importeResiduo).toFixed(2));
+
+      console.log(`✨ Auto-distribución después de eliminar: ${cantidadSubcuentas} subcuentas (${porcentajeBase}% base, última ajustada a ${ultimaSubcuenta.porcentaje}%)`);
+    }
+
     setDistribuciones(distribuciones.map(d =>
       d.id === selectedDistribucionId
-        ? { ...d, subcuentas: d.subcuentas.filter(s => s.id !== subcuentaId) }
+        ? { ...d, subcuentas: nuevasSubcuentas }
         : d
     ));
   };
@@ -179,6 +255,15 @@ export function DistribucionesModal({
 
     const distribucion = distribuciones.find(d => d.id === selectedDistribucionId);
     if (!distribucion) return;
+
+    // Marcar que hubo edición manual en esta dimensión
+    if (!edicionManualPorDimension[selectedDistribucionId]) {
+      setEdicionManualPorDimension(prev => ({
+        ...prev,
+        [selectedDistribucionId]: true
+      }));
+      console.log('🖊️ Edición manual detectada, auto-distribución desactivada para esta dimensión');
+    }
 
     // Siempre usar totalEntidad para el cálculo
     const nuevoImporte = (totalEntidad * nuevoPorcentaje) / 100;
@@ -208,6 +293,15 @@ export function DistribucionesModal({
 
     const distribucion = distribuciones.find(d => d.id === selectedDistribucionId);
     if (!distribucion) return;
+
+    // Marcar que hubo edición manual en esta dimensión
+    if (!edicionManualPorDimension[selectedDistribucionId]) {
+      setEdicionManualPorDimension(prev => ({
+        ...prev,
+        [selectedDistribucionId]: true
+      }));
+      console.log('🖊️ Edición manual detectada, auto-distribución desactivada para esta dimensión');
+    }
 
     // Siempre usar totalEntidad para el cálculo
     const nuevoPorcentaje = totalEntidad > 0
@@ -386,7 +480,7 @@ export function DistribucionesModal({
         {/* Content - 2 Grillas */}
         <div className="flex-1 flex overflow-hidden p-4 gap-4">
           {/* Grilla Izquierda - Dimensiones */}
-          <div className="w-1/2 flex flex-col bg-white border border-gray-200 rounded-lg shadow-sm">
+          <div className="w-1/3 flex flex-col bg-white border border-gray-200 rounded-lg shadow-sm">
             <div className="p-3 bg-gray-50 border-b border-gray-200 rounded-t-lg">
               <h3 className="text-sm font-semibold text-gray-700 mb-2">Dimensiones</h3>
               <div
@@ -443,7 +537,7 @@ export function DistribucionesModal({
           </div>
 
           {/* Grilla Derecha - Subcuentas */}
-          <div className="w-1/2 flex flex-col bg-white border border-gray-200 rounded-lg shadow-sm">
+          <div className="w-2/3 flex flex-col bg-white border border-gray-200 rounded-lg shadow-sm">
             <div className="p-3 bg-gray-50 border-b border-gray-200 rounded-t-lg">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-semibold text-gray-700">Subcuentas</h3>
@@ -502,7 +596,7 @@ export function DistribucionesModal({
                               min="0"
                               value={sub.importe}
                               onChange={(e) => handleSubcuentaImporteChange(sub.id, parseFloat(e.target.value) || 0)}
-                              className="w-24 px-2 py-1 text-right border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                              className="w-32 px-2 py-1 text-right border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
                             />
                           </td>
                           <td className="px-3 py-2 text-center">

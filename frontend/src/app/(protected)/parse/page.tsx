@@ -1342,29 +1342,6 @@ export default function ComprobantesPage() {
         {(
         <div className="flex-shrink-0 mr-8">
           <div className="flex flex-col items-center gap-3">
-            {/* Switch para forzar reprocesamiento */}
-            <div className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 shadow-sm border border-gray-200">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <span className="text-xs text-gray-600">Reprocesar todos</span>
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={forzarReprocesamiento}
-                    onChange={(e) => setForzarReprocesamiento(e.target.checked)}
-                    disabled={processingAssociation}
-                    className="sr-only"
-                  />
-                  <div className={`w-10 h-6 rounded-full transition-colors ${
-                    forzarReprocesamiento ? 'bg-green-500' : 'bg-gray-300'
-                  }`}>
-                    <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
-                      forzarReprocesamiento ? 'translate-x-4' : ''
-                    }`}></div>
-                  </div>
-                </div>
-              </label>
-            </div>
-
             {/* Botón circular */}
             <button
               onClick={handleAutoAssociation}
@@ -1404,7 +1381,7 @@ export default function ComprobantesPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <select
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
               value={filterStatus}
@@ -1414,6 +1391,27 @@ export default function ComprobantesPage() {
               <option value="pendientes">Pendientes</option>
               <option value="exportados">Exportados</option>
             </select>
+
+            {/* Switch para forzar reprocesamiento */}
+            <label className="flex items-center gap-2 cursor-pointer">
+              <span className="text-sm text-gray-700">Reprocesar todos</span>
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={forzarReprocesamiento}
+                  onChange={(e) => setForzarReprocesamiento(e.target.checked)}
+                  disabled={processingAssociation}
+                  className="sr-only"
+                />
+                <div className={`w-10 h-6 rounded-full transition-colors ${
+                  forzarReprocesamiento ? 'bg-green-500' : 'bg-gray-300'
+                }`}>
+                  <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+                    forzarReprocesamiento ? 'translate-x-4' : ''
+                  }`}></div>
+                </div>
+              </div>
+            </label>
           </div>
         </div>
       </Card>
