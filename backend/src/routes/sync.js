@@ -1264,12 +1264,11 @@ async function insertIntoMaestrosParametros(data, tenantId, tipoTabla, isIncreme
     try {
       await prisma.$transaction(
         actualizaciones.map(registro =>
-          prisma.parametros_maestros.update({
+          prisma.parametros_maestros.updateMany({
             where: {
-              tipo_campo_codigo: {
-                tipo_campo: registro.tipo_campo,
-                codigo: registro.codigo
-              }
+              tipo_campo: registro.tipo_campo,
+              codigo: registro.codigo,
+              tenantId: registro.tenantId
             },
             data: {
               nombre: registro.nombre,
@@ -1317,12 +1316,37 @@ async function insertIntoMaestrosParametros(data, tenantId, tipoTabla, isIncreme
 }
 
 /**
+ * Helper: Sanitiza query SQL para PostgreSQL agregando comillas dobles a campos camelCase
+ * Esto preserva el case de los nombres de campos en PostgreSQL
+ */
+function sanitizeQueryForPostgres(query) {
+  // No modificar queries que ya tienen comillas dobles en todos los lugares necesarios
+  // Patrones comunes de campos en camelCase que necesitan comillas
+  const camelCaseFields = ['createdAt', 'updatedAt', 'tenantId', 'documentoId'];
+
+  let sanitizedQuery = query;
+
+  // Agregar comillas dobles a campos camelCase conocidos si no las tienen
+  camelCaseFields.forEach(field => {
+    // Reemplazar campo sin comillas por campo con comillas
+    // Buscar: campo seguido de operador (=, >, <, etc.) o espacio
+    const regex = new RegExp(`\\b${field}\\b(?!")`, 'g');
+    sanitizedQuery = sanitizedQuery.replace(regex, `"${field}"`);
+  });
+
+  return sanitizedQuery;
+}
+
+/**
  * Helper: Ejecuta query de download
  */
 async function executeDownloadQuery(tablaConfig, tenantId) {
   // Si hay una query personalizada en process.query, ejecutarla
   if (tablaConfig.process?.query) {
-    const query = tablaConfig.process.query;
+    let query = tablaConfig.process.query;
+
+    // Sanitizar query para PostgreSQL (agregar comillas a campos camelCase)
+    query = sanitizeQueryForPostgres(query);
 
     console.log(`[SYNC DOWNLOAD] Ejecutando query personalizada para ${tablaConfig.nombre}`);
     console.log(`[SYNC DOWNLOAD] Query:`, query);
@@ -1378,6 +1402,10 @@ async function executeDownloadQueryIncremental(tablaConfig, tenantId, ultimaSync
   // Si hay una query personalizada, modificarla para agregar filtros
   if (tablaConfig.process?.query) {
     let query = tablaConfig.process.query;
+
+    // Sanitizar query para PostgreSQL (agregar comillas a campos camelCase)
+    query = sanitizeQueryForPostgres(query);
+
     const params = [tenantId]; // $1 = tenantId
 
     console.log(`[SYNC DOWNLOAD INCREMENTAL] Query original:`, query);
@@ -1388,7 +1416,8 @@ async function executeDownloadQueryIncremental(tablaConfig, tenantId, ultimaSync
     // Construir condición por fecha
     const fechaDesde = new Date(ultimaSync);
     params.push(fechaDesde);
-    const whereClause = `${campoFecha} > $2`;
+    // Usar comillas dobles para preservar el case del campo en PostgreSQL
+    const whereClause = `"${campoFecha}" > $2`;
 
     // Agregar condiciones a la query
     if (hasWhere) {

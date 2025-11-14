@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Upload, Link2, FileText, CheckCircle, Clock, AlertCircle, Zap, ExternalLink, LinkIcon, Trash2, FileIcon, Image as ImageIcon, XCircle, Info, Receipt, Edit2, Edit, Unlink, Save, X, Calendar, MessageSquare, ScanText, Plus, Pencil, Sparkles, RotateCcw } from 'lucide-react';
+import { Upload, Link2, FileText, CheckCircle, Clock, AlertCircle, Zap, ExternalLink, LinkIcon, Trash2, FileIcon, Image as ImageIcon, XCircle, Info, Receipt, Edit2, Edit, Unlink, Save, X, Calendar, MessageSquare, ScanText, Plus, Pencil, Sparkles, RotateCcw, Grid3x3 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { DocumentUploadModal } from '@/components/shared/DocumentUploadModal';
@@ -11,6 +11,7 @@ import { api, parametrosApi, ParametroMaestro } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { useConfirmDialog } from '@/hooks/useConfirm';
 import { SmartSelector } from '@/components/rendiciones/SmartSelector';
+import { DistribucionesModal } from '@/components/comprobantes/DistribucionesModal';
 
 interface DashboardMetrics {
   subidos: number;
@@ -98,6 +99,19 @@ export default function ComprobantesPage() {
   const [activeTab, setActiveTab] = useState<'encabezado' | 'items' | 'impuestos'>('encabezado');
   const [documentoLineas, setDocumentoLineas] = useState<any[]>([]);
   const [documentoImpuestos, setDocumentoImpuestos] = useState<any[]>([]);
+
+  // Estados para modal de dimensiones
+  const [showDistribucionesModal, setShowDistribucionesModal] = useState(false);
+  const [distribucionesEntidad, setDistribucionesEntidad] = useState<{
+    tipo: 'linea' | 'impuesto';
+    id: string;
+    total: number;
+    codigo: string;
+    nombre: string;
+  } | null>(null);
+  const [distribucionesStatus, setDistribucionesStatus] = useState<{
+    [key: string]: 'none' | 'valid' | 'invalid';
+  }>({});
   const [loadingLineas, setLoadingLineas] = useState(false);
   const [loadingImpuestos, setLoadingImpuestos] = useState(false);
 
@@ -245,6 +259,11 @@ export default function ComprobantesPage() {
     // Cargar líneas e impuestos
     await loadDocumentoLineas(doc.id);
     await loadDocumentoImpuestos(doc.id);
+
+    // Cargar estado de distribuciones después de cargar lineas e impuestos
+    const lineas = await api.get(`/documentos/${doc.id}/lineas`).then(r => r.data.lineas || []);
+    const impuestos = await api.get(`/documentos/${doc.id}/impuestos`).then(r => r.data.impuestos || []);
+    await loadDistribucionesStatus(lineas, impuestos);
   };
 
   // Función para guardar cambios de edición
@@ -389,6 +408,48 @@ export default function ComprobantesPage() {
     } finally {
       setLoadingLineas(false);
     }
+  };
+
+  const validateDistribuciones = async (entidadId: string, tipo: 'linea' | 'impuesto', total: number) => {
+    try {
+      const endpoint = tipo === 'linea'
+        ? `/documentos/lineas/${entidadId}/distribuciones`
+        : `/documentos/impuestos/${entidadId}/distribuciones`;
+
+      const response = await api.get(endpoint);
+      const distribuciones = response.data.distribuciones || [];
+
+      if (distribuciones.length === 0) {
+        return 'none';
+      }
+
+      const totalDistribuido = distribuciones.reduce((sum: number, dist: any) => {
+        return sum + parseFloat(dist.importeDimension || 0);
+      }, 0);
+
+      const diferencia = Math.abs(total - totalDistribuido);
+      const tolerancia = 0.01;
+
+      return diferencia <= tolerancia ? 'valid' : 'invalid';
+    } catch (error) {
+      return 'none';
+    }
+  };
+
+  const loadDistribucionesStatus = async (lineas: any[], impuestos: any[]) => {
+    const newStatus: { [key: string]: 'none' | 'valid' | 'invalid' } = {};
+
+    for (const linea of lineas) {
+      const status = await validateDistribuciones(linea.id, 'linea', parseFloat(linea.totalLinea || 0));
+      newStatus[`linea-${linea.id}`] = status;
+    }
+
+    for (const impuesto of impuestos) {
+      const status = await validateDistribuciones(impuesto.id, 'impuesto', parseFloat(impuesto.importe || 0));
+      newStatus[`impuesto-${impuesto.id}`] = status;
+    }
+
+    setDistribucionesStatus(newStatus);
   };
 
   const handleOpenItemModal = async (item: any = null) => {
@@ -2171,32 +2232,65 @@ export default function ComprobantesPage() {
                               </div>
                               <div
                                 className="bg-blue-50 p-2 rounded cursor-pointer hover:bg-blue-100 transition-colors"
-                                onClick={(e) => handleFieldClick(e, 'codigo_dimension', linea.codigoDimension || '', 'item', linea.id, 'codigoDimension')}
-                                title="Click para editar"
-                              >
-                                <span className="font-medium text-gray-600 block mb-1">Dimensión</span>
-                                <span className="text-gray-800 truncate block" title={linea.codigoDimension && linea.codigoDimensionNombre ? `${linea.codigoDimension} - ${linea.codigoDimensionNombre}` : linea.codigoDimension || '-'}>
-                                  {linea.codigoDimension ? `${linea.codigoDimension}${linea.codigoDimensionNombre ? ` - ${linea.codigoDimensionNombre}` : ''}` : '-'}
-                                </span>
-                              </div>
-                              <div
-                                className="bg-blue-50 p-2 rounded cursor-pointer hover:bg-blue-100 transition-colors"
-                                onClick={(e) => handleFieldClick(e, 'subcuenta', linea.subcuenta || '', 'item', linea.id, 'subcuenta', linea.codigoDimension)}
-                                title="Click para editar"
-                              >
-                                <span className="font-medium text-gray-600 block mb-1">Subcuenta</span>
-                                <span className="text-gray-800 truncate block" title={linea.subcuenta && linea.subcuentaNombre ? `${linea.subcuenta} - ${linea.subcuentaNombre}` : linea.subcuenta || '-'}>
-                                  {linea.subcuenta ? `${linea.subcuenta}${linea.subcuentaNombre ? ` - ${linea.subcuentaNombre}` : ''}` : '-'}
-                                </span>
-                              </div>
-                              <div
-                                className="bg-blue-50 p-2 rounded cursor-pointer hover:bg-blue-100 transition-colors"
                                 onClick={(e) => handleFieldClick(e, 'cuenta_contable', linea.cuentaContable || '', 'item', linea.id, 'cuentaContable', linea.subcuenta)}
                                 title="Click para editar"
                               >
                                 <span className="font-medium text-gray-600 block mb-1">Cuenta Contable</span>
                                 <span className="text-gray-800 truncate block" title={linea.cuentaContable && linea.cuentaContableNombre ? `${linea.cuentaContable} - ${linea.cuentaContableNombre}` : linea.cuentaContable || '-'}>
                                   {linea.cuentaContable ? `${linea.cuentaContable}${linea.cuentaContableNombre ? ` - ${linea.cuentaContableNombre}` : ''}` : '-'}
+                                </span>
+                              </div>
+                              <div
+                                className={`p-2 rounded cursor-pointer transition-colors border ${
+                                  distribucionesStatus[`linea-${linea.id}`] === 'valid'
+                                    ? 'bg-green-50 hover:bg-green-100 border-green-300'
+                                    : distribucionesStatus[`linea-${linea.id}`] === 'invalid'
+                                    ? 'bg-yellow-50 hover:bg-yellow-100 border-yellow-300'
+                                    : 'bg-orange-50 hover:bg-orange-100 border-orange-300'
+                                }`}
+                                onClick={() => {
+                                  setDistribucionesEntidad({
+                                    tipo: 'linea',
+                                    id: linea.id,
+                                    total: parseFloat(linea.totalLinea || 0),
+                                    codigo: linea.codigoProducto || '',
+                                    nombre: linea.descripcion || ''
+                                  });
+                                  setShowDistribucionesModal(true);
+                                }}
+                                title={
+                                  distribucionesStatus[`linea-${linea.id}`] === 'valid'
+                                    ? 'Distribuciones correctas'
+                                    : distribucionesStatus[`linea-${linea.id}`] === 'invalid'
+                                    ? 'Error en suma de distribuciones'
+                                    : 'Sin distribuciones configuradas'
+                                }
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-2">
+                                    {distribucionesStatus[`linea-${linea.id}`] === 'valid' ? (
+                                      <CheckCircle className="w-4 h-4 text-green-600" />
+                                    ) : distribucionesStatus[`linea-${linea.id}`] === 'invalid' ? (
+                                      <AlertCircle className="w-4 h-4 text-yellow-600" />
+                                    ) : (
+                                      <AlertCircle className="w-4 h-4 text-orange-600" />
+                                    )}
+                                    <span className="font-medium text-gray-600 block">Dimensiones</span>
+                                  </div>
+                                  <Grid3x3 className="w-4 h-4 text-gray-500" />
+                                </div>
+                                <span className={`text-xs mt-1 block ${
+                                  distribucionesStatus[`linea-${linea.id}`] === 'valid'
+                                    ? 'text-green-700'
+                                    : distribucionesStatus[`linea-${linea.id}`] === 'invalid'
+                                    ? 'text-yellow-700'
+                                    : 'text-orange-700'
+                                }`}>
+                                  {distribucionesStatus[`linea-${linea.id}`] === 'valid'
+                                    ? 'Configuradas correctamente'
+                                    : distribucionesStatus[`linea-${linea.id}`] === 'invalid'
+                                    ? 'Error en suma'
+                                    : 'No configuradas'}
                                 </span>
                               </div>
                               <div
@@ -2312,32 +2406,65 @@ export default function ComprobantesPage() {
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                               <div
                                 className="bg-green-50 p-2 rounded cursor-pointer hover:bg-green-100 transition-colors"
-                                onClick={(e) => handleFieldClick(e, 'codigo_dimension', impuesto.codigoDimension || '', 'impuesto', impuesto.id, 'codigoDimension')}
-                                title="Click para editar"
-                              >
-                                <span className="font-medium text-gray-600 block mb-1">Dimensión</span>
-                                <span className="text-gray-800 truncate block" title={impuesto.codigoDimension && impuesto.codigoDimensionNombre ? `${impuesto.codigoDimension} - ${impuesto.codigoDimensionNombre}` : impuesto.codigoDimension || '-'}>
-                                  {impuesto.codigoDimension ? `${impuesto.codigoDimension}${impuesto.codigoDimensionNombre ? ` - ${impuesto.codigoDimensionNombre}` : ''}` : '-'}
-                                </span>
-                              </div>
-                              <div
-                                className="bg-green-50 p-2 rounded cursor-pointer hover:bg-green-100 transition-colors"
-                                onClick={(e) => handleFieldClick(e, 'subcuenta', impuesto.subcuenta || '', 'impuesto', impuesto.id, 'subcuenta', impuesto.codigoDimension)}
-                                title="Click para editar"
-                              >
-                                <span className="font-medium text-gray-600 block mb-1">Subcuenta</span>
-                                <span className="text-gray-800 truncate block" title={impuesto.subcuenta && impuesto.subcuentaNombre ? `${impuesto.subcuenta} - ${impuesto.subcuentaNombre}` : impuesto.subcuenta || '-'}>
-                                  {impuesto.subcuenta ? `${impuesto.subcuenta}${impuesto.subcuentaNombre ? ` - ${impuesto.subcuentaNombre}` : ''}` : '-'}
-                                </span>
-                              </div>
-                              <div
-                                className="bg-green-50 p-2 rounded cursor-pointer hover:bg-green-100 transition-colors"
                                 onClick={(e) => handleFieldClick(e, 'cuenta_contable', impuesto.cuentaContable || '', 'impuesto', impuesto.id, 'cuentaContable', impuesto.subcuenta)}
                                 title="Click para editar"
                               >
                                 <span className="font-medium text-gray-600 block mb-1">Cuenta Contable</span>
                                 <span className="text-gray-800 truncate block" title={impuesto.cuentaContable && impuesto.cuentaContableNombre ? `${impuesto.cuentaContable} - ${impuesto.cuentaContableNombre}` : impuesto.cuentaContable || '-'}>
                                   {impuesto.cuentaContable ? `${impuesto.cuentaContable}${impuesto.cuentaContableNombre ? ` - ${impuesto.cuentaContableNombre}` : ''}` : '-'}
+                                </span>
+                              </div>
+                              <div
+                                className={`p-2 rounded cursor-pointer transition-colors border ${
+                                  distribucionesStatus[`impuesto-${impuesto.id}`] === 'valid'
+                                    ? 'bg-green-50 hover:bg-green-100 border-green-300'
+                                    : distribucionesStatus[`impuesto-${impuesto.id}`] === 'invalid'
+                                    ? 'bg-yellow-50 hover:bg-yellow-100 border-yellow-300'
+                                    : 'bg-orange-50 hover:bg-orange-100 border-orange-300'
+                                }`}
+                                onClick={() => {
+                                  setDistribucionesEntidad({
+                                    tipo: 'impuesto',
+                                    id: impuesto.id,
+                                    total: parseFloat(impuesto.importe || 0),
+                                    codigo: impuesto.tipo || '',
+                                    nombre: impuesto.descripcion || ''
+                                  });
+                                  setShowDistribucionesModal(true);
+                                }}
+                                title={
+                                  distribucionesStatus[`impuesto-${impuesto.id}`] === 'valid'
+                                    ? 'Distribuciones correctas'
+                                    : distribucionesStatus[`impuesto-${impuesto.id}`] === 'invalid'
+                                    ? 'Error en suma de distribuciones'
+                                    : 'Sin distribuciones configuradas'
+                                }
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-2">
+                                    {distribucionesStatus[`impuesto-${impuesto.id}`] === 'valid' ? (
+                                      <CheckCircle className="w-4 h-4 text-green-600" />
+                                    ) : distribucionesStatus[`impuesto-${impuesto.id}`] === 'invalid' ? (
+                                      <AlertCircle className="w-4 h-4 text-yellow-600" />
+                                    ) : (
+                                      <AlertCircle className="w-4 h-4 text-orange-600" />
+                                    )}
+                                    <span className="font-medium text-gray-600 block">Dimensiones</span>
+                                  </div>
+                                  <Grid3x3 className="w-4 h-4 text-gray-500" />
+                                </div>
+                                <span className={`text-xs mt-1 block ${
+                                  distribucionesStatus[`impuesto-${impuesto.id}`] === 'valid'
+                                    ? 'text-green-700'
+                                    : distribucionesStatus[`impuesto-${impuesto.id}`] === 'invalid'
+                                    ? 'text-yellow-700'
+                                    : 'text-orange-700'
+                                }`}>
+                                  {distribucionesStatus[`impuesto-${impuesto.id}`] === 'valid'
+                                    ? 'Configuradas correctamente'
+                                    : distribucionesStatus[`impuesto-${impuesto.id}`] === 'invalid'
+                                    ? 'Error en suma'
+                                    : 'No configuradas'}
                                 </span>
                               </div>
                             </div>
@@ -3127,6 +3254,37 @@ export default function ComprobantesPage() {
           onSelect={handleSmartSelectorSelect}
           onClose={handleSmartSelectorClose}
           position={smartSelectorConfig.position}
+        />
+      )}
+
+      {/* Modal de Dimensiones */}
+      {showDistribucionesModal && distribucionesEntidad && (
+        <DistribucionesModal
+          isOpen={showDistribucionesModal}
+          onClose={() => {
+            setShowDistribucionesModal(false);
+            setDistribucionesEntidad(null);
+          }}
+          tipo={distribucionesEntidad.tipo}
+          entidadId={distribucionesEntidad.id}
+          totalEntidad={distribucionesEntidad.total}
+          codigo={distribucionesEntidad.codigo}
+          nombre={distribucionesEntidad.nombre}
+          onSave={async () => {
+            // Recargar datos según el tipo de entidad
+            if (distribucionesEntidad.tipo === 'linea') {
+              await loadDocumentoLineas(selectedDocumentForEdit!.id);
+            } else {
+              await loadDocumentoImpuestos(selectedDocumentForEdit!.id);
+            }
+
+            // Recargar estado de distribuciones
+            const lineas = await api.get(`/documentos/${selectedDocumentForEdit!.id}/lineas`).then(r => r.data.lineas || []);
+            const impuestos = await api.get(`/documentos/${selectedDocumentForEdit!.id}/impuestos`).then(r => r.data.impuestos || []);
+            await loadDistribucionesStatus(lineas, impuestos);
+
+            toast.success('Dimensiones guardadas correctamente');
+          }}
         />
       )}
 

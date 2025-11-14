@@ -277,7 +277,9 @@ router.get('/aplicar-reglas/stream', async (req, res) => {
                   subtotal: linea.subtotal,
                   cuentaContable: linea.cuentaContable,
                   codigoDimension: linea.codigoDimension,
-                  subcuenta: linea.subcuenta
+                  subcuenta: linea.subcuenta,
+                  tipoOrdenCompra: linea.tipoOrdenCompra,
+                  ordenCompra: linea.ordenCompra
                 }
               });
               lineasTransformadas++;
@@ -3896,6 +3898,450 @@ router.post('/:id/desmarcar-reglas', authWithTenant, async (req, res) => {
 
   } catch (error) {
     console.error('❌ Error desmarcando documento:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ============================================================================
+// ENDPOINTS PARA DISTRIBUCIONES Y SUBCUENTAS
+// ============================================================================
+
+// GET /api/documentos/lineas/:lineaId/distribuciones - Obtener distribuciones de una línea
+router.get('/lineas/:lineaId/distribuciones', authWithTenant, async (req, res) => {
+  try {
+    const { lineaId } = req.params;
+    const tenantId = req.tenantId;
+
+    console.log(`📊 [Distribuciones] Buscando línea ${lineaId} para tenant ${tenantId}`);
+
+    // Verificar que la línea existe y pertenece al tenant
+    const linea = await prisma.documento_lineas.findFirst({
+      where: {
+        id: lineaId,
+        tenantId: tenantId
+      }
+    });
+
+    if (!linea) {
+      console.log(`❌ [Distribuciones] Línea ${lineaId} no encontrada para tenant ${tenantId}`);
+      return res.status(404).json({
+        success: false,
+        error: 'Línea de comprobante no encontrada'
+      });
+    }
+
+    console.log(`✅ [Distribuciones] Línea encontrada: ${linea.id}`);
+
+    // Obtener distribuciones con sus subcuentas
+    const distribuciones = await prisma.documento_distribuciones.findMany({
+      where: {
+        documentoLineaId: lineaId,
+        activo: true
+      },
+      include: {
+        documento_subcuentas: {
+          where: { activo: true },
+          orderBy: { orden: 'asc' }
+        }
+      },
+      orderBy: { orden: 'asc' }
+    });
+
+    res.json({
+      success: true,
+      distribuciones
+    });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo distribuciones de línea:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// GET /api/documentos/impuestos/:impuestoId/distribuciones - Obtener distribuciones de un impuesto
+router.get('/impuestos/:impuestoId/distribuciones', authWithTenant, async (req, res) => {
+  try {
+    const { impuestoId } = req.params;
+    const tenantId = req.tenantId;
+
+    console.log(`📊 [Distribuciones] Buscando impuesto ${impuestoId} para tenant ${tenantId}`);
+
+    // Verificar que el impuesto existe y pertenece al tenant
+    const impuesto = await prisma.documento_impuestos.findFirst({
+      where: {
+        id: impuestoId,
+        tenantId: tenantId
+      }
+    });
+
+    if (!impuesto) {
+      console.log(`❌ [Distribuciones] Impuesto ${impuestoId} no encontrado para tenant ${tenantId}`);
+      return res.status(404).json({
+        success: false,
+        error: 'Impuesto de comprobante no encontrado'
+      });
+    }
+
+    console.log(`✅ [Distribuciones] Impuesto encontrado: ${impuesto.id}`);
+
+    // Obtener distribuciones con sus subcuentas
+    const distribuciones = await prisma.documento_distribuciones.findMany({
+      where: {
+        documentoImpuestoId: impuestoId,
+        activo: true
+      },
+      include: {
+        documento_subcuentas: {
+          where: { activo: true },
+          orderBy: { orden: 'asc' }
+        }
+      },
+      orderBy: { orden: 'asc' }
+    });
+
+    res.json({
+      success: true,
+      distribuciones
+    });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo distribuciones de impuesto:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// POST /api/documentos/lineas/:lineaId/distribuciones - Guardar distribuciones de una línea (batch)
+router.post('/lineas/:lineaId/distribuciones', authWithTenant, async (req, res) => {
+  try {
+    const { lineaId } = req.params;
+    const { distribuciones } = req.body;
+    const tenantId = req.tenantId;
+
+    // Verificar que la línea existe y pertenece al tenant
+    const linea = await prisma.documento_lineas.findFirst({
+      where: {
+        id: lineaId,
+        tenantId: tenantId
+      }
+    });
+
+    if (!linea) {
+      return res.status(404).json({
+        success: false,
+        error: 'Línea de comprobante no encontrada'
+      });
+    }
+
+    // NUEVA LÓGICA: Cada dimensión distribuye el total completo de la línea
+    // Solo validamos que cada dimensión tenga subcuentas que sumen 100%
+    const totalLinea = parseFloat(linea.totalLinea);
+
+    // Validar cada distribución: sus subcuentas deben sumar 100% y el total de la línea en importe
+    for (const dist of distribuciones) {
+      if (!dist.subcuentas || dist.subcuentas.length === 0) continue;
+
+      const totalPorcentaje = dist.subcuentas.reduce((sum, sub) =>
+        sum + parseFloat(sub.porcentaje || 0), 0
+      );
+      const totalImporte = dist.subcuentas.reduce((sum, sub) =>
+        sum + parseFloat(sub.importe || 0), 0
+      );
+
+      const difPorcentaje = Math.abs(totalPorcentaje - 100);
+      const difImporte = Math.abs(totalLinea - totalImporte); // Usar totalLinea en lugar de dist.importeDimension
+
+      if (difPorcentaje > 0.01) {
+        return res.status(400).json({
+          success: false,
+          error: `Las subcuentas de la dimensión "${dist.tipoDimensionNombre}" suman ${totalPorcentaje.toFixed(2)}% en lugar de 100%`
+        });
+      }
+
+      if (difImporte > 0.01) {
+        return res.status(400).json({
+          success: false,
+          error: `Las subcuentas de la dimensión "${dist.tipoDimensionNombre}" suman $${totalImporte.toFixed(2)} en lugar de $${totalLinea.toFixed(2)}`
+        });
+      }
+    }
+
+    // Usar transacción para asegurar atomicidad
+    const resultado = await prisma.$transaction(async (tx) => {
+      // 1. Marcar como inactivas las distribuciones existentes
+      await tx.documento_distribuciones.updateMany({
+        where: {
+          documentoLineaId: lineaId
+        },
+        data: {
+          activo: false
+        }
+      });
+
+      // 2. Crear nuevas distribuciones
+      const distribucionesCreadas = [];
+
+      for (const dist of distribuciones) {
+        // Crear distribución
+        // IMPORTANTE: importeDimension siempre es el total de la línea
+        const nuevaDistribucion = await tx.documento_distribuciones.create({
+          data: {
+            id: uuidv4(),
+            documentoLineaId: lineaId,
+            tipoDimension: dist.tipoDimension,
+            tipoDimensionNombre: dist.tipoDimensionNombre,
+            importeDimension: totalLinea, // Cada dimensión distribuye el total completo
+            orden: dist.orden || 1,
+            activo: true,
+            tenantId: tenantId,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+        });
+
+        // Crear subcuentas de esta distribución
+        const subcuentasCreadas = [];
+        if (dist.subcuentas && dist.subcuentas.length > 0) {
+          for (const sub of dist.subcuentas) {
+            const nuevaSubcuenta = await tx.documento_subcuentas.create({
+              data: {
+                id: uuidv4(),
+                distribucionId: nuevaDistribucion.id,
+                codigoSubcuenta: sub.codigoSubcuenta,
+                subcuentaNombre: sub.subcuentaNombre,
+                cuentaContable: sub.cuentaContable,
+                porcentaje: parseFloat(sub.porcentaje),
+                importe: parseFloat(sub.importe),
+                orden: sub.orden || 1,
+                activo: true,
+                createdAt: new Date(),
+                updatedAt: new Date()
+              }
+            });
+            subcuentasCreadas.push(nuevaSubcuenta);
+          }
+        }
+
+        distribucionesCreadas.push({
+          ...nuevaDistribucion,
+          documento_subcuentas: subcuentasCreadas
+        });
+      }
+
+      return distribucionesCreadas;
+    });
+
+    console.log(`✅ ${resultado.length} distribuciones guardadas para línea ${lineaId.substring(0, 8)}...`);
+
+    res.json({
+      success: true,
+      distribuciones: resultado
+    });
+
+  } catch (error) {
+    console.error('❌ Error guardando distribuciones:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// POST /api/documentos/impuestos/:impuestoId/distribuciones - Guardar distribuciones de un impuesto (batch)
+router.post('/impuestos/:impuestoId/distribuciones', authWithTenant, async (req, res) => {
+  try {
+    const { impuestoId } = req.params;
+    const { distribuciones } = req.body;
+    const tenantId = req.tenantId;
+
+    // Verificar que el impuesto existe y pertenece al tenant
+    const impuesto = await prisma.documento_impuestos.findFirst({
+      where: {
+        id: impuestoId,
+        tenantId: tenantId
+      }
+    });
+
+    if (!impuesto) {
+      return res.status(404).json({
+        success: false,
+        error: 'Impuesto de comprobante no encontrado'
+      });
+    }
+
+    // NUEVA LÓGICA: Cada dimensión distribuye el total completo del impuesto
+    // Solo validamos que cada dimensión tenga subcuentas que sumen 100%
+    const totalImpuesto = parseFloat(impuesto.importe);
+
+    // Validar subcuentas: deben sumar 100% y el total del impuesto en importe
+    for (const dist of distribuciones) {
+      if (!dist.subcuentas || dist.subcuentas.length === 0) continue;
+
+      const totalPorcentaje = dist.subcuentas.reduce((sum, sub) =>
+        sum + parseFloat(sub.porcentaje || 0), 0
+      );
+      const totalImporte = dist.subcuentas.reduce((sum, sub) =>
+        sum + parseFloat(sub.importe || 0), 0
+      );
+
+      const difPorcentaje = Math.abs(totalPorcentaje - 100);
+      const difImporte = Math.abs(totalImpuesto - totalImporte); // Usar totalImpuesto en lugar de dist.importeDimension
+
+      if (difPorcentaje > 0.01) {
+        return res.status(400).json({
+          success: false,
+          error: `Las subcuentas de la dimensión "${dist.tipoDimensionNombre}" suman ${totalPorcentaje.toFixed(2)}% en lugar de 100%`
+        });
+      }
+
+      if (difImporte > 0.01) {
+        return res.status(400).json({
+          success: false,
+          error: `Las subcuentas de la dimensión "${dist.tipoDimensionNombre}" suman $${totalImporte.toFixed(2)} en lugar de $${totalImpuesto.toFixed(2)}`
+        });
+      }
+    }
+
+    // Transacción para crear distribuciones
+    const resultado = await prisma.$transaction(async (tx) => {
+      // Marcar como inactivas las existentes
+      await tx.documento_distribuciones.updateMany({
+        where: {
+          documentoImpuestoId: impuestoId
+        },
+        data: {
+          activo: false
+        }
+      });
+
+      // Crear nuevas distribuciones
+      const distribucionesCreadas = [];
+
+      for (const dist of distribuciones) {
+        // IMPORTANTE: importeDimension siempre es el total del impuesto
+        const nuevaDistribucion = await tx.documento_distribuciones.create({
+          data: {
+            id: uuidv4(),
+            documentoImpuestoId: impuestoId,
+            tipoDimension: dist.tipoDimension,
+            tipoDimensionNombre: dist.tipoDimensionNombre,
+            importeDimension: totalImpuesto, // Cada dimensión distribuye el total completo
+            orden: dist.orden || 1,
+            activo: true,
+            tenantId: tenantId,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+        });
+
+        const subcuentasCreadas = [];
+        if (dist.subcuentas && dist.subcuentas.length > 0) {
+          for (const sub of dist.subcuentas) {
+            const nuevaSubcuenta = await tx.documento_subcuentas.create({
+              data: {
+                id: uuidv4(),
+                distribucionId: nuevaDistribucion.id,
+                codigoSubcuenta: sub.codigoSubcuenta,
+                subcuentaNombre: sub.subcuentaNombre,
+                cuentaContable: sub.cuentaContable,
+                porcentaje: parseFloat(sub.porcentaje),
+                importe: parseFloat(sub.importe),
+                orden: sub.orden || 1,
+                activo: true,
+                createdAt: new Date(),
+                updatedAt: new Date()
+              }
+            });
+            subcuentasCreadas.push(nuevaSubcuenta);
+          }
+        }
+
+        distribucionesCreadas.push({
+          ...nuevaDistribucion,
+          documento_subcuentas: subcuentasCreadas
+        });
+      }
+
+      return distribucionesCreadas;
+    });
+
+    console.log(`✅ ${resultado.length} distribuciones guardadas para impuesto ${impuestoId.substring(0, 8)}...`);
+
+    res.json({
+      success: true,
+      distribuciones: resultado
+    });
+
+  } catch (error) {
+    console.error('❌ Error guardando distribuciones de impuesto:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// DELETE /api/documentos/distribuciones/:id - Eliminar una distribución (marca como inactiva)
+router.delete('/distribuciones/:id', authWithTenant, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const tenantId = req.tenantId;
+
+    // Verificar que la distribución existe y pertenece al tenant
+    const distribucion = await prisma.documento_distribuciones.findFirst({
+      where: {
+        id: id,
+        tenantId: tenantId
+      }
+    });
+
+    if (!distribucion) {
+      return res.status(404).json({
+        success: false,
+        error: 'Distribución no encontrada'
+      });
+    }
+
+    // Marcar como inactiva (soft delete) en transacción
+    await prisma.$transaction(async (tx) => {
+      // Marcar subcuentas como inactivas
+      await tx.documento_subcuentas.updateMany({
+        where: {
+          distribucionId: id
+        },
+        data: {
+          activo: false,
+          updatedAt: new Date()
+        }
+      });
+
+      // Marcar distribución como inactiva
+      await tx.documento_distribuciones.update({
+        where: { id: id },
+        data: {
+          activo: false,
+          updatedAt: new Date()
+        }
+      });
+    });
+
+    console.log(`🗑️ Distribución ${id.substring(0, 8)}... eliminada (soft delete)`);
+
+    res.json({
+      success: true,
+      message: 'Distribución eliminada correctamente'
+    });
+
+  } catch (error) {
+    console.error('❌ Error eliminando distribución:', error);
     res.status(500).json({
       success: false,
       error: error.message

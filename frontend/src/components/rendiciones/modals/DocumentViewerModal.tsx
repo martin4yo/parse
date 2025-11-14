@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Download, FileText, Calendar, DollarSign, User, Hash, AlertCircle, ExternalLink, Loader2, ChevronDown, ChevronUp, Package, Receipt, Edit2, Save } from 'lucide-react';
+import { X, Download, FileText, Calendar, DollarSign, User, Hash, AlertCircle, ExternalLink, Loader2, ChevronDown, ChevronUp, Package, Receipt, Edit2, Save, Grid } from 'lucide-react';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { DistribucionesModal } from '@/components/comprobantes/DistribucionesModal';
 
 interface DocumentViewerModalProps {
   isOpen: boolean;
@@ -35,6 +36,16 @@ export function DocumentViewerModal({
   const [editingLineItem, setEditingLineItem] = useState<any | null>(null);
   const [editingImpuesto, setEditingImpuesto] = useState<any | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
+
+  // Estados para distribuciones
+  const [showDistribucionesModal, setShowDistribucionesModal] = useState(false);
+  const [distribucionesEntidad, setDistribucionesEntidad] = useState<{
+    tipo: 'linea' | 'impuesto';
+    id: string;
+    total: number;
+    codigo: string;
+    nombre: string;
+  } | null>(null);
 
   useEffect(() => {
     if (isOpen && documentId) {
@@ -865,6 +876,37 @@ export function DocumentViewerModal({
                 </div>
               </div>
 
+              {/* Botón de Dimensiones */}
+              <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Distribuciones Contables
+                    </label>
+                    <p className="text-xs text-gray-500">
+                      Configura dimensiones y subcuentas para esta línea
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDistribucionesEntidad({
+                        tipo: 'linea',
+                        id: editingLineItem.id,
+                        total: parseFloat(editingLineItem.totalLinea || 0),
+                        codigo: editingLineItem.codigoProducto || '',
+                        nombre: editingLineItem.descripcion || ''
+                      });
+                      setShowDistribucionesModal(true);
+                    }}
+                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Grid className="w-4 h-4" />
+                    <span>Gestionar Dimensiones</span>
+                  </button>
+                </div>
+              </div>
+
               <div className="flex justify-end space-x-3 mt-6">
                 <button
                   onClick={() => setEditingLineItem(null)}
@@ -983,6 +1025,37 @@ export function DocumentViewerModal({
                 </div>
               </div>
 
+              {/* Botón de Dimensiones */}
+              <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Distribuciones Contables
+                    </label>
+                    <p className="text-xs text-gray-500">
+                      Configura dimensiones y subcuentas para este impuesto
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDistribucionesEntidad({
+                        tipo: 'impuesto',
+                        id: editingImpuesto.id,
+                        total: parseFloat(editingImpuesto.importe || 0),
+                        codigo: editingImpuesto.tipo || '',
+                        nombre: editingImpuesto.descripcion || ''
+                      });
+                      setShowDistribucionesModal(true);
+                    }}
+                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Grid className="w-4 h-4" />
+                    <span>Gestionar Dimensiones</span>
+                  </button>
+                </div>
+              </div>
+
               <div className="flex justify-end space-x-3 mt-6">
                 <button
                   onClick={() => setEditingImpuesto(null)}
@@ -1012,6 +1085,30 @@ export function DocumentViewerModal({
             </div>
           </div>
         </>
+      )}
+
+      {/* Modal de Distribuciones */}
+      {showDistribucionesModal && distribucionesEntidad && (
+        <DistribucionesModal
+          isOpen={showDistribucionesModal}
+          onClose={() => {
+            setShowDistribucionesModal(false);
+            setDistribucionesEntidad(null);
+          }}
+          tipo={distribucionesEntidad.tipo}
+          entidadId={distribucionesEntidad.id}
+          totalEntidad={distribucionesEntidad.total}
+          codigo={distribucionesEntidad.codigo}
+          nombre={distribucionesEntidad.nombre}
+          onSave={() => {
+            // Recargar líneas o impuestos según corresponda
+            if (distribucionesEntidad.tipo === 'linea') {
+              loadLineItems();
+            } else {
+              loadImpuestos();
+            }
+          }}
+        />
       )}
     </>
   );

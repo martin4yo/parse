@@ -476,7 +476,7 @@ export default function ReglaModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-6xl w-full overflow-hidden flex flex-col" style={{ height: '90vh', minHeight: '90vh' }}>
+      <div className="bg-white rounded-lg max-w-6xl w-full overflow-hidden flex flex-col" style={{ maxHeight: '90vh', height: '90vh' }}>
         
         {/* Header */}
         <div className="p-6 border-b bg-gray-50 flex-shrink-0">
@@ -576,7 +576,7 @@ export default function ReglaModal({
         )}
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6" style={{ minHeight: '400px' }}>
+        <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
           
           {/* Tab General */}
           {activeTab === 'general' && (
