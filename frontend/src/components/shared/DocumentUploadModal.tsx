@@ -21,6 +21,7 @@ interface DocumentoProcessed {
   cuponExtraido?: string;
   caeExtraido?: string;
   observaciones?: string;
+  errorMessage?: string;
   datosExtraidos?: {
     texto: string;
     [key: string]: any;
@@ -318,12 +319,12 @@ export const DocumentUploadModal = ({
           setSuccessCount(prev => prev + 1);
           return documento;
         } else if (documento.estadoProcesamiento === 'error') {
-          // Marcar el archivo como error en la UI
-          setFiles(prev => prev.map((f, idx) => 
-            idx === fileIndex ? { 
-              ...f, 
-              status: 'error', 
-              error: documento.observaciones || 'Error al procesar el documento',
+          // Marcar el archivo como error en la UI con mensaje específico del backend
+          setFiles(prev => prev.map((f, idx) =>
+            idx === fileIndex ? {
+              ...f,
+              status: 'error',
+              error: documento.errorMessage || documento.observaciones || 'Error al procesar el documento',
               currentStep: 'Error',
               progress: 0
             } : f

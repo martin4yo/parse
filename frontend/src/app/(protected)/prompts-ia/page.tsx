@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Sparkles, Plus, Pencil, Trash2, RefreshCw, TestTube, Database } from 'lucide-react';
+import { Sparkles, Plus, Pencil, Trash2, RefreshCw, TestTube, Database, Globe } from 'lucide-react';
 import { promptsApi, AIPrompt } from '@/lib/api';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface MotorIA {
   id: string;
@@ -17,6 +18,7 @@ interface MotorIA {
 }
 
 export default function PromptsIAPage() {
+  const { isSuperuser } = useAuth();
   const [prompts, setPrompts] = useState<AIPrompt[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -36,6 +38,7 @@ export default function PromptsIAPage() {
     prompt: '',
     motor: '',
     activo: true,
+    isGlobal: false,
     variables: '{}'
   });
 
@@ -100,6 +103,7 @@ export default function PromptsIAPage() {
       prompt: '',
       motor: '',
       activo: true,
+      isGlobal: false,
       variables: '{}'
     });
     setShowModal(true);
@@ -114,6 +118,7 @@ export default function PromptsIAPage() {
       prompt: prompt.prompt,
       motor: prompt.motor || '',
       activo: prompt.activo,
+      isGlobal: prompt.tenantId === null, // GLOBAL si no tiene tenant
       variables: JSON.stringify(prompt.variables || {}, null, 2)
     });
     setShowModal(true);
@@ -153,6 +158,7 @@ export default function PromptsIAPage() {
         prompt: formData.prompt,
         motor: formData.motor || undefined,
         activo: formData.activo,
+        isGlobal: formData.isGlobal, // Enviar flag GLOBAL
         variables: parsedVariables
       };
 
@@ -333,7 +339,15 @@ export default function PromptsIAPage() {
                 prompts.map((prompt) => (
                   <tr key={prompt.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">
-                      {prompt.clave}
+                      <div className="flex items-center gap-2">
+                        {prompt.clave}
+                        {prompt.tenantId === null && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" title="Prompt Global (todos los tenants)">
+                            <Globe className="h-3 w-3" />
+                            GLOBAL
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
                       <div>
@@ -510,17 +524,44 @@ export default function PromptsIAPage() {
                 />
               </div>
 
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="activo"
-                  checked={formData.activo}
-                  onChange={(e) => setFormData({ ...formData, activo: e.target.checked })}
-                  className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-                />
-                <label htmlFor="activo" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Prompt activo
-                </label>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="activo"
+                    checked={formData.activo}
+                    onChange={(e) => setFormData({ ...formData, activo: e.target.checked })}
+                    className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                  />
+                  <label htmlFor="activo" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Prompt activo
+                  </label>
+                </div>
+
+                {/* Checkbox para Prompt Global - Solo superadmins */}
+                {isSuperuser && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="isGlobal"
+                      checked={formData.isGlobal}
+                      onChange={(e) => setFormData({ ...formData, isGlobal: e.target.checked })}
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <label htmlFor="isGlobal" className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                      <Globe className="h-4 w-4 text-blue-600" />
+                      Prompt Global (visible en todos los tenants)
+                    </label>
+                  </div>
+                )}
+
+                {formData.isGlobal && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                    <p className="text-xs text-blue-700 dark:text-blue-300">
+                      <strong>Nota:</strong> Los prompts GLOBAL no tienen tenant asignado y son visibles/editables por todos los superadmins en cualquier tenant seleccionado. Úsalos para configuraciones base del sistema.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">

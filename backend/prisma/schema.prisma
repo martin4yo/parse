@@ -177,6 +177,7 @@ model documentos_procesados {
   codigoProveedor           String?               @db.VarChar(50)
   reglasAplicadas           Boolean               @default(false)
   fechaReglasAplicadas      DateTime?
+  errorMessage              String?
   documento_impuestos       documento_impuestos[]
   documento_lineas          documento_lineas[]
   tenants                   tenants               @relation(fields: [tenantId], references: [id])

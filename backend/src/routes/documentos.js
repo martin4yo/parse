@@ -2638,8 +2638,16 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo) {
     if (!criterioExitoso) {
       console.error(`Extracción fallida - Datos insuficientes. Campos extraídos: ${datosMinimos.length}, Texto útil: ${tieneTextoUtil}, Longitud texto: ${processingResult.text?.length || 0}`);
 
-      await eliminarDocumentoCompletamente(documentoId);
-      throw new Error('No se pudieron extraer datos suficientes del documento. Verifica que el archivo sea legible y contenga información de un comprobante fiscal válido (fecha, importe, CUIT).');
+      // Marcar como error en lugar de eliminar
+      await prisma.documentos_procesados.update({
+        where: { id: documentoId },
+        data: {
+          estadoProcesamiento: 'error',
+          errorMessage: 'No se pudieron extraer datos suficientes del documento. Verifica que el archivo sea legible y contenga información válida de un comprobante fiscal (fecha, importe, CUIT).'
+        }
+      });
+
+      throw new Error('No se pudieron extraer datos suficientes del documento. Verifica que el archivo sea legible y contenga información válida de un comprobante fiscal (fecha, importe, CUIT).');
     }
 
     console.log(`Datos extraídos suficientes: ${datosMinimos.length}/3 campos mínimos, texto: ${tieneTextoUtil ? 'SÍ' : 'NO'}`);
@@ -2664,8 +2672,17 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo) {
           numero: datosExtraidos.numeroComprobante
         });
 
-        await eliminarDocumentoCompletamente(documentoId);
-        throw new Error(`Comprobante duplicado: Ya existe un comprobante con CUIT ${datosExtraidos.cuit}, tipo ${datosExtraidos.tipoComprobante} y número ${datosExtraidos.numeroComprobante}.`);
+        // Marcar como error en lugar de eliminar
+        const errorMsg = `Comprobante duplicado: Ya existe un comprobante con CUIT ${datosExtraidos.cuit}, tipo ${datosExtraidos.tipoComprobante} y número ${datosExtraidos.numeroComprobante}.`;
+        await prisma.documentos_procesados.update({
+          where: { id: documentoId },
+          data: {
+            estadoProcesamiento: 'error',
+            errorMessage: errorMsg
+          }
+        });
+
+        throw new Error(errorMsg);
       }
     }
 
@@ -2879,22 +2896,36 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo) {
   } catch (error) {
     console.error('❌ Error procesando documento:', error.message);
 
-    // NUEVA POLÍTICA: Cualquier error elimina completamente el documento
-    // No quedan documentos con estado 'error' en el sistema
-    console.error('🗑️ Eliminando documento completamente debido a error en procesamiento');
+    // NUEVA POLÍTICA: Marcar como error en lugar de eliminar
+    // El usuario podrá ver el mensaje de error y decidir qué hacer
+    console.error('⚠️  Marcando documento como error para que el usuario vea el mensaje');
 
     try {
-      const documentoEliminado = await eliminarDocumentoCompletamente(documentoId);
-      console.log('✅ Documento eliminado completamente tras error en procesamiento');
+      // Actualizar documento con estado de error y mensaje
+      await prisma.documentos_procesados.update({
+        where: { id: documentoId },
+        data: {
+          estadoProcesamiento: 'error',
+          errorMessage: error.message || 'Error desconocido al procesar el documento'
+        }
+      });
 
-      // Mostrar error específico al usuario
-      console.error(`Error reportado al usuario: ${error.message}`);
-    } catch (deleteError) {
-      console.error('❌ Error eliminando documento tras falla:', deleteError);
+      console.log(`✅ Documento marcado como error con mensaje: ${error.message}`);
+    } catch (updateError) {
+      console.error('❌ Error actualizando estado del documento:', updateError);
+
+      // Si falla la actualización, intentar eliminar para evitar documentos zombie
+      try {
+        await eliminarDocumentoCompletamente(documentoId);
+        console.log('🗑️ Documento eliminado tras fallo en actualización de error');
+      } catch (deleteError) {
+        console.error('❌ Error eliminando documento tras falla:', deleteError);
+      }
     }
 
-    // Re-lanzar el error para que llegue al usuario
-    throw error;
+    // NO RE-LANZAR el error - esta función se llama de forma asíncrona (fire-and-forget)
+    // El error ya fue logueado y guardado en la BD, no crashear el servidor
+    console.error('⚠️  Procesamiento fallido - Error guardado en BD para el usuario');
   }
 }
 
