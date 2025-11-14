@@ -18,6 +18,86 @@
 - `nginx-parse-frontend.conf` → Configuración Nginx para frontend
 - `nginx-parse-backend.conf` → Configuración Nginx para backend API
 
+---
+
+## ⚡ ÚLTIMAS ACTUALIZACIONES - Enero 2025
+
+### ✅ Sistema de Prompts GLOBAL para Superadmins
+
+**Implementado:** 13 de Enero 2025
+
+Los superadmins ahora pueden crear y gestionar prompts GLOBAL (sin tenant asignado) que sirven como fallback/template universal.
+
+**Características:**
+- ✅ CRUD completo de prompts GLOBAL (solo superadmins)
+- ✅ Badge visual 🌐 "GLOBAL" en la interfaz
+- ✅ Checkbox en formulario para marcar prompts como GLOBAL
+- ✅ Prompts GLOBAL visibles en todos los tenants (solo para superadmins)
+- ✅ Sistema usa prompts GLOBAL cuando no existe versión tenant-specific
+
+**Archivos modificados:**
+- `backend/src/routes/prompts.js` - Endpoints con permisos para GLOBAL
+- `frontend/src/app/(protected)/prompts-ia/page.tsx` - UI con soporte GLOBAL
+
+**Prompts GLOBAL actuales:**
+1. `CLASIFICADOR_DOCUMENTO`
+2. `EXTRACCION_FACTURA_A`
+3. `EXTRACCION_FACTURA_B`
+4. `EXTRACCION_FACTURA_C`
+5. `EXTRACCION_DESPACHO_ADUANA`
+6. `EXTRACCION_UNIVERSAL` (fallback para documentos tipo "OTRO")
+
+---
+
+### ✅ Solución a Crash del Backend al Procesar Documentos
+
+**Problema solucionado:** 13 de Enero 2025
+
+El backend ya no crashea cuando falla el procesamiento de documentos. Los errores ahora se guardan en la BD con mensajes claros para el usuario.
+
+**Cambios implementados:**
+
+1. **Nuevo campo en BD:**
+   ```sql
+   ALTER TABLE documentos_procesados ADD COLUMN errorMessage TEXT;
+   ```
+
+2. **Comportamiento anterior:**
+   - ❌ Documento se eliminaba completamente
+   - ❌ Backend crasheaba con `unhandled promise rejection`
+   - ❌ Usuario veía "Request failed with status code 404"
+
+3. **Comportamiento nuevo:**
+   - ✅ Documento se marca con `estadoProcesamiento: 'error'`
+   - ✅ Error específico se guarda en `errorMessage`
+   - ✅ Backend continúa funcionando (no crashea)
+   - ✅ Usuario ve mensaje descriptivo del problema
+
+**Ejemplos de mensajes de error:**
+- "No se pudieron extraer datos suficientes del documento. Verifica que el archivo sea legible y contenga información válida de un comprobante fiscal (fecha, importe, CUIT)."
+- "Comprobante duplicado: Ya existe un comprobante con CUIT X, tipo Y y número Z."
+
+**Archivos modificados:**
+- `backend/prisma/schema.prisma` - Agregado campo `errorMessage`
+- `backend/src/routes/documentos.js` - Manejo robusto de errores sin crash
+- `frontend/src/components/shared/DocumentUploadModal.tsx` - Mostrar `errorMessage`
+
+**Comandos aplicados:**
+```bash
+cd backend
+npx prisma db push
+npx prisma generate
+```
+
+---
+
+### 📝 Documentación de Sesión
+
+Para detalles completos de los cambios de esta sesión, consultar:
+- **`SESION-2025-01-13.md`** - Documentación completa de cambios, código y decisiones
+
+---
+
 ## Configuración y Notas de Desarrollo
 
 ### IA Local - Para Futuro Desarrollo
