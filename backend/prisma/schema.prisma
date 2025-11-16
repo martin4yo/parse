@@ -180,6 +180,8 @@ model documentos_procesados {
   reglasAplicadas           Boolean               @default(false)
   fechaReglasAplicadas      DateTime?
   errorMessage              String?
+  codigoDimension           String?               @db.VarChar(50)
+  subcuenta                 String?               @db.VarChar(50)
   documento_impuestos       documento_impuestos[]
   documento_lineas          documento_lineas[]
   tenants                   tenants               @relation(fields: [tenantId], references: [id])
