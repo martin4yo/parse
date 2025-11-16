@@ -22,6 +22,16 @@ api.interceptors.request.use(
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+
+      // Log para debugging
+      if (config.url?.includes('reglas/globales')) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          console.log('🔑 [API Interceptor] Token tenantId:', payload.tenantId);
+        } catch (e) {
+          console.log('🔑 [API Interceptor] No se pudo decodificar token');
+        }
+      }
     }
     return config;
   },

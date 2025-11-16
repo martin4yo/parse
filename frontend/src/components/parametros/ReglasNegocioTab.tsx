@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Play, Eye, AlertCircle, CheckCircle, Clock, Filter } from 'lucide-react';
+import { Plus, Edit, Trash2, Play, Eye, AlertCircle, CheckCircle, Clock, Filter, X, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
 import ReglaModal from './ReglaModal';
+import ReglasGlobalesModal from './ReglasGlobalesModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConfirmDialog } from '@/hooks/useConfirm';
 
@@ -16,6 +17,7 @@ interface ReglaNegocio {
   descripcion?: string;
   tipo: string;
   activa: boolean;
+  esGlobal?: boolean;
   prioridad: number;
   version: number;
   fechaVigencia?: string;
@@ -56,6 +58,7 @@ export default function ReglasNegocioTab() {
   const [reglaEditando, setReglaEditando] = useState<ReglaNegocio | null>(null);
   const [modalVisualizacion, setModalVisualizacion] = useState(false);
   const [reglaVisualizando, setReglaVisualizando] = useState<ReglaNegocio | null>(null);
+  const [modalGlobalesAbierto, setModalGlobalesAbierto] = useState(false);
 
   // Hook de confirmación personalizado
   const { confirmDelete } = useConfirmDialog();
@@ -156,6 +159,25 @@ export default function ReglasNegocioTab() {
     }
   };
 
+  const handleDesactivarGlobal = async (regla: ReglaNegocio) => {
+    const confirmed = await confirmDelete(
+      `¿Desactivar la regla global "${regla.nombre}" en este tenant?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await api.post(`/reglas/globales/${regla.id}/desactivar`);
+      toast.success('Regla global desactivada');
+      cargarDatos();
+    } catch (error) {
+      console.error('Error desactivando regla global:', error);
+      toast.error('Error desactivando regla global');
+    }
+  };
+
   const handleProbarRegla = async (regla: ReglaNegocio) => {
     // Abrir modal para probar regla con datos de ejemplo
     const datosEjemplo = {
@@ -217,10 +239,16 @@ export default function ReglasNegocioTab() {
             Gestiona las reglas que se aplican durante la importación y procesamiento de datos
           </p>
         </div>
-        <Button onClick={handleCrearRegla}>
-          <Plus className="w-4 h-4 mr-2" />
-          Nueva Regla
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setModalGlobalesAbierto(true)}>
+            <Globe className="w-4 h-4 mr-2" />
+            Reglas Globales
+          </Button>
+          <Button onClick={handleCrearRegla}>
+            <Plus className="w-4 h-4 mr-2" />
+            Nueva Regla
+          </Button>
+        </div>
       </div>
 
       {/* Filtros */}
@@ -277,7 +305,7 @@ export default function ReglasNegocioTab() {
       </div>
 
       {/* Lista de reglas */}
-      <div className="bg-white rounded-lg border max-h-[calc(100vh-28rem)] overflow-y-auto">
+      <div className="bg-white rounded-lg border max-h-[calc(100vh-28rem)] overflow-y-auto pb-8">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50 sticky top-0 z-10">
@@ -323,8 +351,14 @@ export default function ReglasNegocioTab() {
                   </td>
                   <td className="px-6 py-4">
                     <div>
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
                         {regla.nombre}
+                        {regla.esGlobal && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                            <Globe className="w-3 h-3" />
+                            GLOBAL
+                          </span>
+                        )}
                       </div>
                       {regla.descripcion && (
                         <div className="text-sm text-gray-500 truncate max-w-xs">
@@ -362,20 +396,34 @@ export default function ReglasNegocioTab() {
                       >
                         <Play className="w-4 h-4" />
                       </Button>
-                      <button
-                        onClick={() => handleEditarRegla(regla)}
-                        className="p-1 text-green-600 hover:text-green-700 rounded"
-                        title="Editar"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleEliminarRegla(regla)}
-                        className="p-1 text-red-600 hover:text-red-900 rounded"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {regla.esGlobal ? (
+                        /* Reglas globales: solo desactivar */
+                        <button
+                          onClick={() => handleDesactivarGlobal(regla)}
+                          className="p-1 text-orange-600 hover:text-orange-700 rounded"
+                          title="Desactivar regla global"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        /* Reglas propias: editar y eliminar */
+                        <>
+                          <button
+                            onClick={() => handleEditarRegla(regla)}
+                            className="p-1 text-green-600 hover:text-green-700 rounded"
+                            title="Editar"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleEliminarRegla(regla)}
+                            className="p-1 text-red-600 hover:text-red-900 rounded"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -444,6 +492,14 @@ export default function ReglasNegocioTab() {
             setModalAbierto(false);
             setReglaEditando(null);
           }}
+        />
+      )}
+
+      {/* Modal de reglas globales */}
+      {modalGlobalesAbierto && (
+        <ReglasGlobalesModal
+          onCerrar={() => setModalGlobalesAbierto(false)}
+          onActualizacion={cargarDatos}
         />
       )}
     </div>

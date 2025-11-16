@@ -14,6 +14,7 @@ class BusinessRulesEngine {
 
   /**
    * Cargar reglas desde la base de datos
+   * Incluye reglas propias del tenant + reglas globales activas
    */
   async loadRules(tipo = 'IMPORTACION_DKT', forceReload = false, prismaInstance = null) {
     const now = Date.now();
@@ -28,10 +29,11 @@ class BusinessRulesEngine {
     try {
       const db = prismaInstance || prisma;
 
-      // Construir el where con tenantId si está disponible
+      // 1. Cargar reglas propias del tenant
       const where = {
         tipo,
         activa: true,
+        esGlobal: false, // Solo reglas específicas del tenant
         OR: [
           { fechaVigencia: null },
           { fechaVigencia: { lte: new Date() } }
@@ -43,7 +45,7 @@ class BusinessRulesEngine {
         where.tenantId = this.tenantId;
       }
 
-      const rules = await db.reglas_negocio.findMany({
+      const tenantRules = await db.reglas_negocio.findMany({
         where,
         orderBy: [
           { prioridad: 'asc' },
@@ -51,12 +53,61 @@ class BusinessRulesEngine {
         ]
       });
 
-      // Guardar en cache por tipo
-      this.rulesCache.set(tipo, rules);
-      this.lastLoadTime.set(tipo, now);
-      this.rules = rules;
+      // 2. Cargar reglas globales activas para este tenant
+      // (si existe el registro en tenant_reglas_globales, la regla está activa)
+      let globalRules = [];
+      if (this.tenantId) {
+        const activeGlobalRules = await db.tenant_reglas_globales.findMany({
+          where: {
+            tenantId: this.tenantId
+          },
+          include: {
+            reglas_negocio: true
+          }
+        });
 
-      console.log(`Cargadas ${this.rules.length} reglas de tipo ${tipo}${this.tenantId ? ` para tenant ${this.tenantId}` : ''}`);
+        // Filtrar solo las reglas globales del tipo correcto y activas
+        globalRules = activeGlobalRules
+          .map(trg => {
+            const regla = trg.reglas_negocio;
+
+            // Aplicar override de prioridad si existe
+            if (trg.prioridadOverride !== null) {
+              regla.prioridad = trg.prioridadOverride;
+            }
+
+            // Aplicar override de configuración si existe
+            if (trg.configuracionOverride !== null) {
+              regla.configuracion = {
+                ...regla.configuracion,
+                ...trg.configuracionOverride
+              };
+            }
+
+            return regla;
+          })
+          .filter(regla =>
+            regla.tipo === tipo &&
+            regla.activa &&
+            regla.esGlobal &&
+            (!regla.fechaVigencia || regla.fechaVigencia <= new Date())
+          );
+      }
+
+      // 3. Combinar y ordenar por prioridad
+      const allRules = [...tenantRules, ...globalRules].sort((a, b) => {
+        if (a.prioridad !== b.prioridad) {
+          return a.prioridad - b.prioridad;
+        }
+        return new Date(a.createdAt) - new Date(b.createdAt);
+      });
+
+      // Guardar en cache por tipo
+      this.rulesCache.set(tipo, allRules);
+      this.lastLoadTime.set(tipo, now);
+      this.rules = allRules;
+
+      console.log(`✅ Cargadas ${tenantRules.length} reglas del tenant + ${globalRules.length} reglas globales (tipo: ${tipo}${this.tenantId ? `, tenant: ${this.tenantId}` : ''})`);
       return this.rules;
     } catch (error) {
       console.error('Error cargando reglas:', error);
@@ -395,6 +446,12 @@ class BusinessRulesEngine {
                 } else if (operacion === 'EXTRACT_REGEX') {
                   // Extraer valor usando expresión regular
                   this.applyExtractRegex(result, fullData, accion, transformedData);
+                } else if (operacion === 'EXTRACT_JSON_FIELDS') {
+                  // Extraer múltiples campos de un JSON en parametros_maestros
+                  await this.applyExtractJSONFields(result, fullData, accion, transformedData);
+                } else if (operacion === 'CREATE_DISTRIBUTION') {
+                  // Crear distribución con dimensiones y subcuentas
+                  await this.applyCreateDistribution(result, fullData, accion, transformedData, contexto);
                 }
               }
             }
@@ -1557,6 +1614,260 @@ class BusinessRulesEngine {
       if (accion.valorDefecto !== undefined) {
         this.setNestedValue(result, campo, accion.valorDefecto);
       }
+    }
+  }
+
+  /**
+   * Extraer múltiples campos de un JSON en parametros_maestros
+   */
+  async applyExtractJSONFields(result, fullData, accion, transformedData = null) {
+    const {
+      tabla = 'parametros_maestros',
+      campoConsulta,
+      valorConsulta,
+      filtroAdicional = {},
+      campos = []  // Array de { campoJSON: 'dimension.tipo', campoDestino: 'dimensionTipo' }
+    } = accion;
+
+    try {
+      console.log(`📦 [EXTRACT_JSON_FIELDS] Extrayendo campos de JSON...`);
+
+      // Resolver valor de consulta
+      const dataToUse = transformedData || fullData;
+      let valorBusqueda = valorConsulta;
+      if (valorConsulta && valorConsulta.startsWith('{') && valorConsulta.endsWith('}')) {
+        const fieldPath = valorConsulta.slice(1, -1);
+        valorBusqueda = this.resolveTemplateField(valorConsulta, dataToUse);
+      }
+
+      if (!valorBusqueda) {
+        console.warn(`[EXTRACT_JSON_FIELDS] No se pudo obtener valor de consulta`);
+        return;
+      }
+
+      // Construir where clause
+      const where = {
+        ...filtroAdicional,
+        [campoConsulta]: valorBusqueda,
+        ...(this.tenantId ? { tenantId: this.tenantId } : {})
+      };
+
+      // Buscar registro
+      const registro = await prisma[tabla].findFirst({ where });
+
+      if (!registro) {
+        console.warn(`[EXTRACT_JSON_FIELDS] No se encontró registro en ${tabla} con ${campoConsulta}=${valorBusqueda}`);
+        return;
+      }
+
+      console.log(`✅ [EXTRACT_JSON_FIELDS] Registro encontrado en ${tabla}`);
+
+      // Extraer cada campo solicitado
+      for (const campoConfig of campos) {
+        const { campoJSON, campoDestino } = campoConfig;
+
+        // Navegar por el path del JSON (ej: "dimension.tipo" -> registro.parametros_json.dimension.tipo)
+        const pathParts = campoJSON.split('.');
+        let valor = registro.parametros_json || registro;
+
+        for (const part of pathParts) {
+          if (valor && typeof valor === 'object') {
+            valor = valor[part];
+          } else {
+            valor = null;
+            break;
+          }
+        }
+
+        if (valor !== null && valor !== undefined) {
+          // Si es un array, convertirlo a JSON string para almacenarlo temporalmente
+          if (Array.isArray(valor)) {
+            this.setNestedValue(result, campoDestino, JSON.stringify(valor));
+            console.log(`  ✓ ${campoJSON} → ${campoDestino} (array con ${valor.length} elementos)`);
+          } else {
+            this.setNestedValue(result, campoDestino, valor);
+            console.log(`  ✓ ${campoJSON} → ${campoDestino} = ${valor}`);
+          }
+        } else {
+          console.warn(`  ⚠ ${campoJSON} no encontrado en el JSON`);
+        }
+      }
+
+    } catch (error) {
+      console.error(`[EXTRACT_JSON_FIELDS] Error:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Crear distribución con dimensiones y subcuentas
+   */
+  async applyCreateDistribution(result, fullData, accion, transformedData = null, contexto = 'LINEA_DOCUMENTO') {
+    const {
+      dimensionTipo,
+      dimensionTipoCampo,      // Campo del cual tomar el tipo de dimensión
+      dimensionNombre,         // Nombre fijo de la dimensión
+      dimensionNombreCampo,    // Campo del cual tomar el nombre
+      subcuentas = [],         // Array de subcuentas a crear (puede ser fijo o referencia)
+      subcuentasCampo          // Campo del cual leer array de subcuentas (ej: "{subcuentasJSON}")
+    } = accion;
+
+    try {
+      console.log(`📊 [CREATE_DISTRIBUTION] Creando distribución...`);
+
+      const dataToUse = transformedData || fullData;
+
+      // Determinar el tipo de dimensión
+      let tipoDimension = dimensionTipo;
+      if (dimensionTipoCampo) {
+        const dataToUse = transformedData || fullData;
+        tipoDimension = this.resolveTemplateField(dimensionTipoCampo, dataToUse);
+      }
+
+      if (!tipoDimension) {
+        console.warn(`[CREATE_DISTRIBUTION] No se pudo determinar el tipo de dimensión`);
+        return;
+      }
+
+      // Determinar el nombre de la dimensión
+      let tipoDimensionNombre = dimensionNombre;
+      if (dimensionNombreCampo) {
+        const dataToUse = transformedData || fullData;
+        tipoDimensionNombre = this.resolveTemplateField(dimensionNombreCampo, dataToUse);
+      }
+
+      // Si no hay nombre, buscar en parametros_maestros
+      if (!tipoDimensionNombre) {
+        const parametro = await prisma.parametros_maestros.findFirst({
+          where: {
+            tipo_campo: 'dimension',
+            codigo: tipoDimension,
+            ...(this.tenantId ? { tenantId: this.tenantId } : {})
+          }
+        });
+        tipoDimensionNombre = parametro?.nombre || tipoDimension;
+      }
+
+      // Determinar el importe total (de la línea o impuesto)
+      const importeTotal = fullData.subtotal || fullData.importe || 0;
+
+      // Verificar si es línea o impuesto según el contexto
+      const esLinea = contexto === 'LINEA_DOCUMENTO';
+      const esImpuesto = contexto === 'IMPUESTO_DOCUMENTO';
+
+      if (!esLinea && !esImpuesto) {
+        console.warn(`[CREATE_DISTRIBUTION] Contexto inválido: ${contexto}. Debe ser LINEA_DOCUMENTO o IMPUESTO_DOCUMENTO`);
+        return;
+      }
+
+      // Crear la distribución
+      const distribucion = await prisma.documento_distribuciones.create({
+        data: {
+          id: uuidv4(),
+          lineaId: esLinea ? result.id : null,
+          impuestoId: esImpuesto ? result.id : null,
+          tipoDimension: tipoDimension,
+          tipoDimensionNombre: tipoDimensionNombre,
+          importeDimension: importeTotal,
+          orden: 1,
+          tenantId: this.tenantId
+        }
+      });
+
+      console.log(`✅ [CREATE_DISTRIBUTION] Distribución creada: ${tipoDimension} - ${tipoDimensionNombre}`);
+
+      // Determinar qué array de subcuentas usar
+      let subcuentasArray = subcuentas;
+
+      // Si se especificó subcuentasCampo, leer desde el campo
+      if (subcuentasCampo) {
+        const valorCampo = this.resolveTemplateField(subcuentasCampo, dataToUse);
+        if (valorCampo) {
+          try {
+            // Si es un string JSON, parsearlo
+            subcuentasArray = typeof valorCampo === 'string' ? JSON.parse(valorCampo) : valorCampo;
+            console.log(`📦 [CREATE_DISTRIBUTION] Usando subcuentas desde campo: ${subcuentasArray.length} subcuentas`);
+          } catch (e) {
+            console.error(`[CREATE_DISTRIBUTION] Error parseando subcuentas desde campo:`, e.message);
+            subcuentasArray = [];
+          }
+        }
+      }
+
+      // Crear las subcuentas
+      for (const [index, subcuentaConfig] of subcuentasArray.entries()) {
+        // Soportar múltiples formatos de subcuenta
+        const {
+          codigoSubcuenta,
+          codigo: codigoAlt,           // Formato alternativo desde JSON
+          codigoSubcuentaCampo,
+          subcuentaNombre,
+          nombre: nombreAlt,           // Formato alternativo desde JSON
+          subcuentaNombreCampo,
+          cuentaContable,
+          cuenta: cuentaAlt,           // Formato alternativo desde JSON
+          cuentaContableCampo,
+          porcentaje = 100,
+          porcentajeCampo
+        } = subcuentaConfig;
+
+        // Resolver valores dinámicos
+        let codigo = codigoSubcuenta || codigoAlt;
+        if (codigoSubcuentaCampo) {
+          codigo = this.resolveTemplateField(codigoSubcuentaCampo, dataToUse);
+        }
+
+        let nombre = subcuentaNombre || nombreAlt;
+        if (subcuentaNombreCampo) {
+          nombre = this.resolveTemplateField(subcuentaNombreCampo, dataToUse);
+        }
+
+        let cuenta = cuentaContable || cuentaAlt || '';
+        if (cuentaContableCampo) {
+          cuenta = this.resolveTemplateField(cuentaContableCampo, dataToUse);
+        }
+
+        let porcentajeValue = porcentaje;
+        if (porcentajeCampo) {
+          porcentajeValue = parseFloat(this.resolveTemplateField(porcentajeCampo, dataToUse)) || 100;
+        }
+
+        // Si no hay nombre, buscar en parametros_maestros
+        if (!nombre && codigo) {
+          const parametro = await prisma.parametros_maestros.findFirst({
+            where: {
+              tipo_campo: 'subcuenta',
+              codigo: codigo,
+              ...(this.tenantId ? { tenantId: this.tenantId } : {})
+            }
+          });
+          nombre = parametro?.nombre || codigo;
+        }
+
+        const importeSubcuenta = (importeTotal * porcentajeValue) / 100;
+
+        await prisma.documento_subcuentas.create({
+          data: {
+            id: uuidv4(),
+            distribucionId: distribucion.id,
+            codigoSubcuenta: codigo || '',
+            subcuentaNombre: nombre || '',
+            cuentaContable: cuenta,
+            porcentaje: porcentajeValue,
+            importe: importeSubcuenta,
+            orden: index + 1,
+            tenantId: this.tenantId
+          }
+        });
+
+        console.log(`  ➕ Subcuenta: ${codigo} - ${nombre} (${porcentajeValue}% = $${importeSubcuenta.toFixed(2)})`);
+      }
+
+      console.log(`✅ [CREATE_DISTRIBUTION] ${subcuentas.length} subcuenta(s) creadas`);
+
+    } catch (error) {
+      console.error(`[CREATE_DISTRIBUTION] Error:`, error.message);
+      throw error;
     }
   }
 

@@ -2552,6 +2552,119 @@ Responde solo el JSON:`,
     return uniqueImpuestos;
   }
 
+  /**
+   * Procesar archivo para API externa (sin guardar en BD)
+   * Método simplificado que devuelve solo los datos parseados
+   *
+   * @param {string} filePath - Ruta del archivo a procesar
+   * @param {string} tenantId - ID del tenant
+   * @param {string} tipoDocumento - Tipo de documento (FACTURA_A, FACTURA_B, AUTO, etc.)
+   * @returns {Object} Datos extraídos del documento
+   */
+  async processFileForAPI(filePath, tenantId, tipoDocumento = 'AUTO') {
+    try {
+      console.log(`📄 [processFileForAPI] Procesando archivo para API`);
+      console.log(`   Archivo: ${filePath}`);
+      console.log(`   TenantId: ${tenantId}`);
+      console.log(`   Tipo documento: ${tipoDocumento}`);
+
+      // Determinar el tipo de archivo
+      const ext = path.extname(filePath).toLowerCase();
+      let text = '';
+      let extractionMethod = 'unknown';
+
+      // Extraer texto según tipo de archivo
+      if (ext === '.pdf') {
+        const pdfResult = await this.processPDF(filePath);
+        text = pdfResult.text || '';
+        extractionMethod = 'pdf-parse';
+      } else if (['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp'].includes(ext)) {
+        const imageResult = await this.processImage(filePath);
+        text = imageResult.text || '';
+        extractionMethod = 'tesseract-ocr';
+      } else {
+        throw new Error(`Tipo de archivo no soportado: ${ext}`);
+      }
+
+      console.log(`   ✅ Texto extraído: ${text.length} caracteres (método: ${extractionMethod})`);
+
+      // Extraer datos usando IA si está habilitado
+      let extractedData = {};
+      let modeloIA = 'regex-fallback';
+      let confianza = 0.5;
+
+      if (process.env.ENABLE_AI_EXTRACTION === 'true') {
+        const aiResult = await this.extractDataWithAI(text, tenantId, filePath);
+        if (aiResult && aiResult.data) {
+          extractedData = aiResult.data;
+          modeloIA = aiResult.model || 'ai-extraction';
+          confianza = aiResult.confidence || 0.8;
+          console.log(`   ✅ Extracción con IA exitosa (modelo: ${modeloIA}, confianza: ${confianza})`);
+        } else {
+          // Fallback a extracción básica
+          extractedData = await this.extractData(text);
+          console.log(`   ⚠️  Usando extracción básica (regex fallback)`);
+        }
+      } else {
+        // Extracción básica con regex
+        extractedData = await this.extractData(text);
+        console.log(`   ℹ️  IA deshabilitada, usando extracción básica`);
+      }
+
+      // Normalizar estructura de respuesta
+      const response = {
+        cabecera: {
+          tipoComprobante: extractedData.tipoComprobante || extractedData.tipo || null,
+          puntoVenta: extractedData.puntoVenta || null,
+          numeroComprobante: extractedData.numeroComprobante || extractedData.numero || null,
+          fecha: extractedData.fecha || extractedData.fechaEmision || null,
+          cuitEmisor: extractedData.cuit || extractedData.cuitProveedor || null,
+          razonSocialEmisor: extractedData.razonSocial || extractedData.proveedor || null,
+          total: extractedData.total || extractedData.importe || 0,
+          subtotal: extractedData.netoGravado || extractedData.subtotal || 0,
+          iva: extractedData.iva || extractedData.impuestos || 0,
+          exento: extractedData.exento || 0,
+          ordenCompra: extractedData.ordenCompra || null,
+          cae: extractedData.cae || null,
+          moneda: extractedData.moneda || 'ARS'
+        },
+        items: (extractedData.lineItems || extractedData.items || []).map((item, index) => ({
+          numero: index + 1,
+          descripcion: item.descripcion || item.description || '',
+          codigoProducto: item.codigoProducto || item.codigo || null,
+          cantidad: item.cantidad || item.quantity || 1,
+          unidad: item.unidad || item.unit || null,
+          precioUnitario: item.precioUnitario || item.precio || 0,
+          subtotal: item.subtotal || item.total || 0,
+          alicuotaIva: item.alicuotaIva || item.iva || null,
+          importeIva: item.importeIva || null,
+          totalLinea: item.totalLinea || item.total || 0
+        })),
+        impuestos: (extractedData.impuestosDetalle || extractedData.impuestos || []).map(impuesto => ({
+          tipo: impuesto.tipo || impuesto.type || 'IVA',
+          descripcion: impuesto.descripcion || impuesto.description || null,
+          alicuota: impuesto.alicuota || impuesto.rate || null,
+          baseImponible: impuesto.baseImponible || impuesto.base || 0,
+          importe: impuesto.importe || impuesto.amount || 0
+        })),
+        tipoDocumento: extractedData.tipoComprobante || tipoDocumento,
+        modeloIA,
+        confianza
+      };
+
+      console.log(`✅ [processFileForAPI] Procesamiento completo`);
+      console.log(`   Items: ${response.items.length}`);
+      console.log(`   Impuestos: ${response.impuestos.length}`);
+      console.log(`   Total: ${response.cabecera.total}`);
+
+      return response;
+
+    } catch (error) {
+      console.error('❌ [processFileForAPI] Error:', error);
+      throw new Error(`Error procesando documento: ${error.message}`);
+    }
+  }
+
   async cleanup() {
     if (this.tesseractWorker) {
       await this.tesseractWorker.terminate();

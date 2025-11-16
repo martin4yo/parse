@@ -334,29 +334,32 @@ model reglas_ejecuciones {
 }
 
 model reglas_negocio {
-  id                 String               @id
-  codigo             String
-  nombre             String
-  descripcion        String?
-  tipo               String
-  activa             Boolean              @default(true)
-  prioridad          Int                  @default(100)
-  version            Int                  @default(1)
-  fechaVigencia      DateTime?
-  configuracion      Json
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime
-  createdBy          String?
-  updatedBy          String?
-  tenantId           String?
-  reglas_ejecuciones reglas_ejecuciones[]
-  sugerencias_ia     sugerencias_ia[]
-  tenants            tenants?             @relation(fields: [tenantId], references: [id])
+  id                      String                    @id
+  codigo                  String
+  nombre                  String
+  descripcion             String?
+  tipo                    String
+  activa                  Boolean                   @default(true)
+  prioridad               Int                       @default(100)
+  version                 Int                       @default(1)
+  fechaVigencia           DateTime?
+  configuracion           Json
+  esGlobal                Boolean                   @default(false)
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime
+  createdBy               String?
+  updatedBy               String?
+  tenantId                String?
+  reglas_ejecuciones      reglas_ejecuciones[]
+  sugerencias_ia          sugerencias_ia[]
+  tenant_reglas_globales  tenant_reglas_globales[]
+  tenants                 tenants?                  @relation(fields: [tenantId], references: [id])
 
   @@unique([codigo, tenantId])
   @@index([prioridad])
   @@index([tipo, activa])
   @@index([tenantId])
+  @@index([esGlobal])
 }
 
 model sugerencias_ia {
@@ -489,6 +492,7 @@ model tenants {
   sync_api_keys            sync_api_keys[]
   sync_configurations      sync_configurations?
   sync_logs                sync_logs[]
+  tenant_reglas_globales   tenant_reglas_globales[]
   planes                   planes?                    @relation(fields: [planId], references: [id])
   users                    users[]
 
@@ -594,4 +598,24 @@ model documento_subcuentas {
   @@index([distribucionId])
   @@index([codigoSubcuenta])
   @@index([cuentaContable])
+}
+
+model tenant_reglas_globales {
+  id                   String          @id @default(uuid())
+  tenantId             String
+  reglaGlobalId        String
+  activa               Boolean         @default(true)
+  prioridadOverride    Int?
+  configuracionOverride Json?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  createdBy            String?
+  updatedBy            String?
+  tenants              tenants         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reglas_negocio       reglas_negocio  @relation(fields: [reglaGlobalId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, reglaGlobalId])
+  @@index([tenantId])
+  @@index([reglaGlobalId])
+  @@index([activa])
 }

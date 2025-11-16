@@ -14,6 +14,7 @@ interface ReglaNegocio {
   descripcion?: string;
   tipo: string;
   activa: boolean;
+  esGlobal?: boolean;
   prioridad: number;
   version?: number;
   fechaVigencia?: string;
@@ -72,6 +73,21 @@ interface Accion {
   requiereAprobacion?: boolean;
   instruccionesAdicionales?: string;
   campoRetorno?: string;
+  // Nuevos campos para CREATE_DISTRIBUTION
+  dimensionTipo?: string;
+  dimensionTipoCampo?: string;
+  dimensionNombre?: string;
+  dimensionNombreCampo?: string;
+  subcuentas?: Array<{
+    codigoSubcuenta?: string;
+    codigoSubcuentaCampo?: string;
+    subcuentaNombre?: string;
+    subcuentaNombreCampo?: string;
+    cuentaContable?: string;
+    cuentaContableCampo?: string;
+    porcentaje?: number;
+    porcentajeCampo?: string;
+  }>;
 }
 
 interface TipoRegla {
@@ -127,6 +143,7 @@ export default function ReglaModal({
     descripcion: '',
     tipo: 'TRANSFORMACION',
     activa: true,
+    esGlobal: false,
     prioridad: 100,
     configuracion: {
       condiciones: [],
@@ -325,6 +342,18 @@ export default function ReglaModal({
           requiereAprobacion: true,
           instruccionesAdicionales: '',
           valorDefecto: ''
+        };
+      } else if (value === 'CREATE_DISTRIBUTION') {
+        // Limpiar y configurar campos específicos de CREATE_DISTRIBUTION
+        const { tabla, campoConsulta, valorConsulta, cadena, tipoCampo, campoJSON, valor, campoTexto, filtro, umbralConfianza, requiereAprobacion, instruccionesAdicionales, ...baseAction } = acciones[index];
+        acciones[index] = {
+          ...baseAction,
+          campo: '', // No se usa para CREATE_DISTRIBUTION
+          dimensionTipo: '',
+          dimensionTipoCampo: '',
+          dimensionNombre: '',
+          dimensionNombreCampo: '',
+          subcuentas: []
         };
       } else {
         // Limpiar todos los campos específicos de lookup para operaciones normales (SET, APPEND, etc.)
@@ -752,6 +781,18 @@ export default function ReglaModal({
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                     <span className="ml-2 text-sm text-gray-700">Activa</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={formData.esGlobal || false}
+                      onChange={(e) => handleInputChange('esGlobal', e.target.checked)}
+                      className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                    />
+                    <span className="ml-2 text-sm text-gray-700 flex items-center gap-1">
+                      <span>Es Global</span>
+                      <span className="text-xs text-gray-500">(disponible para todos los tenants)</span>
+                    </span>
                   </label>
                 </div>
               </div>
@@ -1410,7 +1451,6 @@ export default function ReglaModal({
                                             className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-green-500"
                                           >
                                             <option value="">Seleccionar</option>
-                                            <option value="userTarjetaCredito">Tarjetas de Crédito</option>
                                             <option value="userAtributo">Atributos de Usuario</option>
                                             <option value="valorAtributo">Valores de Atributo</option>
                                             <option value="user">Usuarios</option>
@@ -1558,6 +1598,185 @@ export default function ReglaModal({
                               handleConfigChange('acciones', acciones);
                             }}
                           />
+                        </div>
+                      )}
+
+                      {/* Campos específicos para CREATE_DISTRIBUTION */}
+                      {accion.operacion === 'CREATE_DISTRIBUTION' && (
+                        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Tipo Dimensión (Fijo)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={accion.dimensionTipo || ''}
+                                  onChange={(e) => {
+                                    const acciones = [...formData.configuracion.acciones];
+                                    acciones[index] = { ...acciones[index], dimensionTipo: e.target.value };
+                                    handleConfigChange('acciones', acciones);
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                  placeholder="ej: CENTRO_COSTO"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Tipo Dimensión (Campo)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={accion.dimensionTipoCampo || ''}
+                                  onChange={(e) => {
+                                    const acciones = [...formData.configuracion.acciones];
+                                    acciones[index] = { ...acciones[index], dimensionTipoCampo: e.target.value };
+                                    handleConfigChange('acciones', acciones);
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                  placeholder="ej: {codigoDimension}"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Nombre Dimensión (Fijo)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={accion.dimensionNombre || ''}
+                                  onChange={(e) => {
+                                    const acciones = [...formData.configuracion.acciones];
+                                    acciones[index] = { ...acciones[index], dimensionNombre: e.target.value };
+                                    handleConfigChange('acciones', acciones);
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                  placeholder="ej: Centro de Costo"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Nombre Dimensión (Campo)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={accion.dimensionNombreCampo || ''}
+                                  onChange={(e) => {
+                                    const acciones = [...formData.configuracion.acciones];
+                                    acciones[index] = { ...acciones[index], dimensionNombreCampo: e.target.value };
+                                    handleConfigChange('acciones', acciones);
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                  placeholder="ej: {nombreDimension}"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="flex justify-between items-center mb-2">
+                                <label className="block text-sm font-medium text-gray-700">
+                                  Subcuentas
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const acciones = [...formData.configuracion.acciones];
+                                    const subcuentas = acciones[index].subcuentas || [];
+                                    subcuentas.push({ porcentaje: 100 });
+                                    acciones[index] = { ...acciones[index], subcuentas };
+                                    handleConfigChange('acciones', acciones);
+                                  }}
+                                  className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                                >
+                                  + Agregar Subcuenta
+                                </button>
+                              </div>
+
+                              {accion.subcuentas && accion.subcuentas.length > 0 && (
+                                <div className="space-y-3">
+                                  {accion.subcuentas.map((sub, subIndex) => (
+                                    <div key={subIndex} className="bg-white p-3 rounded border border-gray-200">
+                                      <div className="grid grid-cols-3 gap-2 mb-2">
+                                        <div>
+                                          <label className="block text-xs text-gray-600 mb-1">Código (Fijo)</label>
+                                          <input
+                                            type="text"
+                                            value={sub.codigoSubcuenta || ''}
+                                            onChange={(e) => {
+                                              const acciones = [...formData.configuracion.acciones];
+                                              const subcuentas = [...(acciones[index].subcuentas || [])];
+                                              subcuentas[subIndex] = { ...subcuentas[subIndex], codigoSubcuenta: e.target.value };
+                                              acciones[index] = { ...acciones[index], subcuentas };
+                                              handleConfigChange('acciones', acciones);
+                                            }}
+                                            className="w-full px-2 py-1 text-sm border rounded"
+                                            placeholder="SUC001"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs text-gray-600 mb-1">Código (Campo)</label>
+                                          <input
+                                            type="text"
+                                            value={sub.codigoSubcuentaCampo || ''}
+                                            onChange={(e) => {
+                                              const acciones = [...formData.configuracion.acciones];
+                                              const subcuentas = [...(acciones[index].subcuentas || [])];
+                                              subcuentas[subIndex] = { ...subcuentas[subIndex], codigoSubcuentaCampo: e.target.value };
+                                              acciones[index] = { ...acciones[index], subcuentas };
+                                              handleConfigChange('acciones', acciones);
+                                            }}
+                                            className="w-full px-2 py-1 text-sm border rounded"
+                                            placeholder="{sucursal}"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs text-gray-600 mb-1">%</label>
+                                          <input
+                                            type="number"
+                                            value={sub.porcentaje || 100}
+                                            onChange={(e) => {
+                                              const acciones = [...formData.configuracion.acciones];
+                                              const subcuentas = [...(acciones[index].subcuentas || [])];
+                                              subcuentas[subIndex] = { ...subcuentas[subIndex], porcentaje: parseFloat(e.target.value) };
+                                              acciones[index] = { ...acciones[index], subcuentas };
+                                              handleConfigChange('acciones', acciones);
+                                            }}
+                                            className="w-full px-2 py-1 text-sm border rounded"
+                                            min="0"
+                                            max="100"
+                                          />
+                                        </div>
+                                      </div>
+                                      <div className="flex justify-end">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const acciones = [...formData.configuracion.acciones];
+                                            const subcuentas = (acciones[index].subcuentas || []).filter((_, i) => i !== subIndex);
+                                            acciones[index] = { ...acciones[index], subcuentas };
+                                            handleConfigChange('acciones', acciones);
+                                          }}
+                                          className="text-xs text-red-600 hover:text-red-800"
+                                        >
+                                          Eliminar
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="bg-blue-100 p-3 rounded">
+                              <p className="text-sm text-blue-800">
+                                <strong>Nota:</strong> CREATE_DISTRIBUTION crea registros en documento_distribuciones y documento_subcuentas.
+                                Usa campos fijos o dinámicos ({'{campo}'}) según necesites.
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>

@@ -7,12 +7,18 @@ const BusinessRulesEngine = require('../services/businessRulesEngine');
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// GET /reglas - Obtener todas las reglas de negocio
+// GET /reglas - Obtener solo las reglas propias del tenant (NO incluye globales)
 router.get('/', authWithTenant, async (req, res) => {
   try {
     const { tipo, activa, search } = req.query;
-    
-    const where = {};
+    const tenantId = req.user?.tenantId;
+
+    // Construir filtros para reglas propias del tenant
+    const where = {
+      esGlobal: false,  // Solo reglas NO globales (propias del tenant)
+      tenantId: tenantId  // Asegurar que pertenecen a este tenant
+    };
+
     if (tipo) where.tipo = tipo;
     if (activa !== undefined) where.activa = activa === 'true';
     if (search) {
@@ -23,8 +29,9 @@ router.get('/', authWithTenant, async (req, res) => {
       ];
     }
 
+    // Solo reglas propias del tenant
     const reglas = await prisma.reglas_negocio.findMany({
-      where: req.filterByTenant(where),
+      where,
       orderBy: [
         { prioridad: 'asc' },
         { nombre: 'asc' }
@@ -84,7 +91,7 @@ router.post('/',
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { codigo, nombre, descripcion, tipo, configuracion, prioridad, fechaVigencia, activa } = req.body;
+      const { codigo, nombre, descripcion, tipo, configuracion, prioridad, fechaVigencia, activa, esGlobal } = req.body;
       const userId = req.user?.id;
 
       // Verificar que el código no exista
@@ -134,6 +141,7 @@ router.post('/',
           prioridad: prioridad || 100,
           fechaVigencia: fechaVigencia ? new Date(fechaVigencia) : null,
           activa: activa !== undefined ? activa : true,
+          esGlobal: esGlobal || false,
           createdBy: userId,
           tenantId: req.tenantId,
           updatedAt: new Date()
@@ -171,7 +179,7 @@ router.put('/:id',
       }
 
       const { id } = req.params;
-      const { codigo, nombre, descripcion, tipo, configuracion, prioridad, fechaVigencia, activa } = req.body;
+      const { codigo, nombre, descripcion, tipo, configuracion, prioridad, fechaVigencia, activa, esGlobal } = req.body;
       const userId = req.user?.id;
 
       // Verificar que la regla existe
@@ -239,6 +247,7 @@ router.put('/:id',
       if (prioridad !== undefined) updateData.prioridad = prioridad;
       if (fechaVigencia !== undefined) updateData.fechaVigencia = fechaVigencia ? new Date(fechaVigencia) : null;
       if (activa !== undefined) updateData.activa = activa;
+      if (esGlobal !== undefined) updateData.esGlobal = esGlobal;
 
       const regla = await prisma.reglas_negocio.update({
         where: req.filterByTenant({ id }),
@@ -439,6 +448,18 @@ router.get('/meta/acciones', authWithTenant, async (req, res) => {
       nombre: 'Buscar con IA',
       descripcion: 'Usa IA para encontrar la mejor coincidencia semántica en parámetros maestros',
       parametros: ['campo', 'campoTexto', 'tabla', 'filtro', 'campoRetorno', 'umbralConfianza', 'requiereAprobacion', 'instruccionesAdicionales', 'valorDefecto']
+    },
+    {
+      codigo: 'EXTRACT_JSON_FIELDS',
+      nombre: 'Extraer Campos JSON',
+      descripcion: 'Extrae múltiples campos de un JSON en cualquier tabla (parametros_maestros, userAtributo, etc.)',
+      parametros: ['tabla', 'campoConsulta', 'valorConsulta', 'filtroAdicional', 'campos']
+    },
+    {
+      codigo: 'CREATE_DISTRIBUTION',
+      nombre: 'Crear Distribución',
+      descripcion: 'Crea una distribución con dimensiones y subcuentas para la línea o impuesto',
+      parametros: ['dimensionTipo', 'dimensionTipoCampo', 'dimensionNombre', 'dimensionNombreCampo', 'subcuentas', 'subcuentasCampo']
     }
   ]);
 });
@@ -507,6 +528,232 @@ router.get('/meta/estados', authWithTenant, async (req, res) => {
       error: 'Error interno del servidor',
       message: error.message
     });
+  }
+});
+
+// ============================================
+// ENDPOINTS PARA REGLAS GLOBALES
+// ============================================
+
+// GET /reglas/globales/disponibles - Listar reglas globales disponibles (solo para crear nuevas globales o ver catálogo)
+router.get('/globales/disponibles', authWithTenant, async (req, res) => {
+  // Deshabilitar caché para este endpoint (importante para multi-tenant)
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+
+  try {
+    const { tipo, search } = req.query;
+
+    const where = {
+      esGlobal: true,
+      activa: true,
+      tenantId: null  // Las reglas globales NO deben tener tenantId
+    };
+
+    if (tipo) where.tipo = tipo;
+    if (search) {
+      where.OR = [
+        { codigo: { contains: search, mode: 'insensitive' } },
+        { nombre: { contains: search, mode: 'insensitive' } },
+        { descripcion: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    const reglasGlobales = await prisma.reglas_negocio.findMany({
+      where,
+      orderBy: [
+        { prioridad: 'asc' },
+        { nombre: 'asc' }
+      ],
+      include: {
+        _count: {
+          select: {
+            reglas_ejecuciones: true,
+            tenant_reglas_globales: true
+          }
+        }
+      }
+    });
+
+    // Para cada regla global, verificar si el tenant actual la tiene activa
+    // (la regla está activa si existe el registro en tenant_reglas_globales)
+    const tenantId = req.tenantId; // ← Usar req.tenantId (del token JWT) no req.user.tenantId (de la BD)
+
+    console.log('🌐 [GET /reglas/globales/disponibles] tenantId del request:', tenantId);
+    console.log('📋 [GET /reglas/globales/disponibles] Reglas globales encontradas:', reglasGlobales.length);
+
+    const reglasConEstado = await Promise.all(
+      reglasGlobales.map(async (regla) => {
+        const vinculo = await prisma.tenant_reglas_globales.findUnique({
+          where: {
+            tenantId_reglaGlobalId: {
+              tenantId,
+              reglaGlobalId: regla.id
+            }
+          }
+        });
+
+        const activaEnTenant = !!vinculo;
+
+        console.log(`   📌 Regla: ${regla.codigo}`);
+        console.log(`      reglaId: ${regla.id}`);
+        console.log(`      Buscando vínculo: tenantId=${tenantId}, reglaGlobalId=${regla.id}`);
+        console.log(`      Vínculo encontrado: ${vinculo ? 'SÍ' : 'NO'}`);
+        if (vinculo) {
+          console.log(`      Vínculo ID: ${vinculo.id}`);
+          console.log(`      Vínculo activa: ${vinculo.activa}`);
+        }
+        console.log(`      activaEnTenant calculado: ${activaEnTenant}`);
+
+        return {
+          ...regla,
+          activaEnTenant: activaEnTenant, // Activa si existe el registro
+          prioridadOverride: vinculo?.prioridadOverride,
+          configuracionOverride: vinculo?.configuracionOverride
+        };
+      })
+    );
+
+    console.log('📤 [GET /reglas/globales/disponibles] Enviando respuesta con', reglasConEstado.length, 'reglas');
+    console.log('📤 Estados:', reglasConEstado.map(r => ({ codigo: r.codigo, activaEnTenant: r.activaEnTenant })));
+
+    res.json(reglasConEstado);
+  } catch (error) {
+    console.error('Error obteniendo reglas globales:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// POST /reglas/globales/:reglaId/activar - Activar una regla global para el tenant actual
+router.post('/globales/:reglaId/activar', authWithTenant, async (req, res) => {
+  try {
+    const { reglaId } = req.params;
+    const { prioridadOverride, configuracionOverride } = req.body;
+    const tenantId = req.tenantId; // ← Usar req.tenantId (del token JWT) no req.user.tenantId (de la BD)
+
+    console.log('🟢 [POST /reglas/globales/:reglaId/activar]');
+    console.log('   reglaId:', reglaId);
+    console.log('   tenantId:', tenantId);
+
+    // Verificar que la regla existe y es global
+    const regla = await prisma.reglas_negocio.findUnique({
+      where: { id: reglaId }
+    });
+
+    if (!regla) {
+      return res.status(404).json({ error: 'Regla no encontrada' });
+    }
+
+    if (!regla.esGlobal) {
+      return res.status(400).json({ error: 'La regla no es global' });
+    }
+
+    // Verificar si ya existe el vínculo
+    const vinculoExistente = await prisma.tenant_reglas_globales.findUnique({
+      where: {
+        tenantId_reglaGlobalId: {
+          tenantId,
+          reglaGlobalId: reglaId
+        }
+      }
+    });
+
+    console.log('   Vínculo existente:', vinculoExistente ? 'SÍ (ya activada)' : 'NO (se puede activar)');
+
+    if (vinculoExistente) {
+      console.log('   ⚠️  La regla ya está activada para este tenant');
+      return res.status(400).json({ error: 'La regla ya está activada para este tenant' });
+    }
+
+    console.log('   ✅ Creando vínculo...');
+
+    // Crear el vínculo (activar = crear registro)
+    const vinculo = await prisma.tenant_reglas_globales.create({
+      data: {
+        tenantId,
+        reglaGlobalId: reglaId,
+        activa: true,
+        prioridadOverride: prioridadOverride || null,
+        configuracionOverride: configuracionOverride || null,
+        createdBy: req.user.id,
+        updatedBy: req.user.id,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    });
+
+    console.log('   ✅ Vínculo creado exitosamente:', vinculo.id);
+
+    res.json({ success: true, vinculo });
+  } catch (error) {
+    console.error('❌ Error activando regla global:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// POST /reglas/globales/:reglaId/desactivar - Desactivar una regla global para el tenant actual
+router.post('/globales/:reglaId/desactivar', authWithTenant, async (req, res) => {
+  try {
+    const { reglaId } = req.params;
+    const tenantId = req.tenantId; // ← Usar req.tenantId (del token JWT) no req.user.tenantId (de la BD)
+
+    console.log('🔴 [POST /reglas/globales/:reglaId/desactivar]');
+    console.log('   reglaId:', reglaId);
+    console.log('   tenantId:', tenantId);
+
+    // Eliminar el vínculo completamente (desactivar = eliminar registro)
+    const vinculo = await prisma.tenant_reglas_globales.deleteMany({
+      where: {
+        tenantId,
+        reglaGlobalId: reglaId
+      }
+    });
+
+    console.log('   Vínculos eliminados:', vinculo.count);
+
+    if (vinculo.count === 0) {
+      console.log('   ⚠️  La regla no estaba activada para este tenant');
+      return res.status(404).json({ error: 'La regla no estaba activada para este tenant' });
+    }
+
+    console.log('   ✅ Regla desactivada exitosamente');
+
+    res.json({ success: true, deleted: vinculo.count });
+  } catch (error) {
+    console.error('❌ Error desactivando regla global:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// PUT /reglas/globales/:reglaId/config - Actualizar configuración override de una regla global
+router.put('/globales/:reglaId/config', authWithTenant, async (req, res) => {
+  try {
+    const { reglaId } = req.params;
+    const { prioridadOverride, configuracionOverride } = req.body;
+    const tenantId = req.tenantId; // ← Usar req.tenantId (del token JWT) no req.user.tenantId (de la BD)
+
+    const vinculo = await prisma.tenant_reglas_globales.updateMany({
+      where: {
+        tenantId,
+        reglaGlobalId: reglaId
+      },
+      data: {
+        prioridadOverride,
+        configuracionOverride,
+        updatedBy: req.user.id,
+        updatedAt: new Date()
+      }
+    });
+
+    if (vinculo.count === 0) {
+      return res.status(404).json({ error: 'Regla no activada en este tenant' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error actualizando configuración de regla global:', error);
+    res.status(500).json({ error: 'Error del servidor' });
   }
 });
 

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table';
-import { Plus, Key, Trash2, RefreshCw, Copy, Check, Eye, EyeOff } from 'lucide-react';
+import { Plus, Key, Trash2, RefreshCw, Copy, Check, Eye, EyeOff, Edit } from 'lucide-react';
 import { toast } from 'sonner';
 import { Select } from '@/components/ui/Select';
 import { useConfirmDialog } from '@/hooks/useConfirm';
@@ -26,6 +26,9 @@ interface ApiKey {
     sync?: boolean;
     logs?: boolean;
     admin?: boolean;
+    parse?: boolean;
+    applyRules?: boolean;
+    saveDocs?: boolean;
   };
   activo: boolean;
   ultimoUso: string | null;
@@ -47,6 +50,8 @@ export default function ApiKeysPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingApiKey, setEditingApiKey] = useState<ApiKey | null>(null);
   const [newKeyData, setNewKeyData] = useState<{
     plainKey?: string;
     data?: ApiKey;
@@ -61,8 +66,24 @@ export default function ApiKeysPage() {
       sync: true,
       logs: true,
       admin: false,
+      parse: false,
+      applyRules: false,
+      saveDocs: false,
     },
     expiraEn: '',
+  });
+
+  // Edit form state
+  const [editFormData, setEditFormData] = useState({
+    nombre: '',
+    permisos: {
+      sync: false,
+      logs: false,
+      admin: false,
+      parse: false,
+      applyRules: false,
+      saveDocs: false,
+    },
   });
 
   useEffect(() => {
@@ -122,6 +143,9 @@ export default function ApiKeysPage() {
             sync: true,
             logs: true,
             admin: false,
+            parse: false,
+            applyRules: false,
+            saveDocs: false,
           },
           expiraEn: '',
         });
@@ -208,6 +232,47 @@ export default function ApiKeysPage() {
     }
   };
 
+  const openEditModal = (apiKey: ApiKey) => {
+    setEditingApiKey(apiKey);
+    setEditFormData({
+      nombre: apiKey.nombre,
+      permisos: {
+        sync: apiKey.permisos.sync || false,
+        logs: apiKey.permisos.logs || false,
+        admin: apiKey.permisos.admin || false,
+        parse: apiKey.permisos.parse || false,
+        applyRules: apiKey.permisos.applyRules || false,
+        saveDocs: apiKey.permisos.saveDocs || false,
+      },
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!editingApiKey) return;
+
+    try {
+      const data = await put(`/api/sync/api-keys/${editingApiKey.id}`, {
+        nombre: editFormData.nombre,
+        permisos: editFormData.permisos,
+      });
+
+      if (data.success) {
+        toast.success('API key actualizada exitosamente');
+        setIsEditModalOpen(false);
+        setEditingApiKey(null);
+        fetchApiKeys();
+      } else {
+        toast.error(data.error || 'Error al actualizar API key');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Error al actualizar API key');
+    }
+  };
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedKey(true);
@@ -261,6 +326,145 @@ export default function ApiKeysPage() {
               <Button onClick={() => setNewKeyData(null)} className="w-full">
                 Entendido, he guardado la clave
               </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {isEditModalOpen && editingApiKey && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="max-w-md w-full mx-4">
+            <CardHeader>
+              <CardTitle>Editar API Key</CardTitle>
+              <CardDescription>
+                Modificar nombre y permisos de "{editingApiKey.nombre}"
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleEdit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nombre *
+                  </label>
+                  <Input
+                    type="text"
+                    value={editFormData.nombre}
+                    onChange={(e) => setEditFormData({ ...editFormData, nombre: e.target.value })}
+                    required
+                    placeholder="Ej: Servidor Producción"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Permisos
+                  </label>
+                  <div className="space-y-2">
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={editFormData.permisos.sync}
+                        onChange={(e) =>
+                          setEditFormData({
+                            ...editFormData,
+                            permisos: { ...editFormData.permisos, sync: e.target.checked },
+                          })
+                        }
+                        className="mr-2"
+                      />
+                      <span className="text-sm">Sincronización</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={editFormData.permisos.logs}
+                        onChange={(e) =>
+                          setEditFormData({
+                            ...editFormData,
+                            permisos: { ...editFormData.permisos, logs: e.target.checked },
+                          })
+                        }
+                        className="mr-2"
+                      />
+                      <span className="text-sm">Logs</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={editFormData.permisos.admin}
+                        onChange={(e) =>
+                          setEditFormData({
+                            ...editFormData,
+                            permisos: { ...editFormData.permisos, admin: e.target.checked },
+                          })
+                        }
+                        className="mr-2"
+                      />
+                      <span className="text-sm">Admin</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={editFormData.permisos.parse}
+                        onChange={(e) =>
+                          setEditFormData({
+                            ...editFormData,
+                            permisos: { ...editFormData.permisos, parse: e.target.checked },
+                          })
+                        }
+                        className="mr-2"
+                      />
+                      <span className="text-sm">Parse (Parsear documentos)</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={editFormData.permisos.applyRules}
+                        onChange={(e) =>
+                          setEditFormData({
+                            ...editFormData,
+                            permisos: { ...editFormData.permisos, applyRules: e.target.checked },
+                          })
+                        }
+                        className="mr-2"
+                      />
+                      <span className="text-sm">Apply Rules (Aplicar reglas)</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={editFormData.permisos.saveDocs}
+                        onChange={(e) =>
+                          setEditFormData({
+                            ...editFormData,
+                            permisos: { ...editFormData.permisos, saveDocs: e.target.checked },
+                          })
+                        }
+                        className="mr-2"
+                      />
+                      <span className="text-sm">Save Docs (Guardar documentos)</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setIsEditModalOpen(false);
+                      setEditingApiKey(null);
+                    }}
+                    className="flex-1"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" className="flex-1">
+                    Guardar Cambios
+                  </Button>
+                </div>
+              </form>
             </CardContent>
           </Card>
         </div>
@@ -338,6 +542,62 @@ export default function ApiKeysPage() {
                         className="mr-2"
                       />
                       <span className="text-sm">Logs</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.permisos.admin}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            permisos: { ...formData.permisos, admin: e.target.checked },
+                          })
+                        }
+                        className="mr-2"
+                      />
+                      <span className="text-sm">Admin</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.permisos.parse}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            permisos: { ...formData.permisos, parse: e.target.checked },
+                          })
+                        }
+                        className="mr-2"
+                      />
+                      <span className="text-sm">Parse (Parsear documentos)</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.permisos.applyRules}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            permisos: { ...formData.permisos, applyRules: e.target.checked },
+                          })
+                        }
+                        className="mr-2"
+                      />
+                      <span className="text-sm">Apply Rules (Aplicar reglas)</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.permisos.saveDocs}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            permisos: { ...formData.permisos, saveDocs: e.target.checked },
+                          })
+                        }
+                        className="mr-2"
+                      />
+                      <span className="text-sm">Save Docs (Guardar documentos)</span>
                     </label>
                   </div>
                 </div>
@@ -459,6 +719,15 @@ export default function ApiKeysPage() {
                         {apiKey.permisos.admin && (
                           <Badge variant="default" className="text-xs">Admin</Badge>
                         )}
+                        {apiKey.permisos.parse && (
+                          <Badge variant="default" className="text-xs">Parse</Badge>
+                        )}
+                        {apiKey.permisos.applyRules && (
+                          <Badge variant="default" className="text-xs">Rules</Badge>
+                        )}
+                        {apiKey.permisos.saveDocs && (
+                          <Badge variant="default" className="text-xs">Save</Badge>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -486,6 +755,14 @@ export default function ApiKeysPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEditModal(apiKey)}
+                          title="Editar"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"

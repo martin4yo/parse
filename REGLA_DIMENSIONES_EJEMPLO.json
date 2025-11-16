@@ -1,0 +1,52 @@
+{
+  "codigo": "REGLA_DIMENSIONES",
+  "nombre": "Crear distribuciones desde código de producto",
+  "descripcion": "Extrae dimensión y subcuentas desde parametros_maestros según codigoProducto y crea las distribuciones automáticamente",
+  "tipo": "TRANSFORMACION",
+  "activa": true,
+  "prioridad": 100,
+  "configuracion": {
+    "aplicaA": "LINEAS",
+    "condiciones": [
+      {
+        "campo": "codigoProducto",
+        "operador": "IS_NOT_EMPTY",
+        "valor": ""
+      }
+    ],
+    "acciones": [
+      {
+        "operacion": "EXTRACT_JSON_FIELDS",
+        "tabla": "parametros_maestros",
+        "campoConsulta": "codigo",
+        "valorConsulta": "{codigoProducto}",
+        "filtroAdicional": {
+          "tipo_campo": "codigo_producto",
+          "activo": true
+        },
+        "campos": [
+          {
+            "campoJSON": "dimension.tipo",
+            "campoDestino": "_dimensionTipo"
+          },
+          {
+            "campoJSON": "dimension.nombre",
+            "campoDestino": "_dimensionNombre"
+          },
+          {
+            "campoJSON": "subcuentas",
+            "campoDestino": "_subcuentasJSON"
+          }
+        ]
+      },
+      {
+        "operacion": "CREATE_DISTRIBUTION",
+        "dimensionTipoCampo": "{_dimensionTipo}",
+        "dimensionNombreCampo": "{_dimensionNombre}",
+        "subcuentasCampo": "{_subcuentasJSON}"
+      }
+    ],
+    "logicOperator": "AND",
+    "stopOnMatch": false
+  }
+}

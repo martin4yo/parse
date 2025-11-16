@@ -50,6 +50,9 @@ const jobsRoutes = require('./routes/jobs');
 const planesRoutes = require('./routes/planes');
 const menuRoutes = require('./routes/menu');
 
+// Parse API - Endpoints públicos para aplicaciones externas
+const parseApiRoutes = require('./routes/parseApi');
+
 const app = express();
 const PORT = process.env.PORT || 5100;
 
@@ -158,6 +161,9 @@ app.use('/api/ai-rules', aiRulesRoutes);
 // Sincronización SQL
 app.use('/api/sync', syncRoutes);
 app.use('/api/sync/api-keys', syncApiKeysRoutes);
+
+// Parse API Pública - Endpoints para aplicaciones externas (autenticación con API Key)
+app.use('/api/v1/parse', parseApiRoutes);
 
 // Sistema
 app.use('/api/jobs', jobsRoutes);
