@@ -699,11 +699,11 @@ export function DistribucionesModal({
             <button
               onClick={handleGuardar}
               disabled={saving || !validacion.valido}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center space-x-2 px-4 py-2 bg-palette-dark text-palette-yellow rounded-lg hover:bg-palette-dark/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-palette-yellow"></div>
                   <span>Guardando...</span>
                 </>
               ) : (
