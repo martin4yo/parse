@@ -2117,7 +2117,7 @@ export default function ComprobantesPage() {
                         });
                         setShowDistribucionesModal(true);
                       }}
-                      className="bg-purple-600 hover:bg-purple-700 text-white"
+                      className="bg-palette-dark hover:bg-palette-dark/90 text-palette-yellow"
                       size="sm"
                     >
                       <Plus className="w-4 h-4 mr-1" />
