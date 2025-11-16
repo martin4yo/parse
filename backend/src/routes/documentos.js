@@ -4289,6 +4289,195 @@ router.post('/impuestos/:impuestoId/distribuciones', authWithTenant, async (req,
   }
 });
 
+// GET /api/documentos/:documentoId/distribuciones - Obtener distribuciones de un documento
+router.get('/:documentoId/distribuciones', authWithTenant, async (req, res) => {
+  try {
+    const { documentoId } = req.params;
+    const tenantId = req.tenantId;
+
+    console.log(`📊 [Distribuciones] Buscando documento ${documentoId} para tenant ${tenantId}`);
+
+    // Verificar que el documento existe y pertenece al tenant
+    const documento = await prisma.documentos_procesados.findFirst({
+      where: {
+        id: documentoId,
+        tenantId: tenantId
+      }
+    });
+
+    if (!documento) {
+      console.log(`❌ [Distribuciones] Documento ${documentoId} no encontrado para tenant ${tenantId}`);
+      return res.status(404).json({
+        success: false,
+        error: 'Documento no encontrado'
+      });
+    }
+
+    console.log(`✅ [Distribuciones] Documento encontrado: ${documento.id}`);
+
+    // Obtener distribuciones con sus subcuentas
+    const distribuciones = await prisma.documento_distribuciones.findMany({
+      where: {
+        documentoId: documentoId,
+        activo: true
+      },
+      include: {
+        documento_subcuentas: {
+          where: { activo: true },
+          orderBy: { orden: 'asc' }
+        }
+      },
+      orderBy: { orden: 'asc' }
+    });
+
+    res.json({
+      success: true,
+      distribuciones
+    });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo distribuciones del documento:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// POST /api/documentos/:documentoId/distribuciones - Guardar distribuciones de un documento (batch)
+router.post('/:documentoId/distribuciones', authWithTenant, async (req, res) => {
+  try {
+    const { documentoId } = req.params;
+    const { distribuciones } = req.body;
+    const tenantId = req.tenantId;
+
+    // Verificar que el documento existe y pertenece al tenant
+    const documento = await prisma.documentos_procesados.findFirst({
+      where: {
+        id: documentoId,
+        tenantId: tenantId
+      }
+    });
+
+    if (!documento) {
+      return res.status(404).json({
+        success: false,
+        error: 'Documento no encontrado'
+      });
+    }
+
+    // Cada dimensión distribuye el total completo del documento
+    const totalDocumento = parseFloat(documento.importeExtraido || 0);
+
+    // Validar cada distribución: sus subcuentas deben sumar 100% y el total del documento en importe
+    for (const dist of distribuciones) {
+      if (!dist.subcuentas || dist.subcuentas.length === 0) continue;
+
+      const totalPorcentaje = dist.subcuentas.reduce((sum, sub) =>
+        sum + parseFloat(sub.porcentaje || 0), 0
+      );
+      const totalImporte = dist.subcuentas.reduce((sum, sub) =>
+        sum + parseFloat(sub.importe || 0), 0
+      );
+
+      const difPorcentaje = Math.abs(totalPorcentaje - 100);
+      const difImporte = Math.abs(totalDocumento - totalImporte);
+
+      if (difPorcentaje > 0.01) {
+        return res.status(400).json({
+          success: false,
+          error: `Las subcuentas de la dimensión "${dist.tipoDimensionNombre}" suman ${totalPorcentaje.toFixed(2)}% en lugar de 100%`
+        });
+      }
+
+      if (difImporte > 0.01) {
+        return res.status(400).json({
+          success: false,
+          error: `Las subcuentas de la dimensión "${dist.tipoDimensionNombre}" suman $${totalImporte.toFixed(2)} en lugar de $${totalDocumento.toFixed(2)}`
+        });
+      }
+    }
+
+    // Usar transacción para asegurar atomicidad
+    const resultado = await prisma.$transaction(async (tx) => {
+      // 1. Marcar como inactivas las distribuciones existentes
+      await tx.documento_distribuciones.updateMany({
+        where: {
+          documentoId: documentoId
+        },
+        data: {
+          activo: false
+        }
+      });
+
+      // 2. Crear nuevas distribuciones
+      const distribucionesCreadas = [];
+
+      for (const dist of distribuciones) {
+        // Crear distribución
+        const nuevaDistribucion = await tx.documento_distribuciones.create({
+          data: {
+            id: uuidv4(),
+            documentoId: documentoId,
+            tipoDimension: dist.tipoDimension,
+            tipoDimensionNombre: dist.tipoDimensionNombre,
+            importeDimension: totalDocumento, // Cada dimensión distribuye el total completo
+            orden: dist.orden || 1,
+            activo: true,
+            tenantId: tenantId,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+        });
+
+        // Crear subcuentas de esta distribución
+        const subcuentasCreadas = [];
+        if (dist.subcuentas && dist.subcuentas.length > 0) {
+          for (const sub of dist.subcuentas) {
+            const nuevaSubcuenta = await tx.documento_subcuentas.create({
+              data: {
+                id: uuidv4(),
+                distribucionId: nuevaDistribucion.id,
+                codigoSubcuenta: sub.codigoSubcuenta,
+                subcuentaNombre: sub.subcuentaNombre,
+                cuentaContable: sub.cuentaContable,
+                porcentaje: parseFloat(sub.porcentaje),
+                importe: parseFloat(sub.importe),
+                orden: sub.orden || 1,
+                activo: true,
+                createdAt: new Date(),
+                updatedAt: new Date()
+              }
+            });
+            subcuentasCreadas.push(nuevaSubcuenta);
+          }
+        }
+
+        distribucionesCreadas.push({
+          ...nuevaDistribucion,
+          documento_subcuentas: subcuentasCreadas
+        });
+      }
+
+      return distribucionesCreadas;
+    });
+
+    console.log(`✅ ${resultado.length} distribuciones guardadas para documento ${documentoId.substring(0, 8)}...`);
+
+    res.json({
+      success: true,
+      distribuciones: resultado
+    });
+
+  } catch (error) {
+    console.error('❌ Error guardando distribuciones del documento:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // DELETE /api/documentos/distribuciones/:id - Eliminar una distribución (marca como inactiva)
 router.delete('/distribuciones/:id', authWithTenant, async (req, res) => {
   try {

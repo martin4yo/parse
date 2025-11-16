@@ -182,6 +182,7 @@ model documentos_procesados {
   errorMessage              String?
   codigoDimension           String?               @db.VarChar(50)
   subcuenta                 String?               @db.VarChar(50)
+  documento_distribuciones  documento_distribuciones[]
   documento_impuestos       documento_impuestos[]
   documento_lineas          documento_lineas[]
   tenants                   tenants               @relation(fields: [tenantId], references: [id])
@@ -562,6 +563,7 @@ model valores_atributo {
 
 model documento_distribuciones {
   id                   String                 @id @default(cuid())
+  documentoId          String?
   documentoLineaId     String?
   documentoImpuestoId  String?
   tipoDimension        String                 @db.VarChar(50)
@@ -573,10 +575,12 @@ model documento_distribuciones {
   updatedAt            DateTime               @updatedAt
   tenantId             String
   documento_subcuentas documento_subcuentas[]
+  documentos_procesados documentos_procesados? @relation(fields: [documentoId], references: [id], onDelete: Cascade)
   documento_impuestos  documento_impuestos?   @relation(fields: [documentoImpuestoId], references: [id], onDelete: Cascade)
   documento_lineas     documento_lineas?      @relation(fields: [documentoLineaId], references: [id], onDelete: Cascade)
   tenants              tenants                @relation(fields: [tenantId], references: [id])
 
+  @@index([documentoId])
   @@index([documentoLineaId])
   @@index([documentoImpuestoId])
   @@index([tipoDimension])

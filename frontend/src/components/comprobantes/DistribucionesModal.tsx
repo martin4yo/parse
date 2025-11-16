@@ -28,7 +28,7 @@ interface Distribucion {
 interface DistribucionesModalProps {
   isOpen: boolean;
   onClose: () => void;
-  tipo: 'linea' | 'impuesto';
+  tipo: 'linea' | 'impuesto' | 'documento';
   entidadId: string;
   totalEntidad: number;
   codigo: string;
@@ -68,7 +68,9 @@ export function DistribucionesModal({
   const loadDistribuciones = async () => {
     try {
       setLoading(true);
-      const endpoint = tipo === 'linea'
+      const endpoint = tipo === 'documento'
+        ? `/documentos/${entidadId}/distribuciones`
+        : tipo === 'linea'
         ? `/documentos/lineas/${entidadId}/distribuciones`
         : `/documentos/impuestos/${entidadId}/distribuciones`;
 
@@ -386,7 +388,9 @@ export function DistribucionesModal({
     try {
       setSaving(true);
 
-      const endpoint = tipo === 'linea'
+      const endpoint = tipo === 'documento'
+        ? `/documentos/${entidadId}/distribuciones`
+        : tipo === 'linea'
         ? `/documentos/lineas/${entidadId}/distribuciones`
         : `/documentos/impuestos/${entidadId}/distribuciones`;
 
@@ -458,13 +462,15 @@ export function DistribucionesModal({
             </h2>
             <div className="mt-1 space-y-1">
               <p className="text-sm text-gray-700">
-                <span className="font-medium">{tipo === 'linea' ? 'Producto:' : 'Impuesto:'}</span>{' '}
+                <span className="font-medium">
+                  {tipo === 'documento' ? 'Documento:' : tipo === 'linea' ? 'Producto:' : 'Impuesto:'}
+                </span>{' '}
                 {codigo && <span className="text-blue-600 font-mono">{codigo}</span>}
                 {codigo && nombre && <span className="text-gray-400 mx-1">-</span>}
                 {nombre && <span className="text-gray-900">{nombre}</span>}
               </p>
               <p className="text-sm text-gray-500">
-                Total {tipo === 'linea' ? 'de la línea' : 'del impuesto'}: <span className="font-semibold text-gray-900">${totalEntidad.toFixed(2)}</span>
+                Total {tipo === 'documento' ? 'del documento' : tipo === 'linea' ? 'de la línea' : 'del impuesto'}: <span className="font-semibold text-gray-900">${totalEntidad.toFixed(2)}</span>
                 <span className="text-gray-400 ml-2">(Cada dimensión distribuye este total completo)</span>
               </p>
             </div>

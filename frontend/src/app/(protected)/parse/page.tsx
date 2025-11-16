@@ -103,7 +103,7 @@ export default function ComprobantesPage() {
   // Estados para modal de dimensiones
   const [showDistribucionesModal, setShowDistribucionesModal] = useState(false);
   const [distribucionesEntidad, setDistribucionesEntidad] = useState<{
-    tipo: 'linea' | 'impuesto';
+    tipo: 'linea' | 'impuesto' | 'documento';
     id: string;
     total: number;
     codigo: string;
@@ -1886,7 +1886,8 @@ export default function ComprobantesPage() {
             <div className="overflow-y-auto p-6" style={{ height: '500px' }}>
               {/* TAB: ENCABEZADO */}
               {activeTab === 'encabezado' && (
-                <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="grid grid-cols-2 gap-4">
                 {/* 1. Fecha */}
                 <div>
                   <label className="block text-sm font-medium text-text-primary mb-2">
@@ -2098,6 +2099,35 @@ export default function ComprobantesPage() {
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder="CAE del comprobante"
                   />
+                </div>
+              </div>
+
+                {/* Sección de Dimensiones y Subcuentas */}
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-800">Dimensiones y Subcuentas del Documento</h3>
+                    <Button
+                      onClick={() => {
+                        setDistribucionesEntidad({
+                          tipo: 'documento',
+                          id: selectedDocumentForEdit!.id,
+                          total: parseFloat(editFormData.importeExtraido || '0'),
+                          codigo: editFormData.tipoComprobanteExtraido || '',
+                          nombre: editFormData.numeroComprobanteExtraido || ''
+                        });
+                        setShowDistribucionesModal(true);
+                      }}
+                      className="bg-purple-600 hover:bg-purple-700 text-white"
+                      size="sm"
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Editar Dimensiones
+                    </Button>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Define dimensiones y subcuentas que se aplicarán a nivel del documento completo.
+                    Esto es útil para asignar centros de costo, proyectos u otras dimensiones contables al comprobante entero.
+                  </p>
                 </div>
               </div>
               )}
@@ -3272,9 +3302,10 @@ export default function ComprobantesPage() {
             // Recargar datos según el tipo de entidad
             if (distribucionesEntidad.tipo === 'linea') {
               await loadDocumentoLineas(selectedDocumentForEdit!.id);
-            } else {
+            } else if (distribucionesEntidad.tipo === 'impuesto') {
               await loadDocumentoImpuestos(selectedDocumentForEdit!.id);
             }
+            // Para tipo 'documento' no hay que recargar líneas ni impuestos
 
             // Recargar estado de distribuciones
             const lineas = await api.get(`/documentos/${selectedDocumentForEdit!.id}/lineas`).then(r => r.data.lineas || []);
