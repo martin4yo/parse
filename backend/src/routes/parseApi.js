@@ -12,9 +12,21 @@ const path = require('path');
 // Instancia global de DocumentProcessor
 const documentProcessor = new DocumentProcessor();
 
-// Configurar multer para subida de archivos
+// Configurar multer para subida de archivos con preservación de extensión
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/api-parse/');
+  },
+  filename: function (req, file, cb) {
+    // Preservar la extensión original del archivo
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+  }
+});
+
 const upload = multer({
-  dest: 'uploads/api-parse/',
+  storage: storage,
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB
   }
