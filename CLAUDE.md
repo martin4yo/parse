@@ -22,6 +22,32 @@
 
 ## ⚡ ÚLTIMAS ACTUALIZACIONES - Enero 2025
 
+### ✅ Dimensiones y Subcuentas a Nivel Documento
+
+**Implementado:** 16 de Enero 2025
+
+Los usuarios ahora pueden asignar dimensiones contables (centros de costo, proyectos, etc.) a nivel del documento completo, no solo a líneas e impuestos individuales.
+
+**Características:**
+- ✅ Nuevo campo `documentoId` en tabla `documento_distribuciones`
+- ✅ Endpoints GET/POST `/api/documentos/:documentoId/distribuciones`
+- ✅ Sección "Dimensiones y Subcuentas del Documento" en tab Encabezado
+- ✅ Modal reutilizable soporta tipo 'documento', 'linea' e 'impuesto'
+- ✅ Validación automática: subcuentas deben sumar 100%
+- ✅ Auto-distribución al agregar subcuentas
+- ✅ Consistencia visual: botones con esquema de colores unificado
+
+**Archivos modificados:**
+- `backend/prisma/schema.prisma` - Agregado campo `documentoId` y relación
+- `backend/src/routes/documentos.js` - Nuevos endpoints para distribuciones de documento
+- `frontend/src/components/comprobantes/DistribucionesModal.tsx` - Soporte tipo 'documento'
+- `frontend/src/app/(protected)/parse/page.tsx` - Sección nueva en tab encabezado
+
+**Documentación completa:**
+- Ver `docs/SESION-2025-01-16-DIMENSIONES-DOCUMENTO.md` para detalles técnicos completos
+
+---
+
 ### ✅ Sistema de Prompts GLOBAL para Superadmins
 
 **Implementado:** 13 de Enero 2025
