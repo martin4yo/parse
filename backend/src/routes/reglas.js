@@ -7,31 +7,31 @@ const BusinessRulesEngine = require('../services/businessRulesEngine');
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// GET /reglas - Obtener solo las reglas propias del tenant (NO incluye globales)
+// GET /reglas - Obtener reglas propias del tenant + globales vinculadas
 router.get('/', authWithTenant, async (req, res) => {
   try {
     const { tipo, activa, search } = req.query;
-    const tenantId = req.user?.tenantId;
+    const tenantId = req.tenantId; // Usar req.tenantId del JWT, no req.user.tenantId de la BD
 
-    // Construir filtros para reglas propias del tenant
-    const where = {
-      esGlobal: false,  // Solo reglas NO globales (propias del tenant)
-      tenantId: tenantId  // Asegurar que pertenecen a este tenant
-    };
-
-    if (tipo) where.tipo = tipo;
-    if (activa !== undefined) where.activa = activa === 'true';
+    // 1. Construir filtro base
+    const whereFiltros = {};
+    if (tipo) whereFiltros.tipo = tipo;
+    if (activa !== undefined) whereFiltros.activa = activa === 'true';
     if (search) {
-      where.OR = [
+      whereFiltros.OR = [
         { codigo: { contains: search, mode: 'insensitive' } },
         { nombre: { contains: search, mode: 'insensitive' } },
         { descripcion: { contains: search, mode: 'insensitive' } }
       ];
     }
 
-    // Solo reglas propias del tenant
-    const reglas = await prisma.reglas_negocio.findMany({
-      where,
+    // 2. Obtener reglas propias del tenant (no globales)
+    const reglasPropias = await prisma.reglas_negocio.findMany({
+      where: {
+        esGlobal: false,
+        tenantId: tenantId,
+        ...whereFiltros
+      },
       orderBy: [
         { prioridad: 'asc' },
         { nombre: 'asc' }
@@ -43,7 +43,56 @@ router.get('/', authWithTenant, async (req, res) => {
       }
     });
 
-    res.json(reglas);
+    // 3. Obtener IDs de reglas globales vinculadas a este tenant
+    const vinculosGlobales = await prisma.tenant_reglas_globales.findMany({
+      where: {
+        tenantId: tenantId
+      },
+      select: {
+        reglaGlobalId: true
+      }
+    });
+
+    console.log('🔍 [GET /reglas] tenantId:', tenantId);
+    console.log('🔍 [GET /reglas] Vínculos encontrados:', vinculosGlobales);
+
+    const idsReglasGlobalesVinculadas = vinculosGlobales.map(v => v.reglaGlobalId);
+    console.log('🔍 [GET /reglas] IDs de reglas globales vinculadas:', idsReglasGlobalesVinculadas);
+
+    // 4. Si hay reglas globales vinculadas, traerlas
+    let reglasGlobales = [];
+    if (idsReglasGlobalesVinculadas.length > 0) {
+      reglasGlobales = await prisma.reglas_negocio.findMany({
+        where: {
+          id: { in: idsReglasGlobalesVinculadas },
+          esGlobal: true,
+          ...whereFiltros
+        },
+        orderBy: [
+          { prioridad: 'asc' },
+          { nombre: 'asc' }
+        ],
+        include: {
+          _count: {
+            select: { reglas_ejecuciones: true }
+          }
+        }
+      });
+      console.log('🔍 [GET /reglas] Reglas globales encontradas:', reglasGlobales.length);
+    }
+
+    console.log('🔍 [GET /reglas] Total reglas propias:', reglasPropias.length);
+    console.log('🔍 [GET /reglas] Total reglas globales:', reglasGlobales.length);
+
+    // 5. Combinar reglas propias + globales y ordenar
+    const reglasCompletas = [...reglasPropias, ...reglasGlobales].sort((a, b) => {
+      if (a.prioridad !== b.prioridad) {
+        return a.prioridad - b.prioridad;
+      }
+      return a.nombre.localeCompare(b.nombre);
+    });
+
+    res.json(reglasCompletas);
   } catch (error) {
     console.error('Error obteniendo reglas:', error);
     res.status(500).json({ error: 'Error del servidor' });
