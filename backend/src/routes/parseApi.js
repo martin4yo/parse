@@ -12,10 +12,18 @@ const path = require('path');
 // Instancia global de DocumentProcessor
 const documentProcessor = new DocumentProcessor();
 
+// Directorio de uploads con ruta absoluta
+const UPLOAD_DIR = path.join(__dirname, '../../uploads/api-parse');
+
+// Crear directorio si no existe
+fs.mkdir(UPLOAD_DIR, { recursive: true }).catch(err => {
+  console.error('Error creando directorio de uploads:', err);
+});
+
 // Configurar multer para subida de archivos con preservación de extensión
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/api-parse/');
+    cb(null, UPLOAD_DIR);
   },
   filename: function (req, file, cb) {
     // Preservar la extensión original del archivo
