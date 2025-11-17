@@ -53,11 +53,7 @@ router.get('/', authWithTenant, async (req, res) => {
       }
     });
 
-    console.log('🔍 [GET /reglas] tenantId:', tenantId);
-    console.log('🔍 [GET /reglas] Vínculos encontrados:', vinculosGlobales);
-
     const idsReglasGlobalesVinculadas = vinculosGlobales.map(v => v.reglaGlobalId);
-    console.log('🔍 [GET /reglas] IDs de reglas globales vinculadas:', idsReglasGlobalesVinculadas);
 
     // 4. Si hay reglas globales vinculadas, traerlas
     let reglasGlobales = [];
@@ -78,11 +74,7 @@ router.get('/', authWithTenant, async (req, res) => {
           }
         }
       });
-      console.log('🔍 [GET /reglas] Reglas globales encontradas:', reglasGlobales.length);
     }
-
-    console.log('🔍 [GET /reglas] Total reglas propias:', reglasPropias.length);
-    console.log('🔍 [GET /reglas] Total reglas globales:', reglasGlobales.length);
 
     // 5. Combinar reglas propias + globales y ordenar
     const reglasCompletas = [...reglasPropias, ...reglasGlobales].sort((a, b) => {
