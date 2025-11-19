@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
+const crypto = require('crypto');
 const prisma = new PrismaClient();
 
 /**
@@ -347,9 +348,13 @@ JSON:`,
         });
         console.log(`  ✅ ${prompt.clave} - ${prompt.nombre} (actualizado)`);
       } else {
-        // Crear si no existe
+        // Crear si no existe - generar ID y updatedAt
         prompt = await prisma.ai_prompts.create({
-          data: promptData
+          data: {
+            ...promptData,
+            id: crypto.randomUUID(),
+            updatedAt: new Date()
+          }
         });
         console.log(`  ✅ ${prompt.clave} - ${prompt.nombre} (creado)`);
       }

@@ -35,7 +35,8 @@ import {
   Key,
   Sparkles,
   ScanText,
-  Package
+  Package,
+  Lightbulb
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -77,7 +78,8 @@ const IconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Key,
   Sparkles,
   ScanText,
-  Package
+  Package,
+  Lightbulb
 };
 
 // Helper para obtener el componente de ícono desde el nombre

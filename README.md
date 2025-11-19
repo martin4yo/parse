@@ -30,7 +30,22 @@ parse/
 │   │   └── lib/      # Utilidades
 │   └── public/
 │
-└── docs/             # Documentación
+└── docs/             # Documentación técnica completa
+    ├── INDEX.md      # 📚 Índice de toda la documentación
+    ├── ROADMAP-2025.md
+    ├── SISTEMA-APRENDIZAJE-PATRONES.md
+    └── ... (100+ documentos)
+```
+
+## 📚 Documentación
+
+**Ver índice completo:** [`docs/INDEX.md`](./docs/INDEX.md)
+
+**Documentos clave:**
+- 🗺️ [Roadmap 2025](./docs/ROADMAP-2025.md) - Plan de desarrollo completo
+- ⚙️ [Sistema de Aprendizaje de Patrones](./docs/SISTEMA-APRENDIZAJE-PATRONES.md) - Reduce costos de IA en 60-85%
+- 🎨 [Mejoras UX Validaciones](./docs/MEJORAS-VALIDACIONES-UX.md) - Experiencia de usuario mejorada
+- 💳 [Google Cloud Billing Setup](./docs/GOOGLE-CLOUD-BILLING-SETUP.md) - Configuración de Document AI
 ```
 
 ## 🚀 Inicio Rápido

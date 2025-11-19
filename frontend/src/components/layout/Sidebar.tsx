@@ -31,7 +31,6 @@ import {
   DollarSign,
   Download,
   FileBarChart,
-  ArrowLeftRight,
   ArrowUpCircle,
   ArrowDownCircle,
   RefreshCw,
@@ -39,7 +38,7 @@ import {
   Sparkles,
   ScanText,
   Package,
-  Brain
+  Lightbulb
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/contexts/AuthContext';
@@ -80,7 +79,6 @@ const IconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   DollarSign,
   Download,
   FileBarChart,
-  ArrowLeftRight,
   ArrowUpCircle,
   ArrowDownCircle,
   RefreshCw,
@@ -88,7 +86,7 @@ const IconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Sparkles,
   ScanText,
   Package,
-  Brain
+  Lightbulb
 };
 
 // Helper para obtener el componente de ícono desde el nombre

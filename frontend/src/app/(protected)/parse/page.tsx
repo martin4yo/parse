@@ -48,6 +48,16 @@ interface DocumentoProcessado {
   exportado?: boolean;
   reglasAplicadas?: boolean;
   fechaReglasAplicadas?: string;
+  validationErrors?: {
+    errors: any[];
+    summary: {
+      total: number;
+      bloqueantes: number;
+      errores: number;
+      warnings: number;
+    };
+    timestamp: string;
+  };
   documentosAsociados: any[];
   datosExtraidos?: any;
 }
@@ -1526,8 +1536,23 @@ export default function ComprobantesPage() {
                       onMouseLeave={() => setHoveredDoc(null)}
                     >
                       <div>
-                        <div className="font-medium">
+                        <div className="font-medium flex items-center gap-2">
                           {doc.datosExtraidos?.tipoComprobante || 'N/D'}
+                          {doc.validationErrors && doc.validationErrors.summary.total > 0 && (
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                doc.validationErrors.summary.bloqueantes > 0
+                                  ? 'bg-red-100 text-red-800'
+                                  : doc.validationErrors.summary.errores > 0
+                                  ? 'bg-orange-100 text-orange-800'
+                                  : 'bg-yellow-100 text-yellow-800'
+                              }`}
+                              title={`${doc.validationErrors.summary.total} validación(es) fallida(s)`}
+                            >
+                              <AlertCircle className="w-3 h-3 mr-1" />
+                              {doc.validationErrors.summary.total}
+                            </span>
+                          )}
                         </div>
                         <div className="text-gray-500 border-b border-dotted border-gray-400 inline-block">
                           {doc.numeroComprobanteExtraido || '-'}
@@ -1602,6 +1627,48 @@ export default function ComprobantesPage() {
                                 <div className="pt-2 border-t border-gray-700">
                                   <span className="text-yellow-300">Observaciones:</span>
                                   <div className="mt-1 text-gray-300">{doc.observaciones}</div>
+                                </div>
+                              )}
+
+                              {doc.validationErrors && doc.validationErrors.summary.total > 0 && (
+                                <div className="pt-2 border-t border-red-700">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <AlertCircle className="w-4 h-4 text-red-400" />
+                                    <span className="text-red-300 font-semibold">Errores de Validación</span>
+                                  </div>
+                                  <div className="space-y-1 text-xs">
+                                    {doc.validationErrors.summary.bloqueantes > 0 && (
+                                      <div className="text-red-300">
+                                        🚫 {doc.validationErrors.summary.bloqueantes} bloqueante(s)
+                                      </div>
+                                    )}
+                                    {doc.validationErrors.summary.errores > 0 && (
+                                      <div className="text-orange-300">
+                                        ⚠️ {doc.validationErrors.summary.errores} error(es)
+                                      </div>
+                                    )}
+                                    {doc.validationErrors.summary.warnings > 0 && (
+                                      <div className="text-yellow-300">
+                                        ⚡ {doc.validationErrors.summary.warnings} advertencia(s)
+                                      </div>
+                                    )}
+                                    {doc.validationErrors.errors.slice(0, 3).map((err: any, idx: number) => (
+                                      <div key={idx} className="mt-2 pl-2 border-l-2 border-red-500">
+                                        <div className="text-red-200 font-medium">{err.regla || 'Regla'}</div>
+                                        <div className="text-gray-300">{err.mensaje || err.message}</div>
+                                        {err.contexto && (
+                                          <div className="text-gray-400 text-xs mt-0.5">
+                                            Contexto: {err.contexto}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                    {doc.validationErrors.errors.length > 3 && (
+                                      <div className="text-gray-400 text-xs italic mt-1">
+                                        ...y {doc.validationErrors.errors.length - 3} más
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               )}
                             </div>
@@ -1887,6 +1954,70 @@ export default function ComprobantesPage() {
               {/* TAB: ENCABEZADO */}
               {activeTab === 'encabezado' && (
                 <div>
+                  {/* Validation Errors Alert */}
+                  {selectedDocumentForEdit?.validationErrors && selectedDocumentForEdit.validationErrors.summary.total > 0 && (
+                    <div className={`mb-6 p-4 rounded-lg border-2 ${
+                      selectedDocumentForEdit.validationErrors.summary.bloqueantes > 0
+                        ? 'bg-red-50 border-red-300'
+                        : selectedDocumentForEdit.validationErrors.summary.errores > 0
+                        ? 'bg-orange-50 border-orange-300'
+                        : 'bg-yellow-50 border-yellow-300'
+                    }`}>
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className={`w-5 h-5 mt-0.5 ${
+                          selectedDocumentForEdit.validationErrors.summary.bloqueantes > 0
+                            ? 'text-red-600'
+                            : selectedDocumentForEdit.validationErrors.summary.errores > 0
+                            ? 'text-orange-600'
+                            : 'text-yellow-600'
+                        }`} />
+                        <div className="flex-1">
+                          <h3 className={`font-semibold mb-2 ${
+                            selectedDocumentForEdit.validationErrors.summary.bloqueantes > 0
+                              ? 'text-red-800'
+                              : selectedDocumentForEdit.validationErrors.summary.errores > 0
+                              ? 'text-orange-800'
+                              : 'text-yellow-800'
+                          }`}>
+                            Errores de Validación Detectados ({selectedDocumentForEdit.validationErrors.summary.total})
+                          </h3>
+                          <div className="space-y-2 text-sm">
+                            {selectedDocumentForEdit.validationErrors.errors.map((err: any, idx: number) => (
+                              <div key={idx} className={`p-2 rounded ${
+                                err.severidad === 'BLOQUEANTE'
+                                  ? 'bg-red-100'
+                                  : err.severidad === 'ERROR'
+                                  ? 'bg-orange-100'
+                                  : 'bg-yellow-100'
+                              }`}>
+                                <div className="flex items-start gap-2">
+                                  <span className={`font-medium ${
+                                    err.severidad === 'BLOQUEANTE'
+                                      ? 'text-red-700'
+                                      : err.severidad === 'ERROR'
+                                      ? 'text-orange-700'
+                                      : 'text-yellow-700'
+                                  }`}>
+                                    {err.severidad === 'BLOQUEANTE' ? '🚫' : err.severidad === 'ERROR' ? '⚠️' : '⚡'}
+                                  </span>
+                                  <div className="flex-1">
+                                    <div className="font-medium text-gray-800">{err.regla || 'Regla de validación'}</div>
+                                    <div className="text-gray-700">{err.mensaje || err.message}</div>
+                                    {err.contexto && (
+                                      <div className="text-gray-500 text-xs mt-1">
+                                        Contexto: {err.contexto}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 gap-4">
                 {/* 1. Fecha */}
                 <div>
@@ -2416,13 +2547,13 @@ export default function ComprobantesPage() {
                               <div>
                                 <span className="text-xs font-medium text-gray-500 uppercase">Base Imponible</span>
                                 <p className="text-sm font-semibold text-gray-900 mt-1">
-                                  {impuesto.baseImponible ? `$${Number(impuesto.baseImponible).toFixed(2)}` : '-'}
+                                  {impuesto.baseImponible ? `$${Number(impuesto.baseImponible).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                                 </p>
                               </div>
                               <div>
                                 <span className="text-xs font-medium text-gray-500 uppercase">Importe</span>
                                 <p className="text-lg font-bold text-green-600 mt-1">
-                                  ${Number(impuesto.importe).toFixed(2)}
+                                  ${Number(impuesto.importe).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </p>
                               </div>
                             </div>

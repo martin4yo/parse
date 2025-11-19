@@ -28,9 +28,10 @@ class DocumentExtractionOrchestrator {
    * @param {string} tenantId - ID del tenant
    * @param {string} userId - ID del usuario
    * @param {string} filePath - Ruta al archivo original (opcional, para Document AI)
+   * @param {boolean} forceAI - Si es true, fuerza uso de IA sin cache de patrones
    * @returns {Promise<Object>} - Resultado de la extracción
    */
-  async extractData(documentText, tenantId, userId, filePath = null) {
+  async extractData(documentText, tenantId, userId, filePath = null, forceAI = false) {
     try {
       console.log('\n🎯 ===== INICIANDO EXTRACCIÓN DE DOCUMENTO =====');
       console.log(`👤 Tenant: ${tenantId}`);
@@ -75,7 +76,7 @@ class DocumentExtractionOrchestrator {
           console.log('\n🎯 ===== USANDO PIPELINE DE IA CON VISIÓN =====');
           console.log('🔄 Intentará: Claude Vision → Gemini → Claude Texto → Regex');
 
-          const aiResult = await documentProcessor.extractDataWithAI(documentText, tenantId, filePath);
+          const aiResult = await documentProcessor.extractDataWithAI(documentText, tenantId, filePath, forceAI);
 
           if (aiResult && aiResult.data) {
             console.log(`✅ Extracción exitosa con: ${aiResult.modelUsed}`);

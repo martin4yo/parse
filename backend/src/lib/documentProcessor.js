@@ -1,11 +1,13 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const pdfParse = require('pdf-parse');
 const { createWorker } = require('tesseract.js');
 const sharp = require('sharp');
 const promptManager = require('../services/promptManager');
 const documentAIProcessor = require('../services/documentAIProcessor');
 const imageOptimizationService = require('../services/imageOptimizationService');
+const patternLearningService = require('../services/patternLearningService');
 
 class DocumentProcessor {
   constructor() {
@@ -17,6 +19,112 @@ class DocumentProcessor {
       this.tesseractWorker = await createWorker(['spa', 'eng']);
     }
     return this.tesseractWorker;
+  }
+
+  /**
+   * NUEVAS FUNCIONES PARA APRENDIZAJE DE PATRONES EN PROMPTS
+   */
+
+  // Verificar si debe usar sistema de patrones
+  shouldUsePatterns(forceAI = false) {
+    // Si se fuerza AI, no usar patrones
+    if (forceAI) {
+      console.log('⚡ [FORCE-AI] Header X-Force-AI detectado, saltando cache de patrones');
+      return false;
+    }
+    return process.env.ENABLE_PATTERN_LEARNING_PROMPTS !== 'false';
+  }
+
+  // Calcular hash SHA-256 de un archivo
+  calculateFileHash(filePath) {
+    try {
+      const fileBuffer = fs.readFileSync(filePath);
+      return crypto.createHash('sha256').update(fileBuffer).digest('hex');
+    } catch (error) {
+      console.error('❌ Error calculando hash de archivo:', error);
+      return null;
+    }
+  }
+
+  // Extracción básica sin IA (para búsqueda de templates)
+  extractBasicInfoFromText(text) {
+    try {
+      return {
+        cuit: this.extractCUIT(text),
+        tipoComprobante: this.extractTipoComprobante(text)
+      };
+    } catch (error) {
+      return { cuit: null, tipoComprobante: null };
+    }
+  }
+
+  // Aprender patrones después de extracción exitosa
+  async aprenderPatronesDeExtraccion(filePath, extractedData, tenantId) {
+    if (!this.shouldUsePatterns() || !tenantId) {
+      return;
+    }
+
+    try {
+      console.log('📚 [APRENDIZAJE] Guardando patrones de extracción...');
+
+      // 1. Patrón de hash exacto (para documentos idénticos)
+      if (filePath) {
+        const fileHash = this.calculateFileHash(filePath);
+        const fileSize = fs.statSync(filePath).size;
+
+        if (fileHash) {
+          await patternLearningService.aprenderPatron({
+            tenantId,
+            tipoPatron: 'extraccion_documento_hash',
+            inputPattern: {
+              hash_archivo: fileHash,
+              tamaño: fileSize,
+              extension: path.extname(filePath)
+            },
+            outputValue: JSON.stringify(extractedData),
+            outputCampo: 'datos_extraidos',
+            origen: 'ai',
+            confianzaInicial: 1.0
+          });
+
+          console.log('✅ [APRENDIZAJE] Patrón de hash exacto guardado');
+        }
+      }
+
+      // 2. Patrón de template de proveedor (para documentos similares)
+      if (extractedData.cuitExtraido && extractedData.tipoComprobanteExtraido) {
+        // Crear template sin campos que siempre cambian
+        const template = {
+          razonSocialExtraida: extractedData.razonSocialExtraida,
+          cuitExtraido: extractedData.cuitExtraido,
+          tipoComprobanteExtraido: extractedData.tipoComprobanteExtraido,
+          monedaExtraida: extractedData.monedaExtraida,
+          // Campos que se extraen pero no se incluyen en template
+          // (estos cambiarán en cada documento)
+          _camposVariables: [
+            'fecha', 'numeroComprobante', 'importe',
+            'lineItems', 'impuestosDetalle'
+          ]
+        };
+
+        await patternLearningService.aprenderPatron({
+          tenantId,
+          tipoPatron: 'extraccion_proveedor_template',
+          inputPattern: {
+            cuit: extractedData.cuitExtraido,
+            tipoComprobante: extractedData.tipoComprobanteExtraido
+          },
+          outputValue: JSON.stringify(template),
+          outputCampo: 'template_datos',
+          origen: 'ai',
+          confianzaInicial: 0.85
+        });
+
+        console.log('✅ [APRENDIZAJE] Template de proveedor guardado');
+      }
+    } catch (error) {
+      console.error('❌ [APRENDIZAJE] Error guardando patrones:', error.message);
+    }
   }
 
   async processPDF(filePath) {
@@ -206,13 +314,84 @@ class DocumentProcessor {
     }
   }
 
-  async extractDataWithAI(text, tenantId = null, filePath = null) {
+  async extractDataWithAI(text, tenantId = null, filePath = null, forceAI = false) {
     try {
       // DEBUG: Verificar parámetros recibidos
       console.log('\n🔍 DEBUG extractDataWithAI - PARÁMETROS RECIBIDOS:');
       console.log(`   text: ${text ? `presente (${text.length} caracteres)` : 'NULL o UNDEFINED'}`);
       console.log(`   tenantId: ${tenantId || 'NULL'}`);
       console.log(`   filePath: ${filePath ? 'presente' : 'NULL'}`);
+      console.log(`   forceAI: ${forceAI ? 'true (bypass cache)' : 'false'}`);
+
+      // ========================================
+      // PASO 0: BÚSQUEDA DE PATRONES APRENDIDOS
+      // ========================================
+      if (this.shouldUsePatterns(forceAI) && tenantId && filePath) {
+        console.log('🔍 [PATTERN] Buscando patrones de extracción previos...');
+
+        // 0.1: Buscar por hash exacto (documento idéntico)
+        const fileHash = this.calculateFileHash(filePath);
+        const fileSize = fs.statSync(filePath).size;
+
+        if (fileHash) {
+          const patronExacto = await patternLearningService.buscarPatron({
+            tenantId,
+            tipoPatron: 'extraccion_documento_hash',
+            inputPattern: {
+              hash_archivo: fileHash,
+              tamaño: fileSize
+            },
+            minConfianza: 0.95
+          });
+
+          if (patronExacto) {
+            console.log('🎯 [PATTERN] Documento idéntico ya procesado, usando datos guardados');
+            const datosGuardados = JSON.parse(patronExacto.output_value);
+
+            return {
+              data: datosGuardados,
+              modelUsed: 'Pattern Cache (Exact Match)',
+              fromCache: true,
+              patternId: patronExacto.id,
+              patternConfidence: patronExacto.confianza,
+              patternOccurrences: patronExacto.num_ocurrencias
+            };
+          }
+        }
+
+        // 0.2: Buscar template de proveedor (documento similar)
+        const basicInfo = this.extractBasicInfoFromText(text);
+
+        if (basicInfo.cuit) {
+          const template = await patternLearningService.buscarPatron({
+            tenantId,
+            tipoPatron: 'extraccion_proveedor_template',
+            inputPattern: {
+              cuit: basicInfo.cuit,
+              tipoComprobante: basicInfo.tipoComprobante || 'UNKNOWN'
+            },
+            minConfianza: 0.80
+          });
+
+          if (template) {
+            console.log('📋 [PATTERN] Template de proveedor encontrado');
+            console.log(`   CUIT: ${basicInfo.cuit}`);
+            console.log(`   Confianza: ${template.confianza}`);
+            console.log(`   Ocurrencias: ${template.num_ocurrencias}`);
+            console.log('   → Usando template como base (mejora velocidad y reduce costo)');
+
+            // Guardar template para usar como contexto en la extracción
+            // (esto permite a la IA enfocarse solo en campos variables)
+            this._currentTemplate = JSON.parse(template.output_value);
+          }
+        }
+
+        console.log('📊 [PATTERN] Sin match exacto, procediendo con extracción IA');
+      }
+
+      // ========================================
+      // CONTINÚA CON EXTRACCIÓN NORMAL
+      // ========================================
 
       // Opción 0: Google Document AI (PRIORIDAD MÁXIMA - si está configurado y tenemos el archivo)
       if (filePath && documentAIProcessor.isConfigured() && process.env.USE_DOCUMENT_AI === 'true') {
@@ -228,6 +407,9 @@ class DocumentProcessor {
 
             // Post-procesar datos
             const processedData = this.postProcessExtractedData(result.data, text);
+
+            // NUEVO: Aprender patrones para próxima vez
+            await this.aprenderPatronesDeExtraccion(filePath, processedData, tenantId);
 
             return {
               data: processedData,
@@ -259,6 +441,10 @@ class DocumentProcessor {
             // Validar y corregir valores
             this.validateAndCorrectAmounts(data);
             const processedData = this.postProcessExtractedData(data, text);
+
+            // NUEVO: Aprender patrones para próxima vez
+            await this.aprenderPatronesDeExtraccion(filePath, processedData, tenantId);
+
             return { data: processedData, modelUsed: 'Claude Vision' };
           }
         } catch (error) {
@@ -279,6 +465,10 @@ class DocumentProcessor {
             this.validateAndCorrectAmounts(data);
             // Post-procesar datos para mejorar número de comprobante si es necesario
             const processedData = this.postProcessExtractedData(data, text);
+
+            // NUEVO: Aprender patrones para próxima vez
+            await this.aprenderPatronesDeExtraccion(filePath, processedData, tenantId);
+
             return { data: processedData, modelUsed: 'Advanced' }; // Sin exponer detalles
           }
         } catch (error) {
@@ -757,7 +947,17 @@ ${text}`;
       try {
         const { GoogleGenerativeAI } = require('@google/generative-ai');
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+        // Using gemini-2.5-flash (latest stable version)
+        const model = genAI.getGenerativeModel({
+          model: 'gemini-2.5-flash',
+          generationConfig: {
+            temperature: 0.1, // Low temperature for more consistent extraction
+            topP: 0.95,
+            topK: 40,
+            maxOutputTokens: 8192,
+            responseMimeType: 'application/json', // Request JSON response
+          }
+        });
 
         // Obtener prompt desde PromptManager
         const prompt = await promptManager.getPromptText(
@@ -2463,26 +2663,46 @@ Responde solo el JSON:`,
 
     // 2. Percepciones
     const percepcionPatterns = [
-      // "Percepción IIBB: $100,00" o "Perc. IIBB  $100,00"
-      /Perc(?:epci[oó]n)?\.?\s+([A-ZÑ\s]+)\s*[:.]?\s*\$?\s*([\d.,]+)/gi,
-      // "IIBB  5.00%  $1000.00  $50.00"
+      // "Percepción IIBB : 47,448.00" - Busca el valor en la MISMA línea después de los dos puntos
+      /Perc(?:epci[oó]n)?\s+IIBB\s*[:]\s*\$?\s*([\d.,]+)/gi,
+      // "Perc. IIBB: $100,00" o "Percepción Ingresos Brutos: $100,00"
+      /Perc(?:epci[oó]n)?\.?\s+([A-ZÑ\s]+?)\s*[:]\s*\$?\s*([\d.,]+)/gi,
+      // "IIBB  5.00%  $1000.00  $50.00" (con alicuota, base e importe en tabla)
       /IIBB\s+([\d.,]+)%\s+\$?\s*([\d.,]+)\s+\$?\s*([\d.,]+)/gi
     ];
 
     for (const pattern of percepcionPatterns) {
       let match;
       while ((match = pattern.exec(text)) !== null) {
-        const descripcionMatch = match[1]?.trim();
-        const alicuotaOImporte1 = this.parseNumber(match[2]);
-        const importe = match[3] ? this.parseNumber(match[3]) : alicuotaOImporte1;
-        const alicuota = match[3] ? alicuotaOImporte1 : null;
+        let descripcion, alicuota, baseImponible, importe;
+
+        // Detectar qué patrón hizo match basado en la estructura
+        if (match[0].match(/IIBB\s+[\d.,]+%/)) {
+          // Patrón 3: "IIBB 5.00% $1000.00 $50.00" (con alícuota, base e importe)
+          alicuota = this.parseNumber(match[1]);
+          baseImponible = this.parseNumber(match[2]);
+          importe = this.parseNumber(match[3]);
+          descripcion = 'Percepción IIBB';
+        } else if (match[0].match(/Perc(?:epci[oó]n)?\s+IIBB/i)) {
+          // Patrón 1: "Percepción IIBB : 47,448.00" (directo, solo importe)
+          importe = this.parseNumber(match[1]);
+          descripcion = 'Percepción IIBB';
+          alicuota = null;
+          baseImponible = null;
+        } else {
+          // Patrón 2: "Percepción Ingresos Brutos: $100,00" (con descripción)
+          descripcion = `Percepción ${match[1]?.trim() || 'IIBB'}`;
+          importe = this.parseNumber(match[2]);
+          alicuota = null;
+          baseImponible = null;
+        }
 
         if (importe > 0) {
           impuestos.push({
             tipo: 'PERCEPCION',
-            descripcion: `Percepción ${descripcionMatch || 'IIBB'}`,
+            descripcion: descripcion,
             alicuota: alicuota,
-            baseImponible: null,
+            baseImponible: baseImponible,
             importe: importe
           });
         }
@@ -2561,12 +2781,13 @@ Responde solo el JSON:`,
    * @param {string} tipoDocumento - Tipo de documento (FACTURA_A, FACTURA_B, AUTO, etc.)
    * @returns {Object} Datos extraídos del documento
    */
-  async processFileForAPI(filePath, tenantId, tipoDocumento = 'AUTO') {
+  async processFileForAPI(filePath, tenantId, tipoDocumento = 'AUTO', forceAI = false) {
     try {
       console.log(`📄 [processFileForAPI] Procesando archivo para API`);
       console.log(`   Archivo: ${filePath}`);
       console.log(`   TenantId: ${tenantId}`);
       console.log(`   Tipo documento: ${tipoDocumento}`);
+      console.log(`   ForceAI: ${forceAI}`);
 
       // Determinar el tipo de archivo
       const ext = path.extname(filePath).toLowerCase();
@@ -2593,12 +2814,28 @@ Responde solo el JSON:`,
       let modeloIA = 'regex-fallback';
       let confianza = 0.5;
 
+      // Metadata de patrones (para API)
+      let usedPattern = false;
+      let patternInfo = null;
+
       if (process.env.ENABLE_AI_EXTRACTION === 'true') {
-        const aiResult = await this.extractDataWithAI(text, tenantId, filePath);
+        const aiResult = await this.extractDataWithAI(text, tenantId, filePath, forceAI);
         if (aiResult && aiResult.data) {
           extractedData = aiResult.data;
-          modeloIA = aiResult.model || 'ai-extraction';
+          modeloIA = aiResult.modelUsed || aiResult.model || 'ai-extraction';
           confianza = aiResult.confidence || 0.8;
+
+          // Detectar si usó patrón aprendido
+          if (aiResult.fromCache || aiResult.fromTemplate) {
+            usedPattern = true;
+            patternInfo = {
+              type: aiResult.fromCache ? 'exact_match' : 'template',
+              confidence: aiResult.patternConfidence || aiResult.confianza,
+              occurrences: aiResult.patternOccurrences || aiResult.num_ocurrencias
+            };
+            console.log(`   🎯 Usado patrón aprendido (tipo: ${patternInfo.type})`);
+          }
+
           console.log(`   ✅ Extracción con IA exitosa (modelo: ${modeloIA}, confianza: ${confianza})`);
         } else {
           // Fallback a extracción básica
@@ -2649,7 +2886,10 @@ Responde solo el JSON:`,
         })),
         tipoDocumento: extractedData.tipoComprobante || tipoDocumento,
         modeloIA,
-        confianza
+        confianza,
+        // NUEVO: Metadata de aprendizaje de patrones
+        usedPattern,
+        patternInfo
       };
 
       console.log(`✅ [processFileForAPI] Procesamiento completo`);

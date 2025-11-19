@@ -73,6 +73,9 @@ export default function ExportarPage() {
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [validationErrors, setValidationErrors] = useState<any[]>([]);
   const [documentsWithErrors, setDocumentsWithErrors] = useState<Map<string, any>>(new Map());
+  const [highlightedField, setHighlightedField] = useState<string | null>(null); // Nuevo: para highlight de campos
+  const [forceExportWarnings, setForceExportWarnings] = useState(false); // Nuevo: para exportar con warnings
+  const [realTimeValidationErrors, setRealTimeValidationErrors] = useState<any[]>([]); // Nuevo: validaciones en tiempo real
 
   useEffect(() => {
     loadDocumentos();
@@ -288,12 +291,174 @@ export default function ExportarPage() {
       setShowEditModal(false);
       setSelectedDocumentForEdit(null);
       setEditFormData({});
+      setHighlightedField(null); // Limpiar highlight
       await loadDocumentos();
     } catch (error) {
       console.error('Error saving edit:', error);
       toast.error('Error al actualizar los datos');
     } finally {
       setSavingEdit(false);
+    }
+  };
+
+  // NUEVA FUNCIÓN: Abrir modal de edición desde error de validación con highlight
+  const handleEditFromValidation = async (docError: any, fieldToHighlight: string | null = null) => {
+    const doc = documentos.find(d => d.id === docError.documentoId);
+    if (!doc) {
+      toast.error('Documento no encontrado');
+      return;
+    }
+
+    // Cerrar modal de validaciones
+    setShowValidationModal(false);
+
+    // Establecer campo a resaltar
+    setHighlightedField(fieldToHighlight);
+
+    // Abrir modal de edición
+    await handleOpenEditModal(doc, false);
+
+    // Determinar tab según origen del error
+    if (docError.errores && docError.errores.length > 0) {
+      const firstError = docError.errores[0];
+      if (firstError.origen) {
+        if (firstError.origen.includes('linea')) {
+          setActiveTab('items');
+        } else if (firstError.origen.includes('impuesto')) {
+          setActiveTab('impuestos');
+        } else {
+          setActiveTab('encabezado');
+        }
+      }
+    }
+
+    // Mensaje informativo
+    toast.success('Documento abierto para edición', { icon: '📝' });
+  };
+
+  // NUEVA FUNCIÓN: Obtener clases CSS para highlight de campos
+  const getFieldHighlightClass = (fieldName: string, baseClass: string): string => {
+    // Si el campo debe resaltarse
+    if (highlightedField && highlightedField === fieldName) {
+      return `${baseClass} ring-4 ring-yellow-400 ring-offset-2 animate-pulse`;
+    }
+    return baseClass;
+  };
+
+  // useEffect para auto-scroll al campo resaltado
+  useEffect(() => {
+    if (highlightedField && showEditModal) {
+      // Timeout para esperar que el modal se renderice
+      setTimeout(() => {
+        const element = document.querySelector(`[data-field="${highlightedField}"]`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Quitar highlight después de 5 segundos
+          setTimeout(() => setHighlightedField(null), 5000);
+        }
+      }, 300);
+    }
+  }, [highlightedField, showEditModal]);
+
+  // NUEVA FUNCIÓN: Validar documento en tiempo real
+  const validateDocumentRealTime = async () => {
+    if (!selectedDocumentForEdit || !showEditModal) {
+      setRealTimeValidationErrors([]);
+      return;
+    }
+
+    try {
+      // Llamar al backend para validar el documento con reglas VALIDACION
+      const response = await api.post(`/documentos/${selectedDocumentForEdit.id}/validate`, {
+        datosActuales: editFormData
+      });
+
+      if (response.data.validationErrors && response.data.validationErrors.length > 0) {
+        setRealTimeValidationErrors(response.data.validationErrors);
+      } else {
+        setRealTimeValidationErrors([]);
+      }
+    } catch (error) {
+      console.error('Error validando en tiempo real:', error);
+      // No mostrar error al usuario para no interrumpir la edición
+    }
+  };
+
+  // useEffect para validar en tiempo real cuando cambian los datos
+  useEffect(() => {
+    if (showEditModal && !isReadOnly) {
+      // Debounce de 1 segundo para no validar en cada tecla
+      const timeoutId = setTimeout(() => {
+        validateDocumentRealTime();
+      }, 1000);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [editFormData, showEditModal, isReadOnly]);
+
+  // NUEVA FUNCIÓN: Obtener tooltip explicativo según operador
+  const getValidationTooltip = (operador: string): string => {
+    const tooltips: Record<string, string> = {
+      'EQUALS': 'El valor debe ser exactamente igual al esperado',
+      'NOT_EQUALS': 'El valor debe ser diferente al especificado',
+      'CONTAINS': 'El campo debe contener el texto especificado',
+      'NOT_CONTAINS': 'El campo NO debe contener el texto especificado',
+      'STARTS_WITH': 'El campo debe comenzar con el texto especificado',
+      'ENDS_WITH': 'El campo debe terminar con el texto especificado',
+      'REGEX': 'El campo debe coincidir con la expresión regular',
+      'IN': 'El valor debe estar en la lista de valores permitidos',
+      'NOT_IN': 'El valor NO debe estar en la lista especificada',
+      'IS_NULL': 'El campo debe estar vacío o nulo',
+      'IS_NOT_NULL': 'El campo debe tener un valor (no nulo)',
+      'IS_EMPTY': 'El campo debe estar vacío',
+      'IS_NOT_EMPTY': 'El campo debe tener contenido',
+      'GREATER_THAN': 'El valor numérico debe ser mayor que el especificado',
+      'LESS_THAN': 'El valor numérico debe ser menor que el especificado',
+      'GREATER_OR_EQUAL': 'El valor numérico debe ser mayor o igual al especificado',
+      'LESS_OR_EQUAL': 'El valor numérico debe ser menor o igual al especificado',
+    };
+    return tooltips[operador] || 'Validación personalizada';
+  };
+
+  // NUEVA FUNCIÓN: Exportar solo documentos con warnings (ignorando bloqueantes/errores)
+  const handleExportWithWarnings = async () => {
+    // Filtrar solo documentos que tienen SOLO warnings (no bloqueantes ni errores)
+    const docsWithOnlyWarnings = Array.from(documentsWithErrors.entries())
+      .filter(([docId, docError]) => {
+        const { bloqueantes = 0, errores = 0 } = docError.summary || {};
+        return bloqueantes === 0 && errores === 0;
+      })
+      .map(([docId]) => docId);
+
+    if (docsWithOnlyWarnings.length === 0) {
+      toast.error('No hay documentos con solo warnings para exportar');
+      return;
+    }
+
+    const confirmed = await confirm(
+      `¿Exportar ${docsWithOnlyWarnings.length} documento(s) que tienen solo warnings?\n\nLos documentos con errores bloqueantes o errores críticos NO se exportarán.`,
+      'Exportar con warnings',
+      'warning'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setExporting(true);
+      const response = await api.post('/documentos/exportar', {
+        documentoIds: docsWithOnlyWarnings,
+        forceWarnings: true
+      });
+
+      toast.success(`${docsWithOnlyWarnings.length} documento(s) exportado(s) con warnings`);
+      setShowValidationModal(false);
+      setSelectedDocuments(new Set());
+      await loadDocumentos();
+    } catch (error: any) {
+      console.error('Error exporting with warnings:', error);
+      toast.error(error.response?.data?.error || 'Error al exportar documentos');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -735,6 +900,40 @@ export default function ExportarPage() {
               <div className="text-sm font-medium text-text-primary bg-gray-50 p-2 rounded">
                 {selectedDocumentForEdit.nombreArchivo}
               </div>
+
+              {/* NUEVO: Panel de validaciones en tiempo real */}
+              {!isReadOnly && realTimeValidationErrors.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {realTimeValidationErrors.map((error, idx) => {
+                    const bgColor =
+                      error.severidad === 'BLOQUEANTE' ? 'bg-red-50 border-red-300' :
+                      error.severidad === 'ERROR' ? 'bg-orange-50 border-orange-300' :
+                      'bg-yellow-50 border-yellow-300';
+
+                    const iconColor =
+                      error.severidad === 'BLOQUEANTE' ? 'text-red-600' :
+                      error.severidad === 'ERROR' ? 'text-orange-600' :
+                      'text-yellow-600';
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`${bgColor} border rounded-lg p-2 flex items-start space-x-2 text-xs`}
+                      >
+                        <div className={`flex-shrink-0 ${iconColor}`}>
+                          {error.severidad === 'BLOQUEANTE' && <XCircle className="w-4 h-4" />}
+                          {error.severidad === 'ERROR' && <AlertCircle className="w-4 h-4" />}
+                          {error.severidad === 'WARNING' && <AlertTriangle className="w-4 h-4" />}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-900">{error.nombre}</p>
+                          <p className="text-gray-700 mt-0.5">{error.mensaje}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Tabs */}
@@ -786,9 +985,10 @@ export default function ExportarPage() {
                   </label>
                   <input
                     type="date"
+                    data-field="fechaExtraida"
                     value={editFormData.fechaExtraida || ''}
                     onChange={(e) => setEditFormData({ ...editFormData, fechaExtraida: e.target.value })}
-                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    className={getFieldHighlightClass('fechaExtraida', "w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed")}
                     disabled={isReadOnly}
                   />
                 </div>
@@ -838,9 +1038,10 @@ export default function ExportarPage() {
                   </label>
                   <input
                     type="text"
+                    data-field="cuitExtraido"
                     value={editFormData.cuitExtraido || ''}
                     onChange={(e) => setEditFormData({ ...editFormData, cuitExtraido: e.target.value })}
-                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    className={getFieldHighlightClass('cuitExtraido', "w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed")}
                     placeholder="XX-XXXXXXXX-X"
                     disabled={isReadOnly}
                   />
@@ -918,9 +1119,10 @@ export default function ExportarPage() {
                   <input
                     type="number"
                     step="0.01"
+                    data-field="importeExtraido"
                     value={editFormData.importeExtraido || ''}
                     onChange={(e) => setEditFormData({ ...editFormData, importeExtraido: e.target.value })}
-                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    className={getFieldHighlightClass('importeExtraido', "w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right disabled:bg-gray-100 disabled:cursor-not-allowed")}
                     placeholder="0.00"
                     disabled={isReadOnly}
                   />
@@ -1208,7 +1410,7 @@ export default function ExportarPage() {
                   >
                     {/* Header del Documento */}
                     <div className="flex items-start justify-between">
-                      <div>
+                      <div className="flex-1">
                         <h3 className="font-semibold text-gray-900 flex items-center space-x-2">
                           <FileText className="w-5 h-5 text-red-600" />
                           <span>{docError.nombreArchivo}</span>
@@ -1231,6 +1433,14 @@ export default function ExportarPage() {
                           )}
                         </p>
                       </div>
+                      {/* NUEVO: Botón para editar documento */}
+                      <Button
+                        onClick={() => handleEditFromValidation(docError)}
+                        className="ml-4 bg-blue-600 hover:bg-blue-700 text-white text-sm flex items-center space-x-1"
+                      >
+                        <Pencil className="w-4 h-4" />
+                        <span>Editar</span>
+                      </Button>
                     </div>
 
                     {/* Lista de Errores */}
@@ -1283,24 +1493,37 @@ export default function ExportarPage() {
                                 </p>
                                 <div className="space-y-1">
                                   {error.condicionesFallidas.map((cond: any, condIdx: number) => (
-                                    <div key={condIdx} className="text-xs font-mono bg-white bg-opacity-50 rounded px-2 py-1">
-                                      <span className="font-semibold">{cond.campo}:</span>{' '}
-                                      <span className="text-gray-600">
-                                        {cond.operador} →
-                                      </span>{' '}
-                                      <span className="text-red-600">
-                                        Actual: {cond.valorActual !== null && cond.valorActual !== undefined
-                                          ? JSON.stringify(cond.valorActual)
-                                          : 'null'}
-                                      </span>
-                                      {cond.valorEsperado && (
-                                        <>
-                                          {' | '}
-                                          <span className="text-green-600">
-                                            Esperado: {JSON.stringify(cond.valorEsperado)}
-                                          </span>
-                                        </>
-                                      )}
+                                    <div key={condIdx} className="flex items-start space-x-2">
+                                      <div className="flex-1 text-xs font-mono bg-white bg-opacity-50 rounded px-2 py-1">
+                                        <span className="font-semibold">{cond.campo}:</span>{' '}
+                                        <span
+                                          className="text-gray-600 cursor-help underline decoration-dotted"
+                                          title={getValidationTooltip(cond.operador)}
+                                        >
+                                          {cond.operador} →
+                                        </span>{' '}
+                                        <span className="text-red-600">
+                                          Actual: {cond.valorActual !== null && cond.valorActual !== undefined
+                                            ? JSON.stringify(cond.valorActual)
+                                            : 'null'}
+                                        </span>
+                                        {cond.valorEsperado && (
+                                          <>
+                                            {' | '}
+                                            <span className="text-green-600">
+                                              Esperado: {JSON.stringify(cond.valorEsperado)}
+                                            </span>
+                                          </>
+                                        )}
+                                      </div>
+                                      {/* NUEVO: Botón para corregir campo específico */}
+                                      <button
+                                        onClick={() => handleEditFromValidation(docError, cond.campo)}
+                                        className="flex-shrink-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded p-1"
+                                        title="Corregir este campo"
+                                      >
+                                        <Pencil className="w-3 h-3" />
+                                      </button>
                                     </div>
                                   ))}
                                 </div>
@@ -1324,13 +1547,53 @@ export default function ExportarPage() {
 
             {/* Footer */}
             <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 p-6 rounded-b-xl">
-              <div className="flex justify-end space-x-3">
-                <Button
-                  onClick={() => setShowValidationModal(false)}
-                  className="bg-gray-600 hover:bg-gray-700 text-white"
-                >
-                  Cerrar
-                </Button>
+              <div className="flex items-center justify-between">
+                {/* Contador de documentos con solo warnings */}
+                <div className="text-sm text-gray-600">
+                  {(() => {
+                    const docsWithOnlyWarnings = Array.from(documentsWithErrors.entries())
+                      .filter(([_, docError]) => {
+                        const { bloqueantes = 0, errores = 0, warnings = 0 } = docError.summary || {};
+                        return bloqueantes === 0 && errores === 0 && warnings > 0;
+                      }).length;
+
+                    return docsWithOnlyWarnings > 0 ? (
+                      <span className="flex items-center space-x-2">
+                        <Info className="w-4 h-4 text-yellow-600" />
+                        <span>{docsWithOnlyWarnings} documento(s) con solo warnings pueden exportarse</span>
+                      </span>
+                    ) : null;
+                  })()}
+                </div>
+
+                <div className="flex space-x-3">
+                  {/* NUEVO: Botón para exportar solo warnings */}
+                  {(() => {
+                    const docsWithOnlyWarnings = Array.from(documentsWithErrors.entries())
+                      .filter(([_, docError]) => {
+                        const { bloqueantes = 0, errores = 0, warnings = 0 } = docError.summary || {};
+                        return bloqueantes === 0 && errores === 0 && warnings > 0;
+                      }).length;
+
+                    return docsWithOnlyWarnings > 0 ? (
+                      <Button
+                        onClick={handleExportWithWarnings}
+                        disabled={exporting}
+                        className="bg-yellow-600 hover:bg-yellow-700 text-white flex items-center space-x-2"
+                      >
+                        <AlertTriangle className="w-4 h-4" />
+                        <span>{exporting ? 'Exportando...' : `Exportar ${docsWithOnlyWarnings} con Warnings`}</span>
+                      </Button>
+                    ) : null;
+                  })()}
+
+                  <Button
+                    onClick={() => setShowValidationModal(false)}
+                    className="bg-gray-600 hover:bg-gray-700 text-white"
+                  >
+                    Cerrar
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

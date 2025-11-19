@@ -44,6 +44,11 @@ const upload = multer({
  * POST /api/v1/parse/document
  * Parsear documento y devolver JSON (sin guardar en BD)
  *
+ * NUEVO: Sistema de aprendizaje de patrones integrado
+ * - Detecta documentos idénticos (100% ahorro de IA)
+ * - Usa templates de proveedores conocidos (60-80% ahorro)
+ * - Aprende automáticamente de extracciones exitosas
+ *
  * Headers requeridos:
  *   X-API-Key: tu-api-key-aqui
  *
@@ -57,7 +62,15 @@ const upload = multer({
  *     "documento": {
  *       "cabecera": {...},
  *       "items": [...],
- *       "impuestos": [...]
+ *       "impuestos": [...},
+ *       "modeloIA": "Claude Vision" | "Gemini" | "Pattern Cache",
+ *       "confianza": 0.95,
+ *       "usedPattern": false,  // NUEVO: true si usó patrón aprendido
+ *       "patternInfo": {       // NUEVO: info del patrón (si usedPattern=true)
+ *         "type": "exact_match" | "template",
+ *         "confidence": 0.99,
+ *         "occurrences": 15
+ *       }
  *     },
  *     "metadata": {...}
  *   }
@@ -84,16 +97,24 @@ router.post('/document', authenticateSyncClient, upload.single('file'), async (r
       });
     }
 
+    // Check for X-Force-AI header to bypass pattern cache
+    const forceAI = req.headers['x-force-ai'] === 'true';
+    if (forceAI) {
+      console.log('⚡ [FORCE-AI] Header X-Force-AI detectado - se forzará procesamiento con IA');
+    }
+
     console.log(`📄 [Parse API] Procesando documento para tenant: ${req.syncClient.tenant.nombre}`);
     console.log(`   Archivo: ${file.originalname}`);
     console.log(`   Tamaño: ${(file.size / 1024).toFixed(2)} KB`);
     console.log(`   Tipo: ${file.mimetype}`);
+    console.log(`   ForceAI: ${forceAI}`);
 
     // Procesar documento usando el pipeline existente
     const resultado = await documentProcessor.processFileForAPI(
       file.path,
       req.syncClient.tenantId,
-      tipoDocumento
+      tipoDocumento,
+      forceAI
     );
 
     // Limpiar archivo temporal
@@ -604,6 +625,167 @@ router.post('/save', authenticateSyncClient, upload.single('file'), async (req, 
       success: false,
       error: error.message,
       details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+/**
+ * GET /api/v1/parse/stats
+ * Obtener estadísticas de uso de patrones y ahorro de IA
+ *
+ * Query params:
+ *   - days: Número de días hacia atrás (default: 30)
+ *
+ * Response:
+ *   - totalRequests: Total de requests de parsing
+ *   - patternCacheHits: Veces que se usó cache de patrones
+ *   - exactMatchHits: Documentos idénticos (100% ahorro)
+ *   - templateHits: Templates de proveedor (60-80% ahorro)
+ *   - estimatedSavings: Ahorro estimado en costo y tiempo
+ *   - topPatterns: Top 10 patrones más usados
+ *   - trends: Tendencias diarias
+ */
+router.get('/stats', authenticateSyncClient, async (req, res) => {
+  try {
+    const apiKey = req.headers['x-api-key'];
+    const days = parseInt(req.query.days) || 30;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    // Obtener tenantId desde la API key
+    const apiKeyRecord = await prisma.api_keys.findUnique({
+      where: { key: apiKey }
+    });
+
+    if (!apiKeyRecord) {
+      return res.status(401).json({ error: 'API key inválida' });
+    }
+
+    const tenantId = apiKeyRecord.tenantId;
+
+    // 1. Total de documentos procesados en el período
+    const totalRequests = await prisma.documentos_procesados.count({
+      where: {
+        tenantId,
+        fechaProcesamiento: { gte: startDate }
+      }
+    });
+
+    // 2. Estadísticas de patrones aprendidos
+    const patronesStats = await prisma.patrones_aprendidos.findMany({
+      where: {
+        tenantId,
+        ultima_fecha: { gte: startDate }
+      },
+      select: {
+        tipo_patron: true,
+        num_ocurrencias: true,
+        confianza: true,
+        output_campo: true,
+        hash_pattern: true
+      }
+    });
+
+    // 3. Calcular hits de cache
+    const exactMatchHits = patronesStats
+      .filter(p => p.tipo_patron.includes('hash'))
+      .reduce((sum, p) => sum + p.num_ocurrencias, 0);
+
+    const templateHits = patronesStats
+      .filter(p => p.tipo_patron.includes('template'))
+      .reduce((sum, p) => sum + p.num_ocurrencias, 0);
+
+    const patternCacheHits = exactMatchHits + templateHits;
+
+    // 4. Top 10 patrones más usados
+    const topPatterns = patronesStats
+      .sort((a, b) => b.num_ocurrencias - a.num_ocurrencias)
+      .slice(0, 10)
+      .map(p => ({
+        type: p.tipo_patron,
+        field: p.output_campo,
+        hits: p.num_ocurrencias,
+        confidence: parseFloat(p.confianza.toFixed(2))
+      }));
+
+    // 5. Calcular ahorro estimado
+    // Asumiendo:
+    // - Costo promedio de IA: $0.003 por documento
+    // - Exact match ahorra 100%: $0.003
+    // - Template ahorra 60%: $0.0018
+    // - Tiempo promedio de IA: 8 segundos
+    // - Tiempo con pattern: 1 segundo (exact) o 3 segundos (template)
+
+    const costPerDocument = 0.003;
+    const exactMatchSavings = exactMatchHits * costPerDocument;
+    const templateSavings = templateHits * (costPerDocument * 0.6);
+    const totalCostSavings = exactMatchSavings + templateSavings;
+
+    const timePerDocument = 8; // segundos
+    const exactMatchTimeSaved = exactMatchHits * (timePerDocument - 1);
+    const templateTimeSaved = templateHits * (timePerDocument - 3);
+    const totalTimeSaved = exactMatchTimeSaved + templateTimeSaved;
+
+    // Convertir a horas
+    const hoursSaved = (totalTimeSaved / 3600).toFixed(2);
+
+    // 6. Tendencias (agrupado por día)
+    const trends = await prisma.$queryRaw`
+      SELECT
+        DATE(ultima_fecha) as date,
+        COUNT(*) as patterns_used,
+        SUM(num_ocurrencias) as total_hits
+      FROM patrones_aprendidos
+      WHERE "tenantId" = ${tenantId}
+        AND ultima_fecha >= ${startDate}
+      GROUP BY DATE(ultima_fecha)
+      ORDER BY date DESC
+      LIMIT 30
+    `;
+
+    // 7. Tasa de cache hit
+    const cacheHitRate = totalRequests > 0
+      ? ((patternCacheHits / totalRequests) * 100).toFixed(1)
+      : '0.0';
+
+    // 8. Respuesta
+    res.json({
+      success: true,
+      period: {
+        days,
+        startDate: startDate.toISOString(),
+        endDate: new Date().toISOString()
+      },
+      totalRequests,
+      patternCacheHits,
+      cacheHitRate: `${cacheHitRate}%`,
+      breakdown: {
+        exactMatchHits,
+        templateHits,
+        aiCalls: totalRequests - patternCacheHits
+      },
+      estimatedSavings: {
+        cost: `$${totalCostSavings.toFixed(4)}`,
+        time: `${hoursSaved} hours`,
+        costBreakdown: {
+          exactMatch: `$${exactMatchSavings.toFixed(4)}`,
+          template: `$${templateSavings.toFixed(4)}`
+        }
+      },
+      topPatterns,
+      trends: trends.map(t => ({
+        date: t.date,
+        patternsUsed: parseInt(t.patterns_used),
+        totalHits: parseInt(t.total_hits)
+      }))
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo estadísticas:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al obtener estadísticas',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

@@ -1,4 +1,6 @@
 const { DocumentProcessorServiceClient } = require('@google-cloud/documentai').v1;
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 const fs = require('fs');
 const path = require('path');
 
@@ -19,11 +21,221 @@ class DocumentAIProcessor {
     this.projectId = process.env.DOCUMENT_AI_PROJECT_ID;
     this.location = process.env.DOCUMENT_AI_LOCATION || 'us';
     this.processorId = process.env.DOCUMENT_AI_PROCESSOR_ID;
+    this.configCache = null; // Cache para evitar consultas repetidas
+    this.configCacheTime = null;
+    this.configCacheTTL = 5 * 60 * 1000; // 5 minutos
 
     // Verificar configuración
     if (!this.projectId || !this.processorId) {
       console.warn('⚠️  Document AI no configurado completamente. Faltan variables de entorno.');
     }
+  }
+
+  /**
+   * Cargar configuración activa de detección
+   * Con cache de 5 minutos para evitar consultas repetidas
+   */
+  async loadDetectionConfig(tenantId) {
+    // Verificar cache
+    const now = Date.now();
+    if (this.configCache && this.configCacheTime && (now - this.configCacheTime < this.configCacheTTL)) {
+      return this.configCache;
+    }
+
+    try {
+      // Buscar config activa del tenant
+      let config = await prisma.document_detection_config.findFirst({
+        where: {
+          tenantId,
+          activo: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+
+      // Si no existe, buscar config global (sin tenant)
+      if (!config) {
+        config = await prisma.document_detection_config.findFirst({
+          where: {
+            tenantId: null,
+            activo: true
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        });
+      }
+
+      // Si tampoco existe global, usar config por defecto
+      if (!config) {
+        this.configCache = this.getDefaultConfig();
+        this.configCacheTime = now;
+        console.log('📋 Usando configuración de detección por defecto');
+        return this.configCache;
+      }
+
+      this.configCache = config.config;
+      this.configCacheTime = now;
+      console.log(`📋 Configuración de detección cargada: "${config.nombre}"`);
+      return this.configCache;
+
+    } catch (error) {
+      console.error('❌ Error cargando configuración de detección:', error);
+      // Fallback a config por defecto
+      return this.getDefaultConfig();
+    }
+  }
+
+  /**
+   * Obtener configuración por defecto
+   */
+  getDefaultConfig() {
+    return {
+      zonaBusqueda: {
+        zona1: {
+          nombre: 'Superior Central Estricta',
+          topY: 0.20,
+          centerXMin: 0.30,
+          centerXMax: 0.70,
+          descripcion: 'Zona principal donde suele estar el recuadro con la letra'
+        },
+        zona2: {
+          nombre: 'Superior Amplia',
+          topY: 0.30,
+          centerXMin: 0.20,
+          centerXMax: 0.80,
+          descripcion: 'Zona ampliada si no se encuentra en zona 1'
+        }
+      },
+      patronesBusqueda: {
+        facturaA: {
+          nombre: 'FACTURA A',
+          patrones: [
+            'FACTURA\\s*A\\b',
+            'TIPO\\s*:\\s*A\\b',
+            'CLASE\\s*:\\s*A\\b',
+            'COD\\.\\s*001',
+            'CODIGO\\s*001',
+            '\\bA\\s+ORIGINAL',
+            '\\bA\\s+DUPLICADO'
+          ],
+          codigoAFIP: '001',
+          activo: true
+        },
+        facturaB: {
+          nombre: 'FACTURA B',
+          patrones: [
+            'FACTURA\\s*B\\b',
+            'TIPO\\s*:\\s*B\\b',
+            'CLASE\\s*:\\s*B\\b',
+            'COD\\.\\s*006',
+            'CODIGO\\s*006',
+            '\\bB\\s+ORIGINAL',
+            '\\bB\\s+DUPLICADO'
+          ],
+          codigoAFIP: '006',
+          activo: true
+        },
+        facturaC: {
+          nombre: 'FACTURA C',
+          patrones: [
+            'FACTURA\\s*C\\b',
+            'TIPO\\s*:\\s*C\\b',
+            'CLASE\\s*:\\s*C\\b',
+            'COD\\.\\s*011',
+            'CODIGO\\s*011',
+            '\\bC\\s+ORIGINAL',
+            '\\bC\\s+DUPLICADO'
+          ],
+          codigoAFIP: '011',
+          activo: true
+        },
+        facturaE: {
+          nombre: 'FACTURA E',
+          patrones: [
+            'FACTURA\\s*E\\b',
+            'TIPO\\s*:\\s*E\\b',
+            'FACTURA\\s+DE\\s+EXPORTACION',
+            'COD\\.\\s*019'
+          ],
+          codigoAFIP: '019',
+          activo: true
+        },
+        facturaM: {
+          nombre: 'FACTURA M',
+          patrones: [
+            'FACTURA\\s*M\\b',
+            'TIPO\\s*:\\s*M\\b',
+            'COD\\.\\s*051'
+          ],
+          codigoAFIP: '051',
+          activo: true
+        },
+        notaCredito: {
+          nombre: 'NOTA DE CRÉDITO',
+          patrones: [
+            'NOTA\\s+DE\\s+CREDITO',
+            'NOTA\\s+CREDITO',
+            'N\\/C',
+            'NC\\s+\\d'
+          ],
+          activo: true
+        },
+        notaDebito: {
+          nombre: 'NOTA DE DÉBITO',
+          patrones: [
+            'NOTA\\s+DE\\s+DEBITO',
+            'NOTA\\s+DEBITO',
+            'N\\/D',
+            'ND\\s+\\d'
+          ],
+          activo: true
+        },
+        ticket: {
+          nombre: 'TICKET',
+          patrones: [
+            'TICKET\\s*FACTURA',
+            '\\bTICKET\\b',
+            'COMPROBANTE\\s+NO\\s+VALIDO'
+          ],
+          activo: true
+        },
+        recibo: {
+          nombre: 'RECIBO',
+          patrones: [
+            'RECIBO\\s*\\d',
+            'RECIBO\\s+OFICIAL',
+            'RECIBO\\s+DE\\s+PAGO',
+            '^RECIBO\\b'
+          ],
+          activo: true
+        },
+        remito: {
+          nombre: 'REMITO',
+          patrones: [
+            '^REMITO\\b',
+            '\\bREMITO\\s*\\d{4,}'
+          ],
+          activo: true
+        }
+      },
+      prioridades: [
+        { id: 'letra_sola_superior', nombre: 'Letra sola en zona superior (A, B, C, E, M)', orden: 1, activo: true },
+        { id: 'factura_con_letra', nombre: 'FACTURA A/B/C/E/M', orden: 2, activo: true },
+        { id: 'codigo_afip', nombre: 'Código AFIP (001, 006, 011, etc.)', orden: 3, activo: true },
+        { id: 'notas_credito_debito', nombre: 'Notas de crédito/débito', orden: 4, activo: true },
+        { id: 'ticket', nombre: 'Ticket', orden: 5, activo: true },
+        { id: 'recibo', nombre: 'Recibo', orden: 6, activo: true },
+        { id: 'factura_generica', nombre: 'FACTURA (sin especificar tipo)', orden: 7, activo: true },
+        { id: 'remito', nombre: 'Remito', orden: 8, activo: true }
+      ],
+      opciones: {
+        usarZonaSuperior: true,
+        buscarLetraSola: true,
+        logDetallado: true
+      }
+    };
   }
 
   /**
@@ -89,6 +301,10 @@ class DocumentAIProcessor {
     try {
       console.log(`📄 [Document AI] Procesando: ${path.basename(filePath)}`);
 
+      // Cargar configuración de detección
+      const tenantId = options.tenantId || null;
+      const config = await this.loadDetectionConfig(tenantId);
+
       // Inicializar cliente si no existe
       const client = await this.initClient();
 
@@ -129,8 +345,8 @@ class DocumentAIProcessor {
       const processingTime = Date.now() - startTime;
       console.log(`✅ [Document AI] Procesado en ${processingTime}ms`);
 
-      // Extraer datos estructurados
-      const extractedData = this.extractStructuredData(document);
+      // Extraer datos estructurados (pasar configuración)
+      const extractedData = this.extractStructuredData(document, config);
 
       return {
         success: true,
@@ -156,9 +372,14 @@ class DocumentAIProcessor {
    * Extraer datos estructurados del documento procesado
    * Mapea los campos de Document AI al formato de nuestra aplicación
    */
-  extractStructuredData(document) {
+  extractStructuredData(document, config = null) {
     const entities = document.entities || [];
     const data = {};
+
+    // Usar configuración por defecto si no se provee
+    if (!config) {
+      config = this.getDefaultConfig();
+    }
 
     // Mapeo de tipos de entidad de Document AI a nuestros campos
     const entityMapping = {
@@ -206,22 +427,35 @@ class DocumentAIProcessor {
 
         // Log para debugging
         const confidence = entity.confidence || 0;
-        console.log(`   📋 ${mappedField}: "${value}" (confidence: ${(confidence * 100).toFixed(1)}%)`);
+        if (config.opciones?.logDetallado) {
+          console.log(`   📋 ${mappedField}: "${value}" (confidence: ${(confidence * 100).toFixed(1)}%)`);
+        }
       }
     }
 
     // Extraer line items (items de la factura)
     data.lineItems = this.extractLineItems(document);
-    console.log(`   📦 Line items extraídos: ${data.lineItems.length}`);
+    if (config.opciones?.logDetallado) {
+      console.log(`   📦 Line items extraídos: ${data.lineItems.length}`);
+    }
+
+    // Extraer impuestos detallados del texto (IVA, percepciones, retenciones)
+    data.impuestosDetalle = this.extractImpuestosDetalleFromText(document.text || '');
+    if (config.opciones?.logDetallado) {
+      console.log(`   💰 Impuestos detallados: ${data.impuestosDetalle.length}`);
+    }
+
+    // Validar y corregir totales si son inconsistentes
+    this.validateAndFixTotals(data);
 
     // Calcular exento si no viene
     if (!data.exento && data.importe && data.netoGravado && data.impuestos) {
       data.exento = Math.max(0, data.importe - data.netoGravado - data.impuestos);
     }
 
-    // Detectar tipo de comprobante (si no viene en Document AI)
+    // Detectar tipo de comprobante (si no viene en Document AI) - pasar config
     if (!data.tipoComprobante) {
-      data.tipoComprobante = this.detectTipoComprobante(document.text || '');
+      data.tipoComprobante = this.detectTipoComprobante(document.text || '', document, config);
     }
 
     return data;
@@ -311,16 +545,58 @@ class DocumentAIProcessor {
 
   /**
    * Normalizar fecha al formato YYYY-MM-DD
+   * Soporta formatos argentinos e internacionales
    */
   normalizeDate(value) {
     if (!value) return null;
 
-    // Si ya está en formato ISO
+    // Si ya está en formato ISO (YYYY-MM-DD)
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
       return value;
     }
 
-    // Intentar parsear otros formatos comunes
+    // Formato argentino: DD/MM/YYYY o DD-MM-YYYY
+    const argentineMatch = value.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (argentineMatch) {
+      const [_, day, month, year] = argentineMatch;
+      const d = day.padStart(2, '0');
+      const m = month.padStart(2, '0');
+
+      // Validar que sea una fecha válida
+      const dateObj = new Date(`${year}-${m}-${d}`);
+      if (!isNaN(dateObj.getTime())) {
+        return `${year}-${m}-${d}`;
+      }
+    }
+
+    // Formato USA: MM/DD/YYYY
+    const usaMatch = value.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (usaMatch) {
+      // Ambiguo: podría ser DD/MM o MM/DD
+      // Intentar adivinar basado en valores
+      const [_, first, second, year] = usaMatch;
+
+      // Si first > 12, debe ser día (formato argentino)
+      if (parseInt(first) > 12) {
+        const d = first.padStart(2, '0');
+        const m = second.padStart(2, '0');
+        return `${year}-${m}-${d}`;
+      }
+
+      // Si second > 12, debe ser día (formato USA)
+      if (parseInt(second) > 12) {
+        const m = first.padStart(2, '0');
+        const d = second.padStart(2, '0');
+        return `${year}-${m}-${d}`;
+      }
+
+      // Ambos <= 12: asumir formato argentino (DD/MM/YYYY)
+      const d = first.padStart(2, '0');
+      const m = second.padStart(2, '0');
+      return `${year}-${m}-${d}`;
+    }
+
+    // Intentar parsear con Date() (último recurso)
     try {
       const date = new Date(value);
       if (!isNaN(date.getTime())) {
@@ -352,6 +628,9 @@ class DocumentAIProcessor {
 
   /**
    * Normalizar monto (convertir a número decimal)
+   * Soporta formatos argentinos e internacionales:
+   * - Argentina: 1.234,56 o 1234,56
+   * - USA: 1,234.56 or 1234.56
    */
   normalizeAmount(value) {
     if (!value) return 0;
@@ -361,13 +640,52 @@ class DocumentAIProcessor {
       return value;
     }
 
-    // Remover símbolos de moneda y espacios
-    const cleaned = String(value)
-      .replace(/[^\d.,-]/g, '')
-      .replace(',', '.');
+    // Convertir a string y limpiar símbolos de moneda
+    let cleaned = String(value).trim()
+      .replace(/[$€£¥₹₱\s]/g, ''); // Remover símbolos de moneda y espacios
 
+    // Detectar formato argentino vs USA
+    const hasComma = cleaned.includes(',');
+    const hasPeriod = cleaned.includes('.');
+
+    // Determinar formato basado en posición de separadores
+    if (hasComma && hasPeriod) {
+      // Tiene ambos: 1.234,56 (argentino) o 1,234.56 (USA)
+      const lastComma = cleaned.lastIndexOf(',');
+      const lastPeriod = cleaned.lastIndexOf('.');
+
+      if (lastComma > lastPeriod) {
+        // Formato argentino: 1.234,56 → remover puntos, reemplazar coma
+        cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+      } else {
+        // Formato USA: 1,234.56 → solo remover comas
+        cleaned = cleaned.replace(/,/g, '');
+      }
+    } else if (hasComma && !hasPeriod) {
+      // Solo coma: puede ser 1234,56 (argentino) o 1,234 (USA miles)
+      const parts = cleaned.split(',');
+
+      if (parts.length === 2 && parts[1].length <= 2) {
+        // Decimal argentino: 1234,56
+        cleaned = cleaned.replace(',', '.');
+      } else {
+        // Separador de miles USA: 1,234 → remover coma
+        cleaned = cleaned.replace(/,/g, '');
+      }
+    }
+    // Si solo tiene punto, asumir formato USA (ya está correcto)
+
+    // Parsear el número limpio
     const parsed = parseFloat(cleaned);
-    return isNaN(parsed) ? 0 : parsed;
+
+    // Validar que sea un número razonable para una factura
+    if (isNaN(parsed)) {
+      console.warn(`⚠️  No se pudo parsear monto: "${value}" → cleaned: "${cleaned}"`);
+      return 0;
+    }
+
+    // Redondear a 2 decimales
+    return Math.round(parsed * 100) / 100;
   }
 
   /**
@@ -395,20 +713,279 @@ class DocumentAIProcessor {
 
   /**
    * Detectar tipo de comprobante del texto
+   * Mejorado para facturas argentinas con múltiples patrones
+   * Prioriza texto en la parte superior central (donde suele estar el tipo)
    */
-  detectTipoComprobante(text) {
+  detectTipoComprobante(text, document = null, config = null) {
+    if (!text) return 'FACTURA';
+
+    // Usar configuración por defecto si no se provee
+    if (!config) {
+      config = this.getDefaultConfig();
+    }
+
+    // Si tenemos el documento completo, buscar primero en la zona superior central
+    if (document && document.entities && config.opciones?.usarZonaSuperior) {
+      const tipoFromLocation = this.detectTipoFromTopCenter(document, config);
+      if (tipoFromLocation && tipoFromLocation !== 'FACTURA') {
+        if (config.opciones?.logDetallado) {
+          console.log(`   🎯 Tipo detectado en zona superior central: ${tipoFromLocation}`);
+        }
+        return tipoFromLocation;
+      }
+    }
+
     const textUpper = text.toUpperCase();
+    const normalized = textUpper.replace(/\s+/g, ' ');
 
-    if (textUpper.includes('FACTURA A')) return 'FACTURA A';
-    if (textUpper.includes('FACTURA B')) return 'FACTURA B';
-    if (textUpper.includes('FACTURA C')) return 'FACTURA C';
-    if (textUpper.includes('FACTURA E')) return 'FACTURA E';
-    if (textUpper.includes('NOTA DE CRÉDITO')) return 'NOTA DE CRÉDITO';
-    if (textUpper.includes('NOTA DE DÉBITO')) return 'NOTA DE DÉBITO';
-    if (textUpper.includes('TICKET')) return 'TICKET';
-    if (textUpper.includes('RECIBO')) return 'RECIBO';
+    // FACTURA A - Múltiples patrones
+    if (
+      /FACTURA\s*A\b/.test(normalized) ||
+      /TIPO\s*:\s*A\b/.test(normalized) ||
+      /CLASE\s*:\s*A\b/.test(normalized) ||
+      /COD\.\s*001/.test(normalized) ||
+      /CODIGO\s*001/.test(normalized) ||
+      /\bA\s+ORIGINAL/.test(normalized) ||
+      /\bA\s+DUPLICADO/.test(normalized)
+    ) {
+      console.log('   ✅ Detectado: FACTURA A');
+      return 'FACTURA A';
+    }
 
+    // FACTURA B
+    if (
+      /FACTURA\s*B\b/.test(normalized) ||
+      /TIPO\s*:\s*B\b/.test(normalized) ||
+      /CLASE\s*:\s*B\b/.test(normalized) ||
+      /COD\.\s*006/.test(normalized) ||
+      /CODIGO\s*006/.test(normalized) ||
+      /\bB\s+ORIGINAL/.test(normalized) ||
+      /\bB\s+DUPLICADO/.test(normalized)
+    ) {
+      console.log('   ✅ Detectado: FACTURA B');
+      return 'FACTURA B';
+    }
+
+    // FACTURA C
+    if (
+      /FACTURA\s*C\b/.test(normalized) ||
+      /TIPO\s*:\s*C\b/.test(normalized) ||
+      /CLASE\s*:\s*C\b/.test(normalized) ||
+      /COD\.\s*011/.test(normalized) ||
+      /CODIGO\s*011/.test(normalized) ||
+      /\bC\s+ORIGINAL/.test(normalized) ||
+      /\bC\s+DUPLICADO/.test(normalized)
+    ) {
+      console.log('   ✅ Detectado: FACTURA C');
+      return 'FACTURA C';
+    }
+
+    // FACTURA E (Exportación)
+    if (
+      /FACTURA\s*E\b/.test(normalized) ||
+      /TIPO\s*:\s*E\b/.test(normalized) ||
+      /FACTURA\s+DE\s+EXPORTACION/.test(normalized) ||
+      /COD\.\s*019/.test(normalized)
+    ) {
+      console.log('   ✅ Detectado: FACTURA E');
+      return 'FACTURA E';
+    }
+
+    // FACTURA M (Monotributista)
+    if (
+      /FACTURA\s*M\b/.test(normalized) ||
+      /TIPO\s*:\s*M\b/.test(normalized) ||
+      /COD\.\s*051/.test(normalized)
+    ) {
+      console.log('   ✅ Detectado: FACTURA M');
+      return 'FACTURA M';
+    }
+
+    // NOTA DE CRÉDITO
+    if (
+      /NOTA\s+DE\s+CREDITO/.test(normalized) ||
+      /NOTA\s+CREDITO/.test(normalized) ||
+      /N\/C/.test(normalized) ||
+      /NC\s+\d/.test(normalized)
+    ) {
+      console.log('   ✅ Detectado: NOTA DE CRÉDITO');
+      return 'NOTA DE CRÉDITO';
+    }
+
+    // NOTA DE DÉBITO
+    if (
+      /NOTA\s+DE\s+DEBITO/.test(normalized) ||
+      /NOTA\s+DEBITO/.test(normalized) ||
+      /N\/D/.test(normalized) ||
+      /ND\s+\d/.test(normalized)
+    ) {
+      console.log('   ✅ Detectado: NOTA DE DÉBITO');
+      return 'NOTA DE DÉBITO';
+    }
+
+    // TICKET
+    if (
+      /TICKET\s*FACTURA/.test(normalized) ||
+      /\bTICKET\b/.test(normalized) ||
+      /COMPROBANTE\s+NO\s+VALIDO/.test(normalized)
+    ) {
+      console.log('   ✅ Detectado: TICKET');
+      return 'TICKET';
+    }
+
+    // RECIBO - Solo si dice "RECIBO" seguido de número o palabras clave
+    if (
+      /RECIBO\s*\d/.test(normalized) ||
+      /RECIBO\s+OFICIAL/.test(normalized) ||
+      /RECIBO\s+DE\s+PAGO/.test(normalized) ||
+      /^RECIBO\b/.test(normalized)  // RECIBO al inicio
+    ) {
+      console.log('   ✅ Detectado: RECIBO');
+      return 'RECIBO';
+    }
+
+    // Fallback: buscar "FACTURA" genérica (ANTES de REMITO)
+    if (/FACTURA/.test(normalized)) {
+      console.log('   ⚠️  Detectado: FACTURA (tipo no especificado)');
+      return 'FACTURA';
+    }
+
+    // REMITO - Solo si no encontramos "FACTURA" (última prioridad)
+    // Evita detectar "REMITO: 12345" dentro de una factura
+    if (/^REMITO\b/.test(normalized) || /\bREMITO\s*\d{4,}/.test(normalized)) {
+      console.log('   ✅ Detectado: REMITO');
+      return 'REMITO';
+    }
+
+    console.log('   ⚠️  No se pudo detectar tipo de comprobante');
     return 'FACTURA';
+  }
+
+  /**
+   * Detectar tipo de comprobante buscando específicamente en la zona superior central
+   * En facturas argentinas, la letra (A, B, C) suele estar en un recuadro arriba al centro
+   */
+  detectTipoFromTopCenter(document, config = null) {
+    const entities = document.entities || [];
+
+    // Usar configuración por defecto si no se provee
+    if (!config) {
+      config = this.getDefaultConfig();
+    }
+
+    const zona1 = config.zonaBusqueda.zona1;
+    const zona2 = config.zonaBusqueda.zona2;
+
+    // ZONA 1: Configuración personalizada
+    let topCenterEntities = entities.filter(entity => {
+      if (!entity.pageAnchor || !entity.pageAnchor.pageRefs) {
+        return false;
+      }
+
+      const pageRef = entity.pageAnchor.pageRefs[0];
+      if (!pageRef || !pageRef.boundingPoly || !pageRef.boundingPoly.normalizedVertices) {
+        return false;
+      }
+
+      const vertices = pageRef.boundingPoly.normalizedVertices;
+      if (vertices.length < 2) return false;
+
+      const topY = vertices[0].y || 0;
+      const leftX = vertices[0].x || 0;
+      const rightX = vertices[1]?.x || leftX;
+      const centerX = (leftX + rightX) / 2;
+
+      const isTopArea = topY < zona1.topY;
+      const isCenterArea = centerX > zona1.centerXMin && centerX < zona1.centerXMax;
+
+      return isTopArea && isCenterArea;
+    });
+
+    if (config.opciones?.logDetallado) {
+      console.log(`   🔍 ${zona1.nombre}: ${topCenterEntities.length} elementos`);
+    }
+
+    // Si no encontró nada, expandir búsqueda a ZONA 2
+    if (topCenterEntities.length === 0) {
+      topCenterEntities = entities.filter(entity => {
+        if (!entity.pageAnchor || !entity.pageAnchor.pageRefs) {
+          return false;
+        }
+
+        const pageRef = entity.pageAnchor.pageRefs[0];
+        if (!pageRef || !pageRef.boundingPoly || !pageRef.boundingPoly.normalizedVertices) {
+          return false;
+        }
+
+        const vertices = pageRef.boundingPoly.normalizedVertices;
+        if (vertices.length < 2) return false;
+
+        const topY = vertices[0].y || 0;
+        const leftX = vertices[0].x || 0;
+        const rightX = vertices[1]?.x || leftX;
+        const centerX = (leftX + rightX) / 2;
+
+        const isTopArea = topY < zona2.topY;
+        const isCenterArea = centerX > zona2.centerXMin && centerX < zona2.centerXMax;
+
+        return isTopArea && isCenterArea;
+      });
+
+      if (config.opciones?.logDetallado) {
+        console.log(`   🔍 ${zona2.nombre}: ${topCenterEntities.length} elementos`);
+      }
+    }
+
+    // PRIMERA PASADA: Buscar letra sola en recuadro (máxima prioridad)
+    for (const entity of topCenterEntities) {
+      const text = (entity.mentionText || '').toUpperCase().trim();
+
+      // Buscar letra sola: A, B, C, E, M
+      if (/^[ABCEM]$/.test(text)) {
+        console.log(`   🎯 Letra encontrada en recuadro superior: "${text}"`);
+        return `FACTURA ${text}`;
+      }
+    }
+
+    // SEGUNDA PASADA: Buscar "FACTURA X" o códigos AFIP
+    for (const entity of topCenterEntities) {
+      const text = (entity.mentionText || '').toUpperCase();
+
+      // Buscar "FACTURA X"
+      if (/FACTURA\s*[ABCEM]\b/.test(text)) {
+        const match = text.match(/FACTURA\s*([ABCEM])\b/);
+        if (match) {
+          console.log(`   🎯 "FACTURA ${match[1]}" encontrada en zona superior`);
+          return `FACTURA ${match[1]}`;
+        }
+      }
+
+      // Buscar códigos AFIP
+      if (/COD(?:IGO)?\s*\.?\s*001/.test(text)) {
+        console.log(`   🎯 Código AFIP 001 (FACTURA A) encontrado`);
+        return 'FACTURA A';
+      }
+      if (/COD(?:IGO)?\s*\.?\s*006/.test(text)) {
+        console.log(`   🎯 Código AFIP 006 (FACTURA B) encontrado`);
+        return 'FACTURA B';
+      }
+      if (/COD(?:IGO)?\s*\.?\s*011/.test(text)) {
+        console.log(`   🎯 Código AFIP 011 (FACTURA C) encontrado`);
+        return 'FACTURA C';
+      }
+      if (/COD(?:IGO)?\s*\.?\s*019/.test(text)) {
+        console.log(`   🎯 Código AFIP 019 (FACTURA E) encontrado`);
+        return 'FACTURA E';
+      }
+      if (/COD(?:IGO)?\s*\.?\s*051/.test(text)) {
+        console.log(`   🎯 Código AFIP 051 (FACTURA M) encontrado`);
+        return 'FACTURA M';
+      }
+    }
+
+    // No encontrado en zona superior central
+    console.log(`   ⚠️  No se encontró tipo específico en zona superior central`);
+    return null;
   }
 
   /**
@@ -423,6 +1000,204 @@ class DocumentAIProcessor {
 
     const sum = entities.reduce((acc, entity) => acc + (entity.confidence || 0), 0);
     return (sum / entities.length) * 100;
+  }
+
+  /**
+   * Validar y corregir totales inconsistentes
+   * Document AI a veces confunde decimales argentinos con números grandes
+   */
+  validateAndFixTotals(data) {
+    const { importe, netoGravado, impuestos } = data;
+
+    // Si los impuestos son mayores que el total, algo está mal
+    if (impuestos && importe && impuestos > importe) {
+      console.warn(`⚠️  Impuestos (${impuestos}) > Total (${importe}). Probable error de formato.`);
+
+      // Intentar corregir: probablemente Document AI leyó mal los decimales
+      // Si impuestos es ~1000x el total, dividir por 1000
+      if (impuestos > importe * 10) {
+        const correctedImpuestos = Math.round(impuestos / 100) / 100;
+        console.log(`   🔧 Corrigiendo impuestos: ${impuestos} → ${correctedImpuestos}`);
+        data.impuestos = correctedImpuestos;
+      }
+    }
+
+    // Si neto gravado es mayor que el total, algo está mal
+    if (netoGravado && importe && netoGravado > importe) {
+      console.warn(`⚠️  Neto Gravado (${netoGravado}) > Total (${importe}). Probable error de formato.`);
+
+      if (netoGravado > importe * 10) {
+        const correctedNeto = Math.round(netoGravado / 100) / 100;
+        console.log(`   🔧 Corrigiendo neto gravado: ${netoGravado} → ${correctedNeto}`);
+        data.netoGravado = correctedNeto;
+      }
+    }
+
+    // Validar que la suma tenga sentido: Total ≈ Neto + Impuestos
+    if (importe && netoGravado && impuestos) {
+      const expectedTotal = netoGravado + impuestos + (data.exento || 0);
+      const difference = Math.abs(expectedTotal - importe);
+
+      // Si la diferencia es > 10% del total, algo está mal
+      if (difference > importe * 0.1) {
+        console.warn(`⚠️  Total no coincide con suma de componentes:`);
+        console.warn(`   Total: ${importe}`);
+        console.warn(`   Neto + Impuestos: ${expectedTotal}`);
+        console.warn(`   Diferencia: ${difference}`);
+      }
+    }
+  }
+
+  /**
+   * Extraer impuestos detallados del texto del documento
+   * Similar a extractImpuestosDetalleFromText de documentProcessor.js
+   */
+  extractImpuestosDetalleFromText(text) {
+    const impuestos = [];
+
+    if (!text) return impuestos;
+
+    // 1. IVA con alícuotas específicas
+    const ivaPatterns = [
+      // "IVA 21%: $1.000,00" o "IVA 21.00%  $1.000,00"
+      /IVA\s+([\d.,]+)%?\s*[:.]?\s*\$?\s*([\d.,]+)/gi,
+      // "21.00%  $1.000,00  $1.000,00" (alicuota, base, importe)
+      /([\d.,]+)%\s+\$?\s*([\d.,]+)\s+\$?\s*([\d.,]+)/g
+    ];
+
+    for (const pattern of ivaPatterns) {
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
+        const alicuota = this.normalizeAmount(match[1]);
+        const importe = this.normalizeAmount(match[2]);
+        const baseImponible = match[3] ? this.normalizeAmount(match[3]) : null;
+
+        if (alicuota > 0 && importe > 0) {
+          impuestos.push({
+            tipo: 'IVA',
+            descripcion: `IVA ${alicuota}%`,
+            alicuota: alicuota,
+            baseImponible: baseImponible,
+            importe: importe
+          });
+        }
+      }
+    }
+
+    // 2. Percepciones
+    const percepcionPatterns = [
+      // "Percepción IIBB : 47,448.00" - Busca el valor en la MISMA línea después de los dos puntos
+      /Perc(?:epci[oó]n)?\s+IIBB\s*[:]\s*\$?\s*([\d.,]+)/gi,
+      // "Perc. IIBB: $100,00" o "Percepción Ingresos Brutos: $100,00"
+      /Perc(?:epci[oó]n)?\.?\s+([A-ZÑ\s]+?)\s*[:]\s*\$?\s*([\d.,]+)/gi,
+      // "IIBB  5.00%  $1000.00  $50.00" (con alicuota, base e importe en tabla)
+      /IIBB\s+([\d.,]+)%\s+\$?\s*([\d.,]+)\s+\$?\s*([\d.,]+)/gi
+    ];
+
+    for (const pattern of percepcionPatterns) {
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
+        let descripcion, alicuota, baseImponible, importe;
+
+        console.log(`🔍 [Percepción] Match encontrado: "${match[0]}"`);
+        console.log(`   match[1]: "${match[1]}", match[2]: "${match[2]}", match[3]: "${match[3]}"`);
+
+        // Detectar qué patrón hizo match basado en la estructura
+        if (match[0].match(/IIBB\s+[\d.,]+%/)) {
+          // Patrón 3: "IIBB 5.00% $1000.00 $50.00" (con alícuota, base e importe)
+          alicuota = this.normalizeAmount(match[1]);
+          baseImponible = this.normalizeAmount(match[2]);
+          importe = this.normalizeAmount(match[3]);
+          descripcion = 'Percepción IIBB';
+          console.log(`   ✅ Patrón tabla con %: alícuota=${alicuota}%, base=${baseImponible}, importe=${importe}`);
+        } else if (match[0].match(/Perc(?:epci[oó]n)?\s+IIBB/i)) {
+          // Patrón 1: "Percepción IIBB : 47,448.00" (directo, solo importe)
+          importe = this.normalizeAmount(match[1]);
+          descripcion = 'Percepción IIBB';
+          alicuota = null;
+          baseImponible = null;
+          console.log(`   ✅ Patrón IIBB directo: importe=${importe}`);
+        } else {
+          // Patrón 2: "Percepción Ingresos Brutos: $100,00" (con descripción)
+          descripcion = `Percepción ${match[1]?.trim() || 'IIBB'}`;
+          importe = this.normalizeAmount(match[2]);
+          alicuota = null;
+          baseImponible = null;
+          console.log(`   ✅ Patrón genérico: descripción="${descripcion}", importe=${importe}`);
+        }
+
+        if (importe > 0) {
+          impuestos.push({
+            tipo: 'PERCEPCION',
+            descripcion: descripcion,
+            alicuota: alicuota,
+            baseImponible: baseImponible,
+            importe: importe
+          });
+        }
+      }
+    }
+
+    // 3. Retenciones
+    const retencionPatterns = [
+      // "Retención Ganancias: $50,00" o "Ret. Ganancias  $50,00"
+      /Ret(?:enci[oó]n)?\.?\s+([A-ZÑ\s]+)\s*[:.]?\s*\$?\s*([\d.,]+)/gi
+    ];
+
+    for (const pattern of retencionPatterns) {
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
+        const descripcionMatch = match[1]?.trim();
+        const importe = this.normalizeAmount(match[2]);
+
+        if (importe > 0) {
+          impuestos.push({
+            tipo: 'RETENCION',
+            descripcion: `Retención ${descripcionMatch}`,
+            alicuota: null,
+            baseImponible: null,
+            importe: importe
+          });
+        }
+      }
+    }
+
+    // 4. Impuestos Internos
+    const impInternosPatterns = [
+      // "Impuestos Internos: $100,00"
+      /Imp(?:uestos?)?\s+Internos?\s*[:.]?\s*\$?\s*([\d.,]+)/gi
+    ];
+
+    for (const pattern of impInternosPatterns) {
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
+        const importe = this.normalizeAmount(match[1]);
+
+        if (importe > 0) {
+          impuestos.push({
+            tipo: 'IMPUESTO_INTERNO',
+            descripcion: 'Impuestos Internos',
+            alicuota: null,
+            baseImponible: null,
+            importe: importe
+          });
+        }
+      }
+    }
+
+    // Eliminar duplicados (mismo tipo, descripción e importe)
+    const uniqueImpuestos = [];
+    const seen = new Set();
+
+    for (const imp of impuestos) {
+      const key = `${imp.tipo}_${imp.descripcion}_${imp.importe}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueImpuestos.push(imp);
+      }
+    }
+
+    return uniqueImpuestos;
   }
 
   /**

@@ -34,7 +34,8 @@ import {
   Key,
   Sparkles,
   ScanText,
-  Package
+  Package,
+  Lightbulb
 } from 'lucide-react';
 import axios from 'axios';
 import { useConfirmDialog } from '@/hooks/useConfirm';
@@ -70,7 +71,8 @@ const IconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Key,
   Sparkles,
   ScanText,
-  Package
+  Package,
+  Lightbulb
 };
 
 const getIconComponent = (iconName: string) => {
@@ -91,7 +93,7 @@ const AVAILABLE_ICONS = [
   'BarChart3', 'FileCheck', 'Banknote', 'CheckCircle', 'Folder',
   'TrendingUp', 'Calculator', 'DollarSign', 'Download', 'FileBarChart',
   'ArrowUpCircle', 'ArrowDownCircle', 'RefreshCw', 'Key', 'Sparkles',
-  'ScanText', 'Package'
+  'ScanText', 'Package', 'Lightbulb'
 ];
 
 export function MenuItemForm({ item, isOpen, onClose, onSuccess, isCreating }: MenuItemFormProps) {

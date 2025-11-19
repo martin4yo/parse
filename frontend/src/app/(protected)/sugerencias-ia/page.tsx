@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { sugerenciasIAApi, SugerenciaIA, SugerenciaIAStats } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
-import { Check, X, Trash2, Filter, TrendingUp, Clock, CheckCircle2, XCircle, Sparkles } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/Card';
+import { Check, X, Trash2, Filter, TrendingUp, Clock, CheckCircle2, XCircle, Lightbulb } from 'lucide-react';
 import { useConfirmDialog } from '@/hooks/useConfirm';
 import toast from 'react-hot-toast';
 
@@ -153,81 +154,103 @@ export default function SugerenciasIAPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header con Estadísticas */}
-      <div className="bg-white border-b px-6 py-4">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-semibold text-text-primary flex items-center gap-2">
-              <Sparkles className="w-6 h-6 text-purple-500" />
-              Sugerencias de IA
-            </h1>
-            <p className="text-sm text-text-secondary mt-1">
-              Clasificaciones automáticas pendientes de revisión
-            </p>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="bg-yellow-50 rounded-lg p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-yellow-700 font-medium">Pendientes</p>
-                  <p className="text-2xl font-bold text-yellow-900">{stats.pendientes}</p>
-                </div>
-                <Clock className="w-8 h-8 text-yellow-400" />
-              </div>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+              <Lightbulb className="w-6 h-6 text-palette-dark" />
             </div>
-
-            <div className="bg-green-50 rounded-lg p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-green-700 font-medium">Aprobadas</p>
-                  <p className="text-2xl font-bold text-green-900">{stats.aprobadas}</p>
-                </div>
-                <CheckCircle2 className="w-8 h-8 text-green-400" />
-              </div>
-            </div>
-
-            <div className="bg-red-50 rounded-lg p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-red-700 font-medium">Rechazadas</p>
-                  <p className="text-2xl font-bold text-red-900">{stats.rechazadas}</p>
-                </div>
-                <XCircle className="w-8 h-8 text-red-400" />
-              </div>
-            </div>
-
-            <div className="bg-blue-50 rounded-lg p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-blue-700 font-medium">Aplicadas</p>
-                  <p className="text-2xl font-bold text-blue-900">{stats.aplicadas}</p>
-                </div>
-                <Check className="w-8 h-8 text-blue-400" />
-              </div>
-            </div>
-
-            <div className="bg-purple-50 rounded-lg p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-purple-700 font-medium">Confianza Promedio</p>
-                  <p className="text-2xl font-bold text-purple-900">
-                    {(parseFloat(stats.promedioConfianza.toString()) * 100).toFixed(0)}%
-                  </p>
-                </div>
-                <TrendingUp className="w-8 h-8 text-purple-400" />
-              </div>
+            <div>
+              <h1 className="text-2xl font-bold text-text-primary">
+                Sugerencias de IA
+              </h1>
+              <p className="text-text-secondary">
+                Clasificaciones automáticas pendientes de revisión
+              </p>
             </div>
           </div>
-        )}
       </div>
 
+      {/* Stats Cards */}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+          <Card hover>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-text-secondary">Pendientes</p>
+                  <div className="text-2xl font-bold text-text-primary mt-1">{stats.pendientes}</div>
+                </div>
+                <div className="p-3 rounded-lg bg-yellow-100">
+                  <Clock className="h-6 w-6 text-yellow-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card hover>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-text-secondary">Aprobadas</p>
+                  <div className="text-2xl font-bold text-text-primary mt-1">{stats.aprobadas}</div>
+                </div>
+                <div className="p-3 rounded-lg bg-green-100">
+                  <CheckCircle2 className="h-6 w-6 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card hover>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-text-secondary">Rechazadas</p>
+                  <div className="text-2xl font-bold text-text-primary mt-1">{stats.rechazadas}</div>
+                </div>
+                <div className="p-3 rounded-lg bg-red-100">
+                  <XCircle className="h-6 w-6 text-red-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card hover>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-text-secondary">Aplicadas</p>
+                  <div className="text-2xl font-bold text-text-primary mt-1">{stats.aplicadas}</div>
+                </div>
+                <div className="p-3 rounded-lg bg-blue-100">
+                  <Check className="h-6 w-6 text-blue-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card hover>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-text-secondary">Confianza Promedio</p>
+                  <div className="text-2xl font-bold text-text-primary mt-1">
+                    {(parseFloat(stats.promedioConfianza.toString()) * 100).toFixed(0)}%
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-purple-100">
+                  <TrendingUp className="h-6 w-6 text-purple-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Filtros y Acciones */}
-      <div className="bg-gray-50 border-b px-6 py-3">
+      <div className="bg-gray-50 rounded-lg p-4 border border-border">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-text-secondary" />
@@ -274,10 +297,10 @@ export default function SugerenciasIAPage() {
       </div>
 
       {/* Lista de Sugerencias */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="space-y-4">
         {sugerencias.length === 0 ? (
           <div className="text-center py-12">
-            <Sparkles className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <Lightbulb className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="text-text-secondary">No hay sugerencias con los filtros seleccionados</p>
           </div>
         ) : (
@@ -339,7 +362,7 @@ export default function SugerenciasIAPage() {
                     {/* Sugerencia */}
                     <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-2">
                       <div className="flex items-start gap-2">
-                        <Sparkles className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                        <Lightbulb className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-blue-900 mb-1">
                             Sugerencia IA: {sugerencia.valorSugerido.nombre || sugerencia.valorSugerido.codigo}

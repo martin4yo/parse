@@ -236,6 +236,28 @@ router.get('/aplicar-reglas/stream', async (req, res) => {
           contexto: 'APLICACION_REGLAS'
         });
 
+        // Guardar errores de validación si hay
+        const validationData = {
+          reglasAplicadas: true,
+          fechaReglasAplicadas: new Date()
+        };
+
+        if (ruleResult.hasValidationErrors) {
+          validationData.validationErrors = {
+            errors: ruleResult.validationErrors,
+            summary: ruleResult.validationSummary,
+            timestamp: new Date().toISOString()
+          };
+
+          sendProgress({
+            type: 'validation-errors',
+            documentId: documento.id,
+            documentName: documento.nombreArchivo,
+            errors: ruleResult.validationErrors,
+            summary: ruleResult.validationSummary
+          });
+        }
+
         // Actualizar documento si hubo cambios
         if (ruleResult.totalReglasAplicadas > 0) {
           const docTransformado = ruleResult.documento;
@@ -312,13 +334,10 @@ router.get('/aplicar-reglas/stream', async (req, res) => {
           });
         }
 
-        // Marcar documento como procesado por reglas
+        // Marcar documento como procesado por reglas (con validaciones si aplica)
         await prisma.documentos_procesados.update({
           where: { id: documento.id },
-          data: {
-            reglasAplicadas: true,
-            fechaReglasAplicadas: new Date()
-          }
+          data: validationData
         });
 
       } catch (ruleError) {
@@ -404,7 +423,13 @@ router.post('/procesar', authWithTenant, upload.single('documento'), async (req,
     const { rendicionItemId, tipo, cajaId } = req.body;
     const userId = req.user.id; // Asumiendo middleware de autenticación
 
-    console.log('📝 Procesando documento:', { tipo, cajaId, userId, fileName: req.file.originalname });
+    // Check for X-Force-AI header to bypass pattern cache
+    const forceAI = req.headers['x-force-ai'] === 'true';
+    if (forceAI) {
+      console.log('⚡ [FORCE-AI] Header X-Force-AI detectado - se forzará procesamiento con IA');
+    }
+
+    console.log('📝 Procesando documento:', { tipo, cajaId, userId, fileName: req.file.originalname, forceAI });
 
     // Determinar tipo de archivo
     const tipoArchivo = path.extname(req.file.filename).toLowerCase().substring(1);
@@ -457,7 +482,7 @@ router.post('/procesar', authWithTenant, upload.single('documento'), async (req,
     });
 
     // Procesar archivo en segundo plano
-    processDocumentAsync(documento.id, req.file.path, tipoArchivo);
+    processDocumentAsync(documento.id, req.file.path, tipoArchivo, forceAI);
 
     res.json({
       success: true,
@@ -2530,8 +2555,9 @@ async function crearOBuscarRendicionEfectivo(documento, datosExtraidos) {
 }
 
 // Función para procesar documento de forma asíncrona
-async function processDocumentAsync(documentoId, filePath, tipoArchivo) {
+async function processDocumentAsync(documentoId, filePath, tipoArchivo, forceAI = false) {
   try {
+    console.log(`\n🔧 processDocumentAsync - forceAI: ${forceAI}`);
     let processingResult;
 
     // Agregar timeout de 180 segundos (3 minutos) para todo el procesamiento
@@ -2601,7 +2627,8 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo) {
       processingResult.text,
       documento.tenantId,
       documento.usuarioId,
-      filePath  // Pasar filePath para Document AI
+      filePath,  // Pasar filePath para Document AI
+      forceAI    // Pasar flag para bypass de cache
     );
 
     const datosExtraidos = resultadoOrquestador.datos;
@@ -3358,6 +3385,78 @@ router.get('/download/:id', authWithTenant, async (req, res) => {
   } catch (error) {
     console.error('Error downloading document:', error);
     res.status(500).json({ error: 'Error al descargar el documento' });
+  }
+});
+
+// POST /api/documentos/:id/validate - Validar documento en tiempo real (sin guardar)
+router.post('/:id/validate', authWithTenant, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { datosActuales } = req.body;
+    const tenantId = req.tenantId;
+
+    // Cargar documento completo
+    const documento = await prisma.documentos_procesados.findFirst({
+      where: {
+        id,
+        tenantId
+      },
+      include: {
+        documento_lineas: true,
+        documento_impuestos: true
+      }
+    });
+
+    if (!documento) {
+      return res.status(404).json({ error: 'Documento no encontrado' });
+    }
+
+    // Crear un documento temporal con los datos actuales del formulario
+    const documentoTemporal = {
+      ...documento,
+      ...datosActuales
+    };
+
+    // Inicializar motor de reglas solo para validaciones
+    const rulesEngine = new BusinessRulesEngine(tenantId);
+
+    // Aplicar solo reglas de VALIDACION
+    await rulesEngine.loadRules('VALIDACION', false);
+
+    if (rulesEngine.rules.length === 0) {
+      // No hay reglas de validación, retornar éxito
+      return res.json({
+        success: true,
+        validationErrors: [],
+        hasValidationErrors: false
+      });
+    }
+
+    // Aplicar validaciones al documento temporal
+    const validationResult = await rulesEngine.applyRules(
+      documentoTemporal,
+      {},
+      {
+        tipo: 'VALIDACION',
+        contexto: 'DOCUMENTO',
+        logExecution: false
+      }
+    );
+
+    // Retornar solo los errores de validación
+    return res.json({
+      success: true,
+      validationErrors: validationResult.validationErrors || [],
+      hasValidationErrors: validationResult.hasValidationErrors || false,
+      isValid: validationResult.isValid !== false
+    });
+
+  } catch (error) {
+    console.error('Error validando documento:', error);
+    res.status(500).json({
+      error: 'Error al validar documento',
+      validationErrors: []
+    });
   }
 });
 

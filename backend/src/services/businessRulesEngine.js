@@ -1479,9 +1479,12 @@ class BusinessRulesEngine {
    * Realizar búsqueda con IA en tabla de parámetros
    *
    * Usa IA para encontrar la mejor coincidencia semántica
+   * NUEVO: Primero busca en patrones aprendidos antes de llamar a IA
    */
   async applyAILookup(result, fullData, accion, transformedData = null, rule, contexto = 'LINEA_DOCUMENTO') {
     const aiClassificationService = require('./aiClassificationService');
+    const patternLearningService = require('./patternLearningService');
+
     const {
       campo,                      // Campo donde guardar el resultado
       campoTexto,                 // Campo de donde obtener el texto a analizar
@@ -1495,7 +1498,8 @@ class BusinessRulesEngine {
       aiProvider,                 // Proveedor de IA (gemini, openai, anthropic) - opcional
       aiModel,                    // Modelo específico - opcional
       usarPrefiltro,              // Si debe usar pre-filtro de texto (true/false/null=auto) - NEW
-      maxCandidatos               // Máximo de candidatos después del pre-filtro (default: 50) - NEW
+      maxCandidatos,              // Máximo de candidatos después del pre-filtro (default: 50) - NEW
+      usarPatrones                // Si debe usar sistema de patrones aprendidos (default: true) - NUEVO
     } = accion;
 
     try {
@@ -1519,6 +1523,47 @@ class BusinessRulesEngine {
         }
         return;
       }
+
+      // ========================================
+      // PASO 1: BUSCAR EN PATRONES APRENDIDOS
+      // ========================================
+      const debeUsarPatrones = usarPatrones !== false; // Por defecto true
+
+      if (debeUsarPatrones && this.tenantId) {
+        // Determinar tipo de patrón basado en contexto y campo
+        const tipoPatron = this.determinarTipoPatron(contexto, campo, filtro);
+
+        // Construir patrón de entrada
+        const inputPattern = this.construirInputPattern(dataToUse, fullData, texto);
+
+        // Buscar patrón aprendido
+        const patronEncontrado = await patternLearningService.buscarPatron({
+          tenantId: this.tenantId,
+          tipoPatron,
+          inputPattern,
+          minConfianza: umbralConfianza || 0.7
+        });
+
+        if (patronEncontrado) {
+          // ¡Encontramos un patrón! Usar sin llamar a IA
+          console.log(`🎯 [AI_LOOKUP] Usando patrón aprendido (ahorro de IA)`);
+
+          this.setNestedValue(result, campo, patronEncontrado.output_value);
+
+          // Marcar que usamos patrón histórico (para métricas)
+          if (!result._metadata) result._metadata = {};
+          result._metadata.usedPattern = true;
+          result._metadata.patternConfidence = patronEncontrado.confianza;
+
+          return; // Salir sin llamar a IA ✅
+        }
+
+        console.log(`📊 [AI_LOOKUP] No se encontró patrón, usando IA...`);
+      }
+
+      // ========================================
+      // PASO 2: CLASIFICACIÓN CON IA (FALLBACK)
+      // ========================================
 
       // Obtener opciones desde la tabla
       if (tabla !== 'parametros_maestros') {
@@ -1584,6 +1629,26 @@ class BusinessRulesEngine {
           tenantId: this.tenantId
         });
 
+        // ========================================
+        // PASO 3: APRENDER DE ESTA CLASIFICACIÓN IA EXITOSA
+        // ========================================
+        if (debeUsarPatrones && this.tenantId) {
+          const tipoPatron = this.determinarTipoPatron(contexto, campo, filtro);
+          const inputPattern = this.construirInputPattern(dataToUse, fullData, texto);
+
+          await patternLearningService.aprenderPatron({
+            tenantId: this.tenantId,
+            tipoPatron,
+            inputPattern,
+            outputValue: resultado.valorRetorno,
+            outputCampo: campo,
+            origen: 'ai',
+            confianzaInicial: resultado.confianza
+          });
+
+          console.log(`📚 [AI_LOOKUP] Patrón aprendido para futuras clasificaciones`);
+        }
+
         console.log(`✅ [AI_LOOKUP] Valor aplicado automáticamente (${entidadTipo})`);
 
       } else {
@@ -1615,6 +1680,82 @@ class BusinessRulesEngine {
         this.setNestedValue(result, campo, accion.valorDefecto);
       }
     }
+  }
+
+  /**
+   * Determina el tipo de patrón basado en el contexto y campo
+   * NUEVO: Para sistema de aprendizaje
+   */
+  determinarTipoPatron(contexto, campo, filtro = {}) {
+    // Mapeo de campos a tipos de patrón
+    if (campo.includes('cuenta') || campo.includes('Contable')) {
+      if (contexto.includes('LINEA')) return 'cuenta_linea';
+      if (contexto.includes('IMPUESTO')) return 'cuenta_impuesto';
+      return 'cuenta_documento';
+    }
+
+    if (campo.includes('dimension') || campo.includes('Dimension')) {
+      if (contexto.includes('LINEA')) return 'dimension_linea';
+      if (contexto.includes('IMPUESTO')) return 'dimension_impuesto';
+      return 'dimension_documento';
+    }
+
+    if (campo.includes('subcuenta') || campo.includes('Subcuenta')) {
+      return 'subcuenta';
+    }
+
+    if (campo.includes('tipoProducto') || filtro.tipo_campo === 'tipo_producto') {
+      return 'tipo_producto';
+    }
+
+    if (campo.includes('codigoProducto') || filtro.tipo_campo === 'producto') {
+      return 'codigo_producto';
+    }
+
+    if (campo.includes('categoria')) {
+      return 'categoria';
+    }
+
+    // Usar filtro como hint si está disponible
+    if (filtro.tipo_campo) {
+      return filtro.tipo_campo;
+    }
+
+    // Fallback genérico
+    return 'clasificacion_generica';
+  }
+
+  /**
+   * Construye el patrón de entrada para búsqueda/aprendizaje
+   * NUEVO: Para sistema de aprendizaje
+   */
+  construirInputPattern(dataToUse, fullData, texto) {
+    const pattern = {
+      descripcion: texto
+    };
+
+    // Agregar contexto adicional si está disponible
+    if (fullData.cuitExtraido) {
+      pattern.cuitProveedor = fullData.cuitExtraido;
+    }
+
+    if (fullData.razonSocialExtraida) {
+      pattern.razonSocial = fullData.razonSocialExtraida;
+    }
+
+    if (dataToUse.tipo) {
+      pattern.tipo = dataToUse.tipo;
+    }
+
+    if (dataToUse.alicuota) {
+      pattern.alicuota = dataToUse.alicuota.toString();
+    }
+
+    if (dataToUse.codigoProductoOriginal) {
+      pattern.codigoOriginal = dataToUse.codigoProductoOriginal;
+    }
+
+    return pattern;
   }
 
   /**

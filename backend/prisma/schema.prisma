@@ -98,11 +98,11 @@ model documento_impuestos {
   alicuota                 Decimal?                   @db.Decimal(5, 2)
   baseImponible            Decimal?                   @db.Decimal(15, 2)
   importe                  Decimal                    @db.Decimal(15, 2)
-  codigoDimension          String?                    @db.VarChar(50)
-  subcuenta                String?                    @db.VarChar(50)
-  cuentaContable           String?                    @db.VarChar(50)
   tenantId                 String
   createdAt                DateTime                   @default(now())
+  codigoDimension          String?                    @db.VarChar(50)
+  cuentaContable           String?                    @db.VarChar(50)
+  subcuenta                String?                    @db.VarChar(50)
   documento_distribuciones documento_distribuciones[]
   documentos_procesados    documentos_procesados      @relation(fields: [documentoId], references: [id], onDelete: Cascade)
   tenants                  tenants                    @relation(fields: [tenantId], references: [id])
@@ -118,7 +118,6 @@ model documento_lineas {
   numero                   Int
   descripcion              String                     @db.VarChar(500)
   codigoProducto           String?                    @db.VarChar(100)
-  codigoProductoOriginal   String?                    @db.VarChar(100)
   cantidad                 Decimal                    @db.Decimal(10, 3)
   unidad                   String?                    @db.VarChar(100)
   precioUnitario           Decimal                    @db.Decimal(15, 4)
@@ -126,17 +125,18 @@ model documento_lineas {
   alicuotaIva              Decimal?                   @db.Decimal(5, 2)
   importeIva               Decimal?                   @db.Decimal(15, 2)
   totalLinea               Decimal                    @db.Decimal(15, 2)
-  descuentoTipo            String?                    @db.VarChar(20)
-  descuentoValor           Decimal?                   @db.Decimal(15, 4)
-  descuentoImporte         Decimal?                   @db.Decimal(15, 2)
-  tipoProducto             String?                    @db.VarChar(50)
-  codigoDimension          String?                    @db.VarChar(50)
-  subcuenta                String?                    @db.VarChar(50)
-  cuentaContable           String?                    @db.VarChar(50)
-  tipoOrdenCompra          String?                    @db.VarChar(50)
-  ordenCompra              String?                    @db.VarChar(50)
   tenantId                 String
   createdAt                DateTime                   @default(now())
+  descuentoImporte         Decimal?                   @db.Decimal(15, 2)
+  descuentoTipo            String?                    @db.VarChar(20)
+  descuentoValor           Decimal?                   @db.Decimal(15, 4)
+  codigoDimension          String?                    @db.VarChar(50)
+  cuentaContable           String?                    @db.VarChar(50)
+  ordenCompra              String?                    @db.VarChar(50)
+  subcuenta                String?                    @db.VarChar(50)
+  tipoOrdenCompra          String?                    @db.VarChar(50)
+  tipoProducto             String?                    @db.VarChar(50)
+  codigoProductoOriginal   String?                    @db.VarChar(100)
   documento_distribuciones documento_distribuciones[]
   documentos_procesados    documentos_procesados      @relation(fields: [documentoId], references: [id], onDelete: Cascade)
   tenants                  tenants                    @relation(fields: [tenantId], references: [id])
@@ -146,12 +146,12 @@ model documento_lineas {
 }
 
 model documentos_procesados {
-  id                        String                @id
+  id                        String                     @id
   nombreArchivo             String
   tipoArchivo               String
   rutaArchivo               String
-  fechaProcesamiento        DateTime              @default(now())
-  estadoProcesamiento       String                @default("procesando")
+  fechaProcesamiento        DateTime                   @default(now())
+  estadoProcesamiento       String                     @default("procesando")
   datosExtraidos            Json?
   fechaExtraida             DateTime?
   importeExtraido           Decimal?
@@ -159,9 +159,9 @@ model documentos_procesados {
   numeroComprobanteExtraido String?
   observaciones             String?
   usuarioId                 String
-  tipo                      String                @default("documento")
+  tipo                      String                     @default("documento")
   tenantId                  String
-  createdAt                 DateTime              @default(now())
+  createdAt                 DateTime                   @default(now())
   updatedAt                 DateTime
   caeExtraido               String?
   cuponExtraido             String?
@@ -171,22 +171,23 @@ model documentos_procesados {
   razonSocialExtraida       String?
   tipoComprobanteExtraido   String?
   modeloIA                  String?
-  exportado                 Boolean               @default(false)
+  exportado                 Boolean                    @default(false)
   fechaExportacion          DateTime?
   descuentoGlobalExtraido   Decimal?
-  descuentoGlobalTipo       String?               @db.VarChar(20)
-  monedaExtraida            String?               @db.VarChar(10)
-  codigoProveedor           String?               @db.VarChar(50)
-  reglasAplicadas           Boolean               @default(false)
+  descuentoGlobalTipo       String?                    @db.VarChar(20)
+  monedaExtraida            String?                    @db.VarChar(10)
+  codigoProveedor           String?                    @db.VarChar(50)
   fechaReglasAplicadas      DateTime?
+  reglasAplicadas           Boolean                    @default(false)
   errorMessage              String?
-  codigoDimension           String?               @db.VarChar(50)
-  subcuenta                 String?               @db.VarChar(50)
+  codigoDimension           String?                    @db.VarChar(50)
+  subcuenta                 String?                    @db.VarChar(50)
+  validationErrors          Json?
   documento_distribuciones  documento_distribuciones[]
   documento_impuestos       documento_impuestos[]
   documento_lineas          documento_lineas[]
-  tenants                   tenants               @relation(fields: [tenantId], references: [id])
-  users                     users                 @relation(fields: [usuarioId], references: [id])
+  tenants                   tenants                    @relation(fields: [tenantId], references: [id])
+  users                     users                      @relation(fields: [usuarioId], references: [id])
 
   @@index([tenantId])
   @@index([tipo])
@@ -276,9 +277,9 @@ model planes {
   precio        Decimal?        @db.Decimal(10, 2)
   activo        Boolean         @default(true)
   orden         Int             @default(0)
-  color         String?         @db.VarChar(20)
   createdAt     DateTime        @default(now())
   updatedAt     DateTime
+  color         String?         @db.VarChar(20)
   plan_features plan_features[]
   tenants       tenants[]
 
@@ -337,26 +338,26 @@ model reglas_ejecuciones {
 }
 
 model reglas_negocio {
-  id                      String                    @id
-  codigo                  String
-  nombre                  String
-  descripcion             String?
-  tipo                    String
-  activa                  Boolean                   @default(true)
-  prioridad               Int                       @default(100)
-  version                 Int                       @default(1)
-  fechaVigencia           DateTime?
-  configuracion           Json
-  esGlobal                Boolean                   @default(false)
-  createdAt               DateTime                  @default(now())
-  updatedAt               DateTime
-  createdBy               String?
-  updatedBy               String?
-  tenantId                String?
-  reglas_ejecuciones      reglas_ejecuciones[]
-  sugerencias_ia          sugerencias_ia[]
-  tenant_reglas_globales  tenant_reglas_globales[]
-  tenants                 tenants?                  @relation(fields: [tenantId], references: [id])
+  id                     String                   @id
+  codigo                 String
+  nombre                 String
+  descripcion            String?
+  tipo                   String
+  activa                 Boolean                  @default(true)
+  prioridad              Int                      @default(100)
+  version                Int                      @default(1)
+  fechaVigencia          DateTime?
+  configuracion          Json
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime
+  createdBy              String?
+  updatedBy              String?
+  tenantId               String?
+  esGlobal               Boolean                  @default(false)
+  reglas_ejecuciones     reglas_ejecuciones[]
+  tenants                tenants?                 @relation(fields: [tenantId], references: [id])
+  sugerencias_ia         sugerencias_ia[]
+  tenant_reglas_globales tenant_reglas_globales[]
 
   @@unique([codigo, tenantId])
   @@index([prioridad])
@@ -371,10 +372,10 @@ model sugerencias_ia {
   entidadTipo    String         @db.VarChar(50)
   entidadId      String
   campoDestino   String         @db.VarChar(100)
-  textoAnalizado String         @db.Text
+  textoAnalizado String
   valorSugerido  Json
   confianza      Decimal        @db.Decimal(3, 2)
-  razon          String?        @db.Text
+  razon          String?
   estado         String         @default("pendiente") @db.VarChar(20)
   revisadoPor    String?
   revisadoAt     DateTime?
@@ -383,8 +384,8 @@ model sugerencias_ia {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   reglas_negocio reglas_negocio @relation(fields: [reglaId], references: [id], onDelete: Cascade)
-  tenants        tenants?       @relation(fields: [tenantId], references: [id])
   users          users?         @relation(fields: [revisadoPor], references: [id])
+  tenants        tenants?       @relation(fields: [tenantId], references: [id])
 
   @@index([estado])
   @@index([entidadTipo, entidadId])
@@ -463,41 +464,43 @@ model sync_logs {
 }
 
 model tenants {
-  id                       String                     @id
-  slug                     String                     @unique
-  nombre                   String
-  cuit                     String                     @unique
-  razonSocial              String?
-  direccion                String?
-  telefono                 String?
-  email                    String?
-  planId                   String?
-  activo                   Boolean                    @default(true)
-  esDefault                Boolean                    @default(false)
-  fechaCreacion            DateTime                   @default(now())
-  fechaVencimiento         DateTime?
-  configuracion            Json                       @default("{}")
-  limites                  Json                       @default("{}")
-  createdAt                DateTime                   @default(now())
-  updatedAt                DateTime
-  ai_prompts               ai_prompts[]
-  ai_provider_configs      ai_provider_configs[]
-  atributos                atributos[]
-  documento_distribuciones documento_distribuciones[]
-  documento_impuestos      documento_impuestos[]
-  documento_lineas         documento_lineas[]
-  documentos_procesados    documentos_procesados[]
-  menu_items               menu_items[]
-  parametros_maestros      parametros_maestros[]
-  parametros_relaciones    parametros_relaciones[]
-  reglas_negocio           reglas_negocio[]
-  sugerencias_ia           sugerencias_ia[]
-  sync_api_keys            sync_api_keys[]
-  sync_configurations      sync_configurations?
-  sync_logs                sync_logs[]
-  tenant_reglas_globales   tenant_reglas_globales[]
-  planes                   planes?                    @relation(fields: [planId], references: [id])
-  users                    users[]
+  id                        String                      @id
+  slug                      String                      @unique
+  nombre                    String
+  cuit                      String                      @unique
+  razonSocial               String?
+  direccion                 String?
+  telefono                  String?
+  email                     String?
+  planId                    String?
+  activo                    Boolean                     @default(true)
+  esDefault                 Boolean                     @default(false)
+  fechaCreacion             DateTime                    @default(now())
+  fechaVencimiento          DateTime?
+  configuracion             Json                        @default("{}")
+  limites                   Json                        @default("{}")
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime
+  ai_prompts                ai_prompts[]
+  ai_provider_configs       ai_provider_configs[]
+  atributos                 atributos[]
+  document_detection_config document_detection_config[]
+  documento_distribuciones  documento_distribuciones[]
+  documento_impuestos       documento_impuestos[]
+  documento_lineas          documento_lineas[]
+  documentos_procesados     documentos_procesados[]
+  menu_items                menu_items[]
+  parametros_maestros       parametros_maestros[]
+  parametros_relaciones     parametros_relaciones[]
+  patrones_aprendidos       patrones_aprendidos[]
+  reglas_negocio            reglas_negocio[]
+  sugerencias_ia            sugerencias_ia[]
+  sync_api_keys             sync_api_keys[]
+  sync_configurations       sync_configurations?
+  sync_logs                 sync_logs[]
+  tenant_reglas_globales    tenant_reglas_globales[]
+  planes                    planes?                     @relation(fields: [planId], references: [id])
+  users                     users[]
 
   @@index([activo])
   @@index([cuit])
@@ -562,23 +565,23 @@ model valores_atributo {
 }
 
 model documento_distribuciones {
-  id                   String                 @id @default(cuid())
-  documentoId          String?
-  documentoLineaId     String?
-  documentoImpuestoId  String?
-  tipoDimension        String                 @db.VarChar(50)
-  tipoDimensionNombre  String?                @db.VarChar(200)
-  importeDimension     Decimal                @db.Decimal(18, 2)
-  orden                Int                    @default(1)
-  activo               Boolean                @default(true)
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime               @updatedAt
-  tenantId             String
-  documento_subcuentas documento_subcuentas[]
+  id                    String                 @id @default(cuid())
+  documentoLineaId      String?
+  documentoImpuestoId   String?
+  tipoDimension         String                 @db.VarChar(50)
+  tipoDimensionNombre   String?                @db.VarChar(200)
+  importeDimension      Decimal                @db.Decimal(18, 2)
+  orden                 Int                    @default(1)
+  activo                Boolean                @default(true)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  tenantId              String
+  documentoId           String?
   documentos_procesados documentos_procesados? @relation(fields: [documentoId], references: [id], onDelete: Cascade)
-  documento_impuestos  documento_impuestos?   @relation(fields: [documentoImpuestoId], references: [id], onDelete: Cascade)
-  documento_lineas     documento_lineas?      @relation(fields: [documentoLineaId], references: [id], onDelete: Cascade)
-  tenants              tenants                @relation(fields: [tenantId], references: [id])
+  documento_impuestos   documento_impuestos?   @relation(fields: [documentoImpuestoId], references: [id], onDelete: Cascade)
+  documento_lineas      documento_lineas?      @relation(fields: [documentoLineaId], references: [id], onDelete: Cascade)
+  tenants               tenants                @relation(fields: [tenantId], references: [id])
+  documento_subcuentas  documento_subcuentas[]
 
   @@index([documentoId])
   @@index([documentoLineaId])
@@ -607,21 +610,62 @@ model documento_subcuentas {
 }
 
 model tenant_reglas_globales {
-  id                   String          @id @default(uuid())
-  tenantId             String
-  reglaGlobalId        String
-  activa               Boolean         @default(true)
-  prioridadOverride    Int?
+  id                    String         @id @default(uuid())
+  tenantId              String
+  reglaGlobalId         String
+  activa                Boolean        @default(true)
+  prioridadOverride     Int?
   configuracionOverride Json?
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
-  createdBy            String?
-  updatedBy            String?
-  tenants              tenants         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  reglas_negocio       reglas_negocio  @relation(fields: [reglaGlobalId], references: [id], onDelete: Cascade)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  createdBy             String?
+  updatedBy             String?
+  reglas_negocio        reglas_negocio @relation(fields: [reglaGlobalId], references: [id], onDelete: Cascade)
+  tenants               tenants        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, reglaGlobalId])
   @@index([tenantId])
   @@index([reglaGlobalId])
   @@index([activa])
+}
+
+model patrones_aprendidos {
+  id              String   @id @default(uuid())
+  tenantId        String
+  tipo_patron     String   @db.VarChar(50)
+  hash_pattern    String   @db.VarChar(64)
+  input_pattern   Json
+  output_value    String
+  output_campo    String   @db.VarChar(100)
+  confianza       Float    @default(1.0)
+  num_ocurrencias Int      @default(1)
+  ultima_fecha    DateTime @default(now())
+  origen          String   @default("ai") @db.VarChar(20)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  tenants         tenants  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, tipo_patron, hash_pattern])
+  @@index([tenantId])
+  @@index([tipo_patron])
+  @@index([hash_pattern])
+  @@index([confianza])
+  @@index([num_ocurrencias])
+}
+
+model document_detection_config {
+  id          String   @id @default(uuid())
+  tenantId    String?
+  nombre      String   @db.VarChar(100)
+  descripcion String?  @db.VarChar(500)
+  activo      Boolean  @default(true)
+  config      Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String?
+  updatedBy   String?
+  tenants     tenants? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([activo])
 }

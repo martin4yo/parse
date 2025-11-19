@@ -44,6 +44,8 @@ const atributosRoutes = require('./routes/atributos');
 const aiConfigsRoutes = require('./routes/ai-configs');
 const aiModelsRoutes = require('./routes/ai-models');
 const aiRulesRoutes = require('./routes/ai-rules');
+const patronesAprendidosRoutes = require('./routes/patrones-aprendidos');
+const documentDetectionConfigRoutes = require('./routes/document-detection-config');
 const syncRoutes = require('./routes/sync');
 const { router: syncApiKeysRoutes } = require('./routes/syncApiKeys');
 const jobsRoutes = require('./routes/jobs');
@@ -157,6 +159,8 @@ app.use('/api/atributos', atributosRoutes);
 app.use('/api/ai-configs', aiConfigsRoutes);
 app.use('/api/ai-models', aiModelsRoutes);
 app.use('/api/ai-rules', aiRulesRoutes);
+app.use('/api/patrones-aprendidos', patronesAprendidosRoutes);
+app.use('/api/document-detection-config', documentDetectionConfigRoutes);
 
 // Sincronización SQL
 app.use('/api/sync', syncRoutes);
