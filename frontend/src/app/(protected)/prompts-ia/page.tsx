@@ -36,6 +36,8 @@ export default function PromptsIAPage() {
     nombre: '',
     descripcion: '',
     prompt: '',
+    systemPrompt: '',
+    userPromptTemplate: '',
     motor: '',
     activo: true,
     isGlobal: false,
@@ -101,6 +103,8 @@ export default function PromptsIAPage() {
       nombre: '',
       descripcion: '',
       prompt: '',
+      systemPrompt: '',
+      userPromptTemplate: '',
       motor: '',
       activo: true,
       isGlobal: false,
@@ -116,6 +120,8 @@ export default function PromptsIAPage() {
       nombre: prompt.nombre,
       descripcion: prompt.descripcion || '',
       prompt: prompt.prompt,
+      systemPrompt: (prompt as any).systemPrompt || '',
+      userPromptTemplate: (prompt as any).userPromptTemplate || '',
       motor: prompt.motor || '',
       activo: prompt.activo,
       isGlobal: prompt.tenantId === null, // GLOBAL si no tiene tenant
@@ -156,6 +162,8 @@ export default function PromptsIAPage() {
         nombre: formData.nombre,
         descripcion: formData.descripcion || undefined,
         prompt: formData.prompt,
+        systemPrompt: formData.systemPrompt || undefined,
+        userPromptTemplate: formData.userPromptTemplate || undefined,
         motor: formData.motor || undefined,
         activo: formData.activo,
         isGlobal: formData.isGlobal, // Enviar flag GLOBAL
@@ -497,17 +505,68 @@ export default function PromptsIAPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Prompt *
-                </label>
+              {/* Prompts separados: SYSTEM y USER */}
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-sm font-semibold text-purple-600 dark:text-purple-400">
+                    Prompts Separados (Recomendado)
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    Mejora la precisión separando instrucciones generales de datos específicos
+                  </span>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      SYSTEM Prompt (Instrucciones Generales)
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      Comportamiento, reglas y conocimiento del experto. Ejemplo: "Eres un experto en facturas argentinas..."
+                    </p>
+                    <textarea
+                      rows={6}
+                      value={formData.systemPrompt}
+                      onChange={(e) => setFormData({ ...formData, systemPrompt: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm"
+                      placeholder="Eres un experto en facturas argentinas TIPO A.&#10;Conoces:&#10;- Tipos de comprobantes AFIP&#10;- Estructura de datos fiscales&#10;&#10;IMPORTANTE: Responde ÚNICAMENTE con JSON válido."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      USER Prompt Template (Estructura de Datos)
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      Qué extraer y formato de respuesta. Los datos de Document AI se insertarán aquí automáticamente.
+                    </p>
+                    <textarea
+                      rows={6}
+                      value={formData.userPromptTemplate}
+                      onChange={(e) => setFormData({ ...formData, userPromptTemplate: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm"
+                      placeholder="Analiza el documento y extrae:&#10;&#10;{&#10;  &quot;numeroFactura&quot;: &quot;string&quot;,&#10;  &quot;fecha&quot;: &quot;YYYY-MM-DD&quot;,&#10;  &quot;total&quot;: number&#10;}"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Prompt Legacy (deprecated pero mantenido para compatibilidad) */}
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Prompt Legacy (Deprecado)
+                  </span>
+                  <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-2 py-0.5 rounded">
+                    Solo para retrocompatibilidad
+                  </span>
+                </div>
                 <textarea
-                  required
-                  rows={8}
+                  rows={4}
                   value={formData.prompt}
                   onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm"
-                  placeholder="Analiza el siguiente texto y extrae... Usa variables como {{text}}"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-400 font-mono text-sm opacity-70"
+                  placeholder="(Deprecado) Se usará systemPrompt si está disponible"
                 />
               </div>
 

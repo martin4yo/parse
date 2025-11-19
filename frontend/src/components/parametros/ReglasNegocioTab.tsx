@@ -345,20 +345,22 @@ export default function ReglasNegocioTab() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm font-medium text-gray-900">
-                      {regla.codigo}
-                    </span>
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">
+                        {regla.codigo}
+                      </div>
+                      {regla.esGlobal && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 mt-1">
+                          <Globe className="w-3 h-3" />
+                          GLOBAL
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <div>
-                      <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                      <div className="text-sm font-medium text-gray-900">
                         {regla.nombre}
-                        {regla.esGlobal && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                            <Globe className="w-3 h-3" />
-                            GLOBAL
-                          </span>
-                        )}
                       </div>
                       {regla.descripcion && (
                         <div className="text-sm text-gray-500 truncate max-w-xs">
@@ -397,14 +399,23 @@ export default function ReglasNegocioTab() {
                         <Play className="w-4 h-4" />
                       </Button>
                       {regla.esGlobal ? (
-                        /* Reglas globales: solo desactivar */
-                        <button
-                          onClick={() => handleDesactivarGlobal(regla)}
-                          className="p-1 text-orange-600 hover:text-orange-700 rounded"
-                          title="Desactivar regla global"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
+                        /* Reglas globales: editar y desactivar */
+                        <>
+                          <button
+                            onClick={() => handleEditarRegla(regla)}
+                            className="p-1 text-green-600 hover:text-green-700 rounded"
+                            title="Editar regla global"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDesactivarGlobal(regla)}
+                            className="p-1 text-orange-600 hover:text-orange-700 rounded"
+                            title="Desactivar regla global"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </>
                       ) : (
                         /* Reglas propias: editar y eliminar */
                         <>

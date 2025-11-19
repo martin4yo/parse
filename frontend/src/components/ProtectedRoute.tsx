@@ -27,8 +27,32 @@ export default function ProtectedRoute({
   // Mostrar loading mientras se verifica la autenticación
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-palette-dark"></div>
+      <div
+        className="min-h-screen flex flex-col items-center justify-center"
+        style={{
+          background: `linear-gradient(135deg, #FCE5B7 0%, #FCE5B7 25%, #F1ABB5 50%, #8E6AAA 75%, #352151 100%)`,
+        }}
+      >
+        <div className="flex flex-col items-center justify-center gap-8">
+          <div className="relative w-96 h-96 animate-pulse">
+            <img
+              src="/axioma_logo_invertido.png"
+              alt="Axioma Logo"
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <div className="w-96">
+            <div className="h-2 bg-white/30 rounded-full overflow-hidden backdrop-blur-sm">
+              <div
+                className="h-full bg-gradient-to-r from-palette-purple to-palette-pink transition-all duration-300 ease-out animate-pulse"
+                style={{ width: '60%' }}
+              />
+            </div>
+            <p className="text-white text-center mt-4 text-lg font-medium">
+              Cargando...
+            </p>
+          </div>
+        </div>
       </div>
     );
   }

@@ -37,34 +37,41 @@ class DocumentExtractionOrchestrator {
       console.log(`👤 Tenant: ${tenantId}`);
       console.log(`📄 Longitud de texto: ${documentText.length} caracteres`);
 
-      // 0. PRIORIDAD MÁXIMA: Intentar con Document AI si está configurado
-      if (filePath && documentAIProcessor.isConfigured() && process.env.USE_DOCUMENT_AI === 'true') {
-        try {
-          console.log('\n🎯 ===== USANDO DOCUMENT AI (PRIORIDAD) =====');
-          const result = await documentAIProcessor.processInvoice(filePath);
+      // 0. PRIORIDAD MÁXIMA: Intentar con Document AI si está configurado Y activo en BD
+      if (filePath && documentAIProcessor.isConfigured()) {
+        // Verificar si Document AI está activo en la configuración del tenant
+        const documentAIActivo = await this.isDocumentAIActive(tenantId);
 
-          if (result.success && result.data) {
-            console.log(`✅ Document AI exitoso (confianza: ${result.confidence.toFixed(1)}%)`);
-            console.log('✅ ===== EXTRACCIÓN COMPLETADA CON DOCUMENT AI =====\n');
+        if (documentAIActivo) {
+          try {
+            console.log('\n🎯 ===== USANDO DOCUMENT AI (PRIORIDAD) =====');
+            const result = await documentAIProcessor.processInvoice(filePath, { tenantId });
 
-            return {
-              metodo: 'DOCUMENT_AI',
-              datos: result.data,
-              promptUtilizado: 'Document AI Invoice Parser',
-              confidence: result.confidence,
-              processingTime: result.processingTime,
-              success: true
-            };
-          } else {
-            console.warn(`⚠️  Document AI falló: ${result.error}`);
+            if (result.success && result.data) {
+              console.log(`✅ Document AI exitoso (confianza: ${result.confidence.toFixed(1)}%)`);
+              console.log('✅ ===== EXTRACCIÓN COMPLETADA CON DOCUMENT AI =====\n');
+
+              return {
+                metodo: 'DOCUMENT_AI',
+                datos: result.data,
+                promptUtilizado: 'Document AI Invoice Parser',
+                confidence: result.confidence,
+                processingTime: result.processingTime,
+                success: true
+              };
+            } else {
+              console.warn(`⚠️  Document AI falló: ${result.error}`);
+              console.log('🔄 Continuando con métodos alternativos...\n');
+            }
+          } catch (error) {
+            console.error('❌ Error con Document AI:', error.message);
             console.log('🔄 Continuando con métodos alternativos...\n');
           }
-        } catch (error) {
-          console.error('❌ Error con Document AI:', error.message);
-          console.log('🔄 Continuando con métodos alternativos...\n');
+        } else {
+          console.log('ℹ️  Document AI está INACTIVO (switch desactivado en configuración)');
         }
       } else if (filePath && !documentAIProcessor.isConfigured()) {
-        console.log('ℹ️  Document AI no configurado, probando otros métodos');
+        console.log('ℹ️  Document AI no configurado (faltan credenciales), probando otros métodos');
       } else if (!filePath) {
         console.log('ℹ️  No hay archivo original disponible, usando extracción de texto');
       }
@@ -437,6 +444,181 @@ class DocumentExtractionOrchestrator {
       console.error(`❌ Error obteniendo prompt ${clave}:`, error.message);
       return null;
     }
+  }
+
+  /**
+   * Verificar si Document AI está activo para el tenant
+   * Consulta la tabla ai_provider_configs para verificar el switch
+   *
+   * @param {string} tenantId - ID del tenant
+   * @returns {Promise<boolean>} - true si está activo, false si no
+   */
+  async isDocumentAIActive(tenantId) {
+    try {
+      // Buscar configuración de Document AI para el tenant
+      const config = await prisma.ai_provider_configs.findUnique({
+        where: {
+          tenantId_provider: {
+            tenantId: tenantId,
+            provider: 'document_ai'
+          }
+        },
+        select: {
+          activo: true
+        }
+      });
+
+      // Si no existe configuración, usar la variable de entorno como fallback
+      if (!config) {
+        console.log('   ℹ️  No hay configuración de Document AI en BD, usando .env');
+        return process.env.USE_DOCUMENT_AI === 'true';
+      }
+
+      console.log(`   ℹ️  Document AI ${config.activo ? 'ACTIVO' : 'INACTIVO'} (configuración BD)`);
+      return config.activo;
+
+    } catch (error) {
+      console.error('❌ Error verificando estado de Document AI:', error.message);
+      // En caso de error, usar .env como fallback
+      return process.env.USE_DOCUMENT_AI === 'true';
+    }
+  }
+
+  /**
+   * Verificar si un proveedor de IA tiene habilitado el pre-procesamiento con Document AI
+   *
+   * @param {string} provider - Nombre del proveedor (claude, gemini, etc.)
+   * @param {string} tenantId - ID del tenant
+   * @returns {Promise<boolean>} - true si debe pre-procesar con Document AI
+   */
+  async shouldPreprocessWithDocumentAI(provider, tenantId) {
+    try {
+      const config = await prisma.ai_provider_configs.findUnique({
+        where: {
+          tenantId_provider: {
+            tenantId: tenantId,
+            provider: provider
+          }
+        },
+        select: {
+          preprocessWithDocumentAI: true
+        }
+      });
+
+      return config?.preprocessWithDocumentAI || false;
+
+    } catch (error) {
+      console.error(`❌ Error verificando pre-procesamiento para ${provider}:`, error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Pre-procesar documento con Document AI (solo OCR + estructura)
+   * y devolver texto limpio + tablas estructuradas para el modelo de IA
+   *
+   * @param {string} filePath - Ruta al archivo
+   * @param {string} tenantId - ID del tenant
+   * @returns {Promise<Object>} - { text, tables, metadata }
+   */
+  async preprocessWithDocumentAI(filePath, tenantId) {
+    try {
+      console.log('📄 [PRE-PROCESAMIENTO] Usando Document AI como OCR...');
+
+      const result = await documentAIProcessor.processInvoice(filePath, { tenantId });
+
+      if (!result.success) {
+        console.warn(`⚠️  Document AI pre-procesamiento falló: ${result.error}`);
+        return null;
+      }
+
+      const doc = result.rawDocument;
+
+      // Extraer texto limpio
+      const cleanText = doc.text || '';
+
+      // Extraer tablas estructuradas
+      const tables = this.extractTablesFromDocumentAI(doc);
+
+      // Extraer metadatos útiles
+      const metadata = {
+        confidence: result.confidence,
+        pageCount: doc.pages?.length || 1,
+        hasTablesDetected: tables.length > 0,
+        // Campos de alta confianza que puede usar la IA como referencia
+        detectedValues: {
+          fecha: result.data.fecha,
+          total: result.data.importe,
+          cuit: result.data.cuit,
+          netoGravado: result.data.netoGravado
+        }
+      };
+
+      console.log(`✅ [PRE-PROCESAMIENTO] Document AI extrajo:`);
+      console.log(`   - Texto: ${cleanText.length} caracteres`);
+      console.log(`   - Tablas: ${tables.length}`);
+      console.log(`   - Confianza: ${result.confidence.toFixed(1)}%`);
+
+      return {
+        text: cleanText,
+        tables: tables,
+        metadata: metadata
+      };
+
+    } catch (error) {
+      console.error('❌ Error en pre-procesamiento con Document AI:', error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Extraer tablas del resultado de Document AI en formato legible
+   *
+   * @param {Object} document - Documento de Document AI
+   * @returns {Array} - Array de tablas estructuradas
+   */
+  extractTablesFromDocumentAI(document) {
+    const tables = [];
+
+    // Document AI detecta tablas en pages[].tables
+    if (document.pages) {
+      for (const page of document.pages) {
+        if (page.tables) {
+          for (const table of page.tables) {
+            const rows = [];
+
+            // Agrupar celdas por filas
+            const cellsByRow = {};
+
+            for (const cell of table.bodyRows || []) {
+              const rowIndex = cell.rowIndex || 0;
+              if (!cellsByRow[rowIndex]) {
+                cellsByRow[rowIndex] = [];
+              }
+              cellsByRow[rowIndex].push({
+                column: cell.columnIndex || 0,
+                text: cell.textAnchor?.content || ''
+              });
+            }
+
+            // Convertir a array ordenado
+            for (const rowIndex in cellsByRow) {
+              const cells = cellsByRow[rowIndex].sort((a, b) => a.column - b.column);
+              rows.push(cells.map(c => c.text));
+            }
+
+            if (rows.length > 0) {
+              tables.push({
+                rows: rows,
+                columns: rows[0]?.length || 0
+              });
+            }
+          }
+        }
+      }
+    }
+
+    return tables;
   }
 }
 

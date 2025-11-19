@@ -26,7 +26,8 @@ export default function IAConfigPage() {
     apiKey: '',
     modelo: '',
     maxRequestsPerDay: 1000,
-    activo: true
+    activo: true,
+    preprocessWithDocumentAI: false
   });
 
   const [modelFormData, setModelFormData] = useState({
@@ -69,7 +70,8 @@ export default function IAConfigPage() {
       apiKey: '',
       modelo: '',
       maxRequestsPerDay: 1000,
-      activo: true
+      activo: true,
+      preprocessWithDocumentAI: false
     });
     setShowModal(true);
   };
@@ -81,7 +83,8 @@ export default function IAConfigPage() {
       apiKey: '', // No mostrar la key actual
       modelo: config.modelo,
       maxRequestsPerDay: config.maxRequestsPerDay,
-      activo: config.activo
+      activo: config.activo,
+      preprocessWithDocumentAI: (config as any).preprocessWithDocumentAI || false
     });
     setShowModal(true);
   };
@@ -96,6 +99,7 @@ export default function IAConfigPage() {
           modelo: formData.modelo,
           maxRequestsPerDay: formData.maxRequestsPerDay,
           activo: formData.activo,
+          preprocessWithDocumentAI: formData.preprocessWithDocumentAI,
           apiKey: formData.apiKey || undefined // Solo enviar si hay nueva key
         });
         toast.success('Configuración actualizada');
@@ -105,7 +109,10 @@ export default function IAConfigPage() {
           toast.error('API Key es requerida');
           return;
         }
-        await aiConfigsApi.create(formData);
+        await aiConfigsApi.create({
+          ...formData,
+          preprocessWithDocumentAI: formData.preprocessWithDocumentAI || false
+        });
         toast.success('Configuración creada');
       }
 
@@ -349,7 +356,7 @@ export default function IAConfigPage() {
                             <h4 className="font-semibold text-text-primary">
                               {getProviderName(config.provider)}
                             </h4>
-                            <div className="flex items-center gap-2 mt-1">
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
                               <p className="text-xs text-text-secondary">
                                 {modelInfo?.name || config.modelo}
                               </p>
@@ -361,6 +368,14 @@ export default function IAConfigPage() {
                               {modelInfo?.deprecated && (
                                 <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">
                                   Obsoleto
+                                </span>
+                              )}
+                              {(config as any).preprocessWithDocumentAI && (
+                                <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded flex items-center">
+                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  Document AI OCR
                                 </span>
                               )}
                             </div>
@@ -591,6 +606,27 @@ export default function IAConfigPage() {
                   <span className="text-sm text-text-primary">
                     Configuración activa
                   </span>
+                </label>
+              </div>
+
+              {/* Pre-procesamiento con Document AI */}
+              <div className="border-t border-border pt-4">
+                <label className="flex items-start space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.preprocessWithDocumentAI}
+                    onChange={(e) => setFormData({ ...formData, preprocessWithDocumentAI: e.target.checked })}
+                    className="w-4 h-4 text-primary border-input rounded focus:ring-primary focus:ring-2 mt-0.5"
+                  />
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-text-primary">
+                      Pre-procesar con Document AI
+                    </span>
+                    <p className="text-xs text-text-secondary mt-1">
+                      Usa Google Document AI para extraer OCR de alta calidad antes de enviar a este proveedor.
+                      Mejora la precisión en documentos escaneados pero puede aumentar el tiempo de procesamiento.
+                    </p>
+                  </div>
                 </label>
               </div>
 

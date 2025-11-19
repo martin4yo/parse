@@ -8,6 +8,9 @@ const promptManager = require('../services/promptManager');
 const documentAIProcessor = require('../services/documentAIProcessor');
 const imageOptimizationService = require('../services/imageOptimizationService');
 const patternLearningService = require('../services/patternLearningService');
+const { PrismaClient } = require('@prisma/client');
+
+const prisma = new PrismaClient();
 
 class DocumentProcessor {
   constructor() {
@@ -393,11 +396,15 @@ class DocumentProcessor {
       // CONTINÚA CON EXTRACCIÓN NORMAL
       // ========================================
 
-      // Opción 0: Google Document AI (PRIORIDAD MÁXIMA - si está configurado y tenemos el archivo)
-      if (filePath && documentAIProcessor.isConfigured() && process.env.USE_DOCUMENT_AI === 'true') {
-        try {
-          console.log('🎯 Intentando extracción con Google Document AI...');
-          const result = await documentAIProcessor.processInvoice(filePath);
+      // Opción 0: Google Document AI (PRIORIDAD MÁXIMA - si está configurado, activo y tenemos el archivo)
+      if (filePath && documentAIProcessor.isConfigured()) {
+        // Verificar si Document AI está activo en la configuración del tenant
+        const documentAIActivo = await this.isDocumentAIActive(tenantId);
+
+        if (documentAIActivo) {
+          try {
+            console.log('🎯 Intentando extracción con Google Document AI...');
+            const result = await documentAIProcessor.processInvoice(filePath, { tenantId });
 
           if (result.success && result.data) {
             console.log(`✅ Extracción exitosa con Document AI (confianza: ${result.confidence.toFixed(1)}%)`);
@@ -420,12 +427,15 @@ class DocumentProcessor {
           } else {
             console.warn(`⚠️  Document AI no devolvió datos válidos: ${result.error || 'Unknown error'}`);
           }
-        } catch (error) {
-          console.error('❌ Error con Document AI, continuando con fallback:', error.message);
-          // Continuar con Gemini como fallback
+          } catch (error) {
+            console.error('❌ Error con Document AI, continuando con fallback:', error.message);
+            // Continuar con Gemini como fallback
+          }
+        } else {
+          console.log('ℹ️  Document AI está INACTIVO (switch desactivado en configuración)');
         }
       } else if (filePath && !documentAIProcessor.isConfigured()) {
-        console.log('ℹ️  Document AI no configurado, usando alternativas...');
+        console.log('ℹ️  Document AI no configurado (faltan credenciales), usando alternativas...');
       } else if (!filePath) {
         console.log('ℹ️  No hay filePath disponible, Document AI requiere archivo original');
       }
@@ -647,6 +657,32 @@ class DocumentProcessor {
       const aiConfigService = require('../services/aiConfigService');
       const classifierService = require('../services/classifierService');
 
+      // ===== PRE-PROCESAMIENTO CON DOCUMENT AI (SI ESTÁ HABILITADO) =====
+      let preprocessedData = null;
+      try {
+        const orchestrator = require('../services/documentExtractionOrchestrator');
+        const shouldPreprocess = await orchestrator.shouldPreprocessWithDocumentAI('anthropic', tenantId);
+
+        if (shouldPreprocess) {
+          console.log('\n┌─────────────────────────────────────────┐');
+          console.log('│  PRE-PROCESAMIENTO CON DOCUMENT AI     │');
+          console.log('└─────────────────────────────────────────┘');
+          console.log('🔄 Document AI habilitado como pre-procesador OCR...');
+
+          preprocessedData = await orchestrator.preprocessWithDocumentAI(pdfPath, tenantId);
+
+          if (preprocessedData) {
+            console.log(`✅ Document AI extrajo:`);
+            console.log(`   📄 Texto limpio: ${preprocessedData.text.length} caracteres`);
+            console.log(`   📊 Tablas: ${preprocessedData.tables.length}`);
+            console.log(`   🎯 Confianza OCR: ${preprocessedData.metadata.confidence.toFixed(1)}%`);
+            console.log(`   📋 Valores detectados: ${Object.keys(preprocessedData.metadata.detectedValues).length} campos`);
+          }
+        }
+      } catch (preprocessError) {
+        console.warn('⚠️  Error en pre-procesamiento Document AI, continuando sin él:', preprocessError.message);
+      }
+
       // Obtener configuración del proveedor (incluye API key y modelo)
       const config = await aiConfigService.getProviderConfig('anthropic', tenantId);
 
@@ -739,39 +775,72 @@ class DocumentProcessor {
       console.log('│  PASO 2: EXTRACCIÓN DE DATOS           │');
       console.log('└─────────────────────────────────────────┘');
 
-      // Obtener prompt especializado
-      const promptTemplate = await promptManager.getPromptText(
+      // ===== OBTENER PROMPTS SEPARADOS (SYSTEM + USER) =====
+      let promptParts = await promptManager.getPromptParts(
         promptKey,
         {},
         tenantId,
         'anthropic'
       );
 
-      if (!promptTemplate) {
+      if (!promptParts) {
         console.error(`❌ Prompt ${promptKey} no encontrado, usando fallback`);
         // Último fallback: usar prompt universal si existe
-        const fallbackPrompt = await promptManager.getPromptText(
+        promptParts = await promptManager.getPromptParts(
           'EXTRACCION_UNIVERSAL',
           {},
           tenantId,
           'anthropic'
         );
 
-        if (!fallbackPrompt) {
+        if (!promptParts) {
           throw new Error('No se encontró ningún prompt disponible para extracción');
         }
+      }
 
-        promptTemplate = fallbackPrompt;
+      let systemPrompt = promptParts.systemPrompt;
+      let userPromptText = promptParts.userPromptTemplate;
+
+      // Si tenemos datos pre-procesados de Document AI, agregarlos al USER prompt
+      if (preprocessedData) {
+        console.log('🔗 Enriqueciendo prompt con datos de Document AI...');
+
+        userPromptText = `Tengo información pre-procesada de alta calidad extraída con Google Document AI que te ayudará:
+
+**TEXTO OCR (Confianza: ${preprocessedData.metadata.confidence.toFixed(1)}%)**
+${preprocessedData.text}
+
+${preprocessedData.tables.length > 0 ? `
+**TABLAS ESTRUCTURADAS**
+${preprocessedData.tables.map((table, idx) => `
+Tabla ${idx + 1} (${table.rowCount} filas × ${table.columnCount} columnas):
+${table.rows.map(row => row.map(cell => cell.text).join(' | ')).join('\n')}
+`).join('\n')}
+` : ''}
+
+${Object.keys(preprocessedData.metadata.detectedValues).length > 0 ? `
+**CAMPOS DETECTADOS CON ALTA CONFIANZA**
+${Object.entries(preprocessedData.metadata.detectedValues)
+  .filter(([_, value]) => value)
+  .map(([key, value]) => `- ${key}: ${value}`)
+  .join('\n')}
+` : ''}
+
+Usa esta información junto con el análisis visual del documento para extraer los datos con la máxima precisión posible.`;
       }
 
       // Llamar a Claude Vision con documento y prompt especializado
       console.log(`🤖 Llamando a Claude Vision (${config.modelo}) con ${isImage ? 'imagen' : 'PDF'}...`);
       console.log(`📝 Usando prompt: ${promptKey}`);
+      if (preprocessedData) {
+        console.log(`   📊 Con datos Document AI: ${preprocessedData.text.length} caracteres + ${preprocessedData.tables.length} tablas`);
+      }
       const startTime = Date.now();
 
       const response = await anthropic.messages.create({
         model: config.modelo,
         max_tokens: 4096,
+        system: systemPrompt,
         messages: [{
           role: 'user',
           content: [
@@ -785,7 +854,7 @@ class DocumentProcessor {
             },
             {
               type: 'text',
-              text: promptTemplate
+              text: userPromptText
             }
           ]
         }]
@@ -2909,6 +2978,42 @@ Responde solo el JSON:`,
     if (this.tesseractWorker) {
       await this.tesseractWorker.terminate();
       this.tesseractWorker = null;
+    }
+  }
+
+  /**
+   * Verificar si Document AI está activo para el tenant
+   * Consulta la tabla ai_provider_configs para verificar el switch
+   *
+   * @param {string} tenantId - ID del tenant
+   * @returns {Promise<boolean>} - true si está activo, false si no
+   */
+  async isDocumentAIActive(tenantId) {
+    try {
+      // Buscar configuración de Document AI para el tenant
+      const config = await prisma.ai_provider_configs.findUnique({
+        where: {
+          tenantId_provider: {
+            tenantId: tenantId,
+            provider: 'document_ai'
+          }
+        },
+        select: {
+          activo: true
+        }
+      });
+
+      // Si no existe configuración, usar la variable de entorno como fallback
+      if (!config) {
+        return process.env.USE_DOCUMENT_AI === 'true';
+      }
+
+      return config.activo;
+
+    } catch (error) {
+      console.error('❌ Error verificando estado de Document AI:', error.message);
+      // En caso de error, usar .env como fallback
+      return process.env.USE_DOCUMENT_AI === 'true';
     }
   }
 }

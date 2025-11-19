@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Upload, Link2, FileText, CheckCircle, Clock, AlertCircle, Zap, ExternalLink, LinkIcon, Trash2, FileIcon, Image as ImageIcon, XCircle, Info, Receipt, Edit2, Edit, Unlink, Save, X, Calendar, MessageSquare, ScanText, Plus, Pencil, Sparkles, RotateCcw, Grid3x3 } from 'lucide-react';
+import { Upload, Link2, FileText, CheckCircle, Clock, AlertCircle, Zap, ExternalLink, LinkIcon, Trash2, FileIcon, Image as ImageIcon, XCircle, Info, Receipt, Edit2, Edit, Unlink, Save, X, Calendar, MessageSquare, ScanText, Plus, Pencil, Sparkles, RotateCcw, Grid3x3, AlertTriangle, AlertOctagon, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { DocumentUploadModal } from '@/components/shared/DocumentUploadModal';
@@ -343,6 +343,106 @@ export default function ComprobantesPage() {
     } finally {
       setSavingEdit(false);
     }
+  };
+
+  // ========== FUNCIONES PARA VALIDACIÓN DE ERRORES ==========
+
+  /**
+   * Obtiene los errores de validación para un campo específico
+   * @param fieldName - Nombre del campo a buscar errores
+   * @param origen - Origen del error ('documento', 'linea X', 'impuesto X')
+   * @returns Array de errores encontrados para ese campo
+   */
+  const getFieldErrors = (fieldName: string, origen?: string): any[] => {
+    if (!selectedDocumentForEdit?.validationErrors?.errors) return [];
+
+    return selectedDocumentForEdit.validationErrors.errors.filter((err: any) => {
+      // Si se especifica origen, primero filtrar por origen
+      if (origen && err.origen !== origen) return false;
+
+      // Si no hay fieldName (string vacío), devolver todos los errores del origen
+      if (!fieldName && origen) return true;
+
+      // Buscar en contexto
+      if (fieldName && err.contexto && err.contexto.toLowerCase().includes(fieldName.toLowerCase())) return true;
+
+      // Buscar en mensaje
+      if (fieldName && (err.mensaje || err.message) && (err.mensaje || err.message).toLowerCase().includes(fieldName.toLowerCase())) return true;
+
+      return false;
+    });
+  };
+
+  /**
+   * Cuenta errores por sección
+   */
+  const getErrorCountBySection = (section: 'documento' | 'lineas' | 'impuestos'): { total: number; bloqueantes: number; errores: number } => {
+    if (!selectedDocumentForEdit?.validationErrors?.errors) return { total: 0, bloqueantes: 0, errores: 0 };
+
+    const sectionErrors = selectedDocumentForEdit.validationErrors.errors.filter((err: any) => {
+      if (section === 'documento') {
+        return err.origen === 'documento';
+      } else if (section === 'lineas') {
+        return err.origen?.startsWith('linea');
+      } else if (section === 'impuestos') {
+        return err.origen?.startsWith('impuesto');
+      }
+      return false;
+    });
+
+    return {
+      total: sectionErrors.length,
+      bloqueantes: sectionErrors.filter((e: any) => e.severidad === 'BLOQUEANTE').length,
+      errores: sectionErrors.filter((e: any) => e.severidad === 'ERROR').length
+    };
+  };
+
+  /**
+   * Componente de icono de error con tooltip
+   */
+  const ValidationErrorIcon = ({ fieldName, origen }: { fieldName: string; origen?: string }) => {
+    const errors = getFieldErrors(fieldName, origen);
+    if (errors.length === 0) return null;
+
+    // Obtener el error más severo
+    const hasBloqueante = errors.some(e => e.severidad === 'BLOQUEANTE');
+    const hasError = errors.some(e => e.severidad === 'ERROR');
+
+    const Icon = hasBloqueante ? ShieldAlert : hasError ? AlertOctagon : AlertTriangle;
+    const colorClass = hasBloqueante
+      ? 'text-red-600'
+      : hasError
+      ? 'text-orange-600'
+      : 'text-yellow-600';
+
+    const bgClass = hasBloqueante
+      ? 'bg-red-50 border-red-200'
+      : hasError
+      ? 'bg-orange-50 border-orange-200'
+      : 'bg-yellow-50 border-yellow-200';
+
+    return (
+      <div className="relative group inline-block ml-2">
+        <Icon className={`w-4 h-4 ${colorClass} cursor-help`} />
+
+        {/* Tooltip */}
+        <div className={`absolute left-0 top-6 z-50 hidden group-hover:block w-64 p-3 rounded-lg border-2 shadow-lg ${bgClass}`}>
+          <div className="space-y-2">
+            {errors.map((err, idx) => (
+              <div key={idx} className="text-xs">
+                <div className={`font-semibold mb-1 ${
+                  err.severidad === 'BLOQUEANTE' ? 'text-red-800' :
+                  err.severidad === 'ERROR' ? 'text-orange-800' : 'text-yellow-800'
+                }`}>
+                  {err.severidad === 'BLOQUEANTE' ? '🚫' : err.severidad === 'ERROR' ? '⚠️' : '⚡'} {err.regla || 'Validación'}
+                </div>
+                <div className="text-gray-700">{err.mensaje || err.message}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   // ========== FUNCIONES PARA LÍNEAS (ITEMS) ==========
@@ -1211,6 +1311,9 @@ export default function ComprobantesPage() {
         case 'error':
           statusMatch = doc.estadoProcesamiento === 'error';
           break;
+        case 'con_errores':
+          statusMatch = !!(doc.validationErrors && doc.validationErrors.summary && doc.validationErrors.summary.total > 0);
+          break;
         default:
           statusMatch = true;
       }
@@ -1400,6 +1503,7 @@ export default function ComprobantesPage() {
               <option value="todos">Mostrar Todos</option>
               <option value="pendientes">Pendientes</option>
               <option value="exportados">Exportados</option>
+              <option value="con_errores">Con Errores</option>
             </select>
 
             {/* Switch para forzar reprocesamiento */}
@@ -1924,7 +2028,26 @@ export default function ComprobantesPage() {
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  Encabezado
+                  <div className="flex items-center gap-2">
+                    Encabezado
+                    {(() => {
+                      const errorCount = getErrorCountBySection('documento');
+                      if (errorCount.total > 0) {
+                        return (
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                            errorCount.bloqueantes > 0
+                              ? 'bg-red-100 text-red-700'
+                              : errorCount.errores > 0
+                              ? 'bg-orange-100 text-orange-700'
+                              : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {errorCount.total}
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
                 </button>
                 <button
                   onClick={() => setActiveTab('items')}
@@ -1934,7 +2057,26 @@ export default function ComprobantesPage() {
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  Items {documentoLineas.length > 0 && `(${documentoLineas.length})`}
+                  <div className="flex items-center gap-2">
+                    Items {documentoLineas.length > 0 && `(${documentoLineas.length})`}
+                    {(() => {
+                      const errorCount = getErrorCountBySection('lineas');
+                      if (errorCount.total > 0) {
+                        return (
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                            errorCount.bloqueantes > 0
+                              ? 'bg-red-100 text-red-700'
+                              : errorCount.errores > 0
+                              ? 'bg-orange-100 text-orange-700'
+                              : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {errorCount.total}
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
                 </button>
                 <button
                   onClick={() => setActiveTab('impuestos')}
@@ -1944,7 +2086,26 @@ export default function ComprobantesPage() {
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  Impuestos {documentoImpuestos.length > 0 && `(${documentoImpuestos.length})`}
+                  <div className="flex items-center gap-2">
+                    Impuestos {documentoImpuestos.length > 0 && `(${documentoImpuestos.length})`}
+                    {(() => {
+                      const errorCount = getErrorCountBySection('impuestos');
+                      if (errorCount.total > 0) {
+                        return (
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                            errorCount.bloqueantes > 0
+                              ? 'bg-red-100 text-red-700'
+                              : errorCount.errores > 0
+                              ? 'bg-orange-100 text-orange-700'
+                              : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {errorCount.total}
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
                 </button>
               </nav>
             </div>
@@ -1954,76 +2115,13 @@ export default function ComprobantesPage() {
               {/* TAB: ENCABEZADO */}
               {activeTab === 'encabezado' && (
                 <div>
-                  {/* Validation Errors Alert */}
-                  {selectedDocumentForEdit?.validationErrors && selectedDocumentForEdit.validationErrors.summary.total > 0 && (
-                    <div className={`mb-6 p-4 rounded-lg border-2 ${
-                      selectedDocumentForEdit.validationErrors.summary.bloqueantes > 0
-                        ? 'bg-red-50 border-red-300'
-                        : selectedDocumentForEdit.validationErrors.summary.errores > 0
-                        ? 'bg-orange-50 border-orange-300'
-                        : 'bg-yellow-50 border-yellow-300'
-                    }`}>
-                      <div className="flex items-start gap-3">
-                        <AlertCircle className={`w-5 h-5 mt-0.5 ${
-                          selectedDocumentForEdit.validationErrors.summary.bloqueantes > 0
-                            ? 'text-red-600'
-                            : selectedDocumentForEdit.validationErrors.summary.errores > 0
-                            ? 'text-orange-600'
-                            : 'text-yellow-600'
-                        }`} />
-                        <div className="flex-1">
-                          <h3 className={`font-semibold mb-2 ${
-                            selectedDocumentForEdit.validationErrors.summary.bloqueantes > 0
-                              ? 'text-red-800'
-                              : selectedDocumentForEdit.validationErrors.summary.errores > 0
-                              ? 'text-orange-800'
-                              : 'text-yellow-800'
-                          }`}>
-                            Errores de Validación Detectados ({selectedDocumentForEdit.validationErrors.summary.total})
-                          </h3>
-                          <div className="space-y-2 text-sm">
-                            {selectedDocumentForEdit.validationErrors.errors.map((err: any, idx: number) => (
-                              <div key={idx} className={`p-2 rounded ${
-                                err.severidad === 'BLOQUEANTE'
-                                  ? 'bg-red-100'
-                                  : err.severidad === 'ERROR'
-                                  ? 'bg-orange-100'
-                                  : 'bg-yellow-100'
-                              }`}>
-                                <div className="flex items-start gap-2">
-                                  <span className={`font-medium ${
-                                    err.severidad === 'BLOQUEANTE'
-                                      ? 'text-red-700'
-                                      : err.severidad === 'ERROR'
-                                      ? 'text-orange-700'
-                                      : 'text-yellow-700'
-                                  }`}>
-                                    {err.severidad === 'BLOQUEANTE' ? '🚫' : err.severidad === 'ERROR' ? '⚠️' : '⚡'}
-                                  </span>
-                                  <div className="flex-1">
-                                    <div className="font-medium text-gray-800">{err.regla || 'Regla de validación'}</div>
-                                    <div className="text-gray-700">{err.mensaje || err.message}</div>
-                                    {err.contexto && (
-                                      <div className="text-gray-500 text-xs mt-1">
-                                        Contexto: {err.contexto}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
                   <div className="grid grid-cols-2 gap-4">
                 {/* 1. Fecha */}
                 <div>
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     <Calendar className="w-4 h-4 inline mr-1" />
                     Fecha
+                    <ValidationErrorIcon fieldName="fecha" origen="documento" />
                   </label>
                   <input
                     type="date"
@@ -2037,6 +2135,7 @@ export default function ComprobantesPage() {
                 <div>
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     Tipo de Comprobante
+                    <ValidationErrorIcon fieldName="tipoComprobante" origen="documento" />
                   </label>
                   <select
                     value={editFormData.tipoComprobanteExtraido || ''}
@@ -2059,6 +2158,7 @@ export default function ComprobantesPage() {
                 <div>
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     Número de Comprobante
+                    <ValidationErrorIcon fieldName="numeroComprobante" origen="documento" />
                   </label>
                   <input
                     type="text"
@@ -2073,6 +2173,7 @@ export default function ComprobantesPage() {
                 <div>
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     CUIT
+                    <ValidationErrorIcon fieldName="cuit" origen="documento" />
                   </label>
                   <input
                     type="text"
@@ -2087,6 +2188,7 @@ export default function ComprobantesPage() {
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     Razón Social
+                    <ValidationErrorIcon fieldName="razonSocial" origen="documento" />
                   </label>
                   <input
                     type="text"
@@ -2120,6 +2222,7 @@ export default function ComprobantesPage() {
                 <div>
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     Neto Gravado
+                    <ValidationErrorIcon fieldName="netoGravado" origen="documento" />
                   </label>
                   <input
                     type="number"
@@ -2135,6 +2238,7 @@ export default function ComprobantesPage() {
                 <div>
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     Exento
+                    <ValidationErrorIcon fieldName="exento" origen="documento" />
                   </label>
                   <input
                     type="number"
@@ -2304,6 +2408,7 @@ export default function ComprobantesPage() {
                               <h4 className="font-semibold text-gray-900 text-sm truncate" title={linea.descripcion}>
                                 {linea.descripcion}
                               </h4>
+                              <ValidationErrorIcon fieldName="" origen={`linea ${linea.numero}`} />
                             </div>
                             <div className="flex items-center gap-2">
                               <button
@@ -2505,7 +2610,7 @@ export default function ComprobantesPage() {
                     </div>
                   ) : (
                     <div className="grid gap-4">
-                      {documentoImpuestos.map((impuesto) => (
+                      {documentoImpuestos.map((impuesto, index) => (
                         <div key={impuesto.id} className="border border-gray-200 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
                           {/* Header de la tarjeta */}
                           <div className="bg-gradient-to-r from-green-50 to-green-100 px-4 py-3 border-b border-green-200 flex justify-between items-center">
@@ -2516,6 +2621,7 @@ export default function ComprobantesPage() {
                               <h4 className="font-semibold text-gray-900 text-sm truncate" title={impuesto.descripcion}>
                                 {impuesto.descripcion}
                               </h4>
+                              <ValidationErrorIcon fieldName="" origen={`impuesto ${index + 1}`} />
                             </div>
                             <div className="flex items-center gap-2">
                               <button

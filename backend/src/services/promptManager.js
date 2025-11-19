@@ -84,6 +84,7 @@ class PromptManager {
 
   /**
    * Obtener el texto del prompt con variables reemplazadas
+   * @deprecated Usar getPromptParts() para obtener SYSTEM y USER separados
    * @param {string} clave - Clave del prompt
    * @param {Object} variables - Variables para reemplazar {variable: valor}
    * @param {string|null} tenantId - ID del tenant
@@ -97,8 +98,8 @@ class PromptManager {
       return null;
     }
 
-    // Reemplazar variables en el prompt
-    let promptText = promptData.prompt;
+    // RETROCOMPATIBILIDAD: Si existe systemPrompt, usar ese. Sino usar prompt legacy
+    let promptText = promptData.systemPrompt || promptData.prompt;
 
     // Formato de variables: {{variable}}
     for (const [key, value] of Object.entries(variables)) {
@@ -112,6 +113,57 @@ class PromptManager {
     });
 
     return promptText;
+  }
+
+  /**
+   * Obtener el prompt separado en SYSTEM y USER
+   * @param {string} clave - Clave del prompt
+   * @param {Object} variables - Variables para reemplazar {variable: valor}
+   * @param {string|null} tenantId - ID del tenant
+   * @param {string|null} motor - Motor de IA
+   * @returns {Promise<{systemPrompt: string, userPromptTemplate: string}|null>}
+   */
+  async getPromptParts(clave, variables = {}, tenantId = null, motor = null) {
+    const promptData = await this.getPrompt(clave, tenantId, motor);
+
+    if (!promptData) {
+      return null;
+    }
+
+    // Función helper para reemplazar variables
+    const replaceVars = (text) => {
+      if (!text) return '';
+      let result = text;
+      for (const [key, value] of Object.entries(variables)) {
+        const placeholder = `{{${key}}}`;
+        result = result.replace(new RegExp(placeholder, 'g'), value);
+      }
+      return result;
+    };
+
+    // Si tiene los campos nuevos, usarlos
+    if (promptData.systemPrompt || promptData.userPromptTemplate) {
+      const systemPrompt = replaceVars(promptData.systemPrompt || '');
+      const userPromptTemplate = replaceVars(promptData.userPromptTemplate || 'Analiza el documento adjunto y extrae los datos solicitados en formato JSON.');
+
+      // Actualizar métricas de uso
+      this._updateUsageMetrics(promptData.id).catch(err => {
+        console.error('Error actualizando métricas:', err);
+      });
+
+      return { systemPrompt, userPromptTemplate };
+    }
+
+    // FALLBACK: Si solo tiene prompt legacy, ponerlo todo en systemPrompt
+    const systemPrompt = replaceVars(promptData.prompt);
+    const userPromptTemplate = 'Analiza el documento adjunto y extrae los datos solicitados en formato JSON.';
+
+    // Actualizar métricas de uso
+    this._updateUsageMetrics(promptData.id).catch(err => {
+      console.error('Error actualizando métricas:', err);
+    });
+
+    return { systemPrompt, userPromptTemplate };
   }
 
   /**

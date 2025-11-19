@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, DollarSign, Clock, Zap, Database } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { api } from '@/lib/api';
-import toast from 'hot-toast';
+import toast from 'react-hot-toast';
 
 interface Stats {
   success: boolean;

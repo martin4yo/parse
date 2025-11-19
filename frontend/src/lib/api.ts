@@ -1301,6 +1301,7 @@ export interface AIProviderConfig {
   maxRequestsPerDay: number;
   config?: any;
   activo: boolean;
+  preprocessWithDocumentAI?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -1354,6 +1355,7 @@ export const aiConfigsApi = {
     modelo?: string;
     maxRequestsPerDay?: number;
     activo?: boolean;
+    preprocessWithDocumentAI?: boolean;
   }): Promise<AIProviderConfig> => {
     const response = await api.post('/ai-configs', data);
     return response.data;
@@ -1363,6 +1365,7 @@ export const aiConfigsApi = {
     modelo?: string;
     maxRequestsPerDay?: number;
     activo?: boolean;
+    preprocessWithDocumentAI?: boolean;
     apiKey?: string;
   }): Promise<AIProviderConfig> => {
     const response = await api.put(`/ai-configs/${id}`, data);

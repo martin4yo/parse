@@ -205,6 +205,7 @@ class AIConfigService {
           maxRequestsPerDay: true,
           config: true,
           activo: true,
+          preprocessWithDocumentAI: true,
           createdAt: true,
           updatedAt: true
           // NO devolver apiKeyEncrypted por seguridad

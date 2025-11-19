@@ -8,25 +8,27 @@ datasource db {
 }
 
 model ai_prompts {
-  id          String    @id
-  clave       String
-  nombre      String
-  descripcion String?
-  prompt      String
-  variables   Json?
-  activo      Boolean   @default(true)
-  version     Int       @default(1)
-  motor       String?
-  tipo        String?   @default("EXTRACTOR_SIMPLE")
-  vecesUsado  Int       @default(0)
-  ultimoUso   DateTime?
-  tasaExito   Decimal?
-  tenantId    String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime
-  createdBy   String?
-  updatedBy   String?
-  tenants     tenants?  @relation(fields: [tenantId], references: [id])
+  id                 String    @id
+  clave              String
+  nombre             String
+  descripcion        String?
+  prompt             String    // Deprecated: Mantener para retrocompatibilidad
+  systemPrompt       String?   // NUEVO: Instrucciones generales (va en API system parameter)
+  userPromptTemplate String?   // NUEVO: Template del mensaje del usuario
+  variables          Json?
+  activo             Boolean   @default(true)
+  version            Int       @default(1)
+  motor              String?
+  tipo               String?   @default("EXTRACTOR_SIMPLE")
+  vecesUsado         Int       @default(0)
+  ultimoUso          DateTime?
+  tasaExito          Decimal?
+  tenantId           String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime
+  createdBy          String?
+  updatedBy          String?
+  tenants            tenants?  @relation(fields: [tenantId], references: [id])
 
   @@unique([clave, tenantId])
   @@index([activo])
@@ -56,17 +58,18 @@ model ai_models {
 }
 
 model ai_provider_configs {
-  id                String   @id
-  tenantId          String?
-  provider          String
-  apiKeyEncrypted   String?
-  modelo            String?
-  maxRequestsPerDay Int?
-  config            Json?
-  activo            Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime
-  tenants           tenants? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                        String   @id
+  tenantId                  String?
+  provider                  String
+  apiKeyEncrypted           String?
+  modelo                    String?
+  maxRequestsPerDay         Int?
+  config                    Json?    // Almacena { preprocessWithDocumentAI: true/false, ... }
+  activo                    Boolean  @default(true)
+  preprocessWithDocumentAI  Boolean  @default(false) // Pre-procesar con Document AI antes de IA
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime
+  tenants                   tenants? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, provider])
   @@index([activo])

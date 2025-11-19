@@ -103,15 +103,21 @@ export default function DocumentAIConfigPage() {
 
   const checkDocumentAIStatus = async () => {
     try {
-      const response = await fetch('/api/documentos/processor-status', {
+      // Obtener todas las configuraciones de IA del tenant
+      const response = await fetch('/api/ai-configs', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
 
       if (response.ok) {
-        const data = await response.json();
-        setIsDocumentAIEnabled(data.useDocumentAI || false);
+        const configs = await response.json();
+
+        // Buscar la configuración de Document AI
+        const documentAIConfig = configs.find((c: any) => c.provider === 'document_ai');
+
+        // Si existe, usar su estado activo; si no, asumir false
+        setIsDocumentAIEnabled(documentAIConfig?.activo || false);
       }
     } catch (error) {
       console.error('Error checking Document AI status:', error);
@@ -119,14 +125,68 @@ export default function DocumentAIConfigPage() {
   };
 
   const toggleDocumentAI = async (enabled: boolean) => {
-    // Esta funcionalidad requeriría un endpoint adicional para actualizar
-    // la configuración de Document AI a nivel tenant
-    setIsDocumentAIEnabled(enabled);
-    toast.success(
-      enabled
-        ? 'Document AI activado. Se usará para procesar documentos.'
-        : 'Document AI desactivado. Se usarán otros métodos de procesamiento.'
-    );
+    try {
+      // Primero, verificar si existe configuración de Document AI
+      const getResponse = await fetch('/api/ai-configs', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (!getResponse.ok) {
+        throw new Error('Error obteniendo configuraciones');
+      }
+
+      const configs = await getResponse.json();
+      const existingConfig = configs.find((c: any) => c.provider === 'document_ai');
+
+      let response;
+
+      if (existingConfig) {
+        // Si existe, actualizar con PUT
+        response = await fetch(`/api/ai-configs/${existingConfig.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({
+            activo: enabled
+          })
+        });
+      } else {
+        // Si no existe, crear con POST (Document AI no necesita API key real)
+        response = await fetch('/api/ai-configs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({
+            provider: 'document_ai',
+            apiKey: 'CONFIGURED_VIA_CREDENTIALS_FILE', // Placeholder
+            activo: enabled
+          })
+        });
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error actualizando configuración');
+      }
+
+      setIsDocumentAIEnabled(enabled);
+      toast.success(
+        enabled
+          ? 'Document AI activado. Se usará para procesar documentos.'
+          : 'Document AI desactivado. Se usarán otros métodos de procesamiento.'
+      );
+    } catch (error: any) {
+      console.error('Error toggling Document AI:', error);
+      toast.error(error.message || 'No se pudo actualizar la configuración de Document AI');
+      // Revertir el estado en caso de error
+      setIsDocumentAIEnabled(!enabled);
+    }
   };
 
   const saveConfig = async () => {

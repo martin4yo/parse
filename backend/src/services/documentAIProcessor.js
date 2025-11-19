@@ -400,7 +400,11 @@ class DocumentAIProcessor {
       'receiver_tax_id': 'receptorCuit',
 
       // Descuentos
-      'total_discount_amount': 'descuentoGlobal'
+      'total_discount_amount': 'descuentoGlobal',
+
+      // Campos específicos de Argentina (AFIP)
+      'cae': 'caeExtraido',
+      'cae_expiration': 'fechaVencimientoCAE'
     };
 
     // Extraer entidades principales
@@ -440,9 +444,40 @@ class DocumentAIProcessor {
     }
 
     // Extraer impuestos detallados del texto (IVA, percepciones, retenciones)
-    data.impuestosDetalle = this.extractImpuestosDetalleFromText(document.text || '');
+    // Pasar el total de impuestos para validación (evitar capturar neto gravado)
+    data.impuestosDetalle = this.extractImpuestosDetalleFromText(document.text || '', {
+      totalImpuestos: data.impuestos,
+      netoGravado: data.netoGravado,
+      total: data.importe
+    });
     if (config.opciones?.logDetallado) {
       console.log(`   💰 Impuestos detallados: ${data.impuestosDetalle.length}`);
+    }
+
+    // Extraer CAE y Fecha Vencimiento CAE del texto si no fueron detectados por entidades
+    if (!data.caeExtraido) {
+      const caeExtractado = this.extractCAEFromText(document.text || '');
+      if (caeExtractado.cae) {
+        data.caeExtraido = caeExtractado.cae;
+        if (config.opciones?.logDetallado) {
+          console.log(`   🔐 CAE extraído del texto: ${data.caeExtraido}`);
+        }
+      }
+      if (caeExtractado.fechaVencimiento) {
+        data.fechaVencimientoCAE = caeExtractado.fechaVencimiento;
+        if (config.opciones?.logDetallado) {
+          console.log(`   📅 Fecha Vto. CAE: ${data.fechaVencimientoCAE}`);
+        }
+      }
+    }
+
+    // Extraer observaciones del documento
+    const observaciones = this.extractObservacionesFromText(document.text || '');
+    if (observaciones) {
+      data.observaciones = observaciones;
+      if (config.opciones?.logDetallado) {
+        console.log(`   📝 Observaciones: ${observaciones.substring(0, 100)}...`);
+      }
     }
 
     // Validar y corregir totales si son inconsistentes
@@ -499,6 +534,12 @@ class DocumentAIProcessor {
                 break;
               case 'line_item/product_code':
                 item.codigoProducto = this.getEntityValue(prop);
+                break;
+              case 'line_item/notes':
+              case 'line_item/comments':
+              case 'line_item/remarks':
+                // Observaciones/notas a nivel de línea
+                item.observaciones = this.getEntityValue(prop);
                 break;
             }
           }
@@ -1051,11 +1092,43 @@ class DocumentAIProcessor {
   /**
    * Extraer impuestos detallados del texto del documento
    * Similar a extractImpuestosDetalleFromText de documentProcessor.js
+   *
+   * @param {string} text - Texto del documento
+   * @param {object} validacion - Valores de referencia para validar (opcional)
+   * @param {number} validacion.totalImpuestos - Total de impuestos detectado por Document AI
+   * @param {number} validacion.netoGravado - Neto gravado detectado
+   * @param {number} validacion.total - Total del documento
    */
-  extractImpuestosDetalleFromText(text) {
+  extractImpuestosDetalleFromText(text, validacion = {}) {
     const impuestos = [];
 
     if (!text) return impuestos;
+
+    // DEBUG MEJORADO: Mostrar fragmento de texto alrededor de "Percepcion" o "IIBB" CON CONTEXTO
+    const debugMatch = text.match(/(Subtotal|Percepci[oó]n|IIBB).{0,200}/gi);
+    if (debugMatch) {
+      console.log('📝 [DEBUG] Texto encontrado con Percepcion/IIBB/Subtotal:');
+      debugMatch.forEach((snippet, i) => {
+        // Mostrar con saltos de línea visibles y caracteres especiales
+        const visible = snippet
+          .replace(/\n/g, '↵\n')  // Marcar saltos de línea
+          .replace(/\r/g, '⏎')     // Marcar carriage return
+          .replace(/\t/g, '→');    // Marcar tabs
+        console.log(`   ${i + 1}. "${visible}"`);
+      });
+
+      // DEBUG EXTRA: Mostrar código de caracteres después de "Percepcion IIBB :"
+      const percMatch = text.match(/Perc(?:epci[oó]n)?\s+IIBB\s*[:].{0,50}/i);
+      if (percMatch) {
+        console.log('\n🔍 [DEBUG DETALLADO] Caracteres después de "Percepcion IIBB :":');
+        const chars = percMatch[0].split('');
+        chars.slice(0, 30).forEach((char, i) => {
+          const code = char.charCodeAt(0);
+          const display = char === '\n' ? '\\n' : char === '\r' ? '\\r' : char === '\t' ? '\\t' : char === ' ' ? '·' : char;
+          console.log(`      [${i}] '${display}' (code: ${code})`);
+        });
+      }
+    }
 
     // 1. IVA con alícuotas específicas
     const ivaPatterns = [
@@ -1085,13 +1158,16 @@ class DocumentAIProcessor {
     }
 
     // 2. Percepciones
+    // ESTRATEGIA: Buscar "Percepcion IIBB" y luego buscar el número MÁS CERCANO que sea menor al subtotal
+    // Esto evita capturar el Subtotal como si fuera el impuesto
     const percepcionPatterns = [
-      // "Percepción IIBB : 47,448.00" - Busca el valor en la MISMA línea después de los dos puntos
-      /Perc(?:epci[oó]n)?\s+IIBB\s*[:]\s*\$?\s*([\d.,]+)/gi,
+      // "IIBB  5.00%  $1000.00  $50.00" (formato tabla con alícuota)
+      /IIBB\s+([\d.,]+)%\s+\$?\s*([\d.,]+)\s+\$?\s*([\d.,]+)/gi,
+      // "Percepción IIBB : 47,448.00" (en la misma línea o máximo 50 caracteres adelante)
+      // Captura hasta 50 caracteres después de ":" para encontrar el número
+      /Perc(?:epci[oó]n)?\s+IIBB\s*[:]\s*([^\n]{0,50}?)([\d.,]+)/gi,
       // "Perc. IIBB: $100,00" o "Percepción Ingresos Brutos: $100,00"
-      /Perc(?:epci[oó]n)?\.?\s+([A-ZÑ\s]+?)\s*[:]\s*\$?\s*([\d.,]+)/gi,
-      // "IIBB  5.00%  $1000.00  $50.00" (con alicuota, base e importe en tabla)
-      /IIBB\s+([\d.,]+)%\s+\$?\s*([\d.,]+)\s+\$?\s*([\d.,]+)/gi
+      /Perc(?:epci[oó]n)?\.?\s+(?!(?:Sub)?Total|Neto)([A-ZÑ\s]+?)\s*[:]\s*([^\n]{0,50}?)([\d.,]+)/gi
     ];
 
     for (const pattern of percepcionPatterns) {
@@ -1100,33 +1176,57 @@ class DocumentAIProcessor {
         let descripcion, alicuota, baseImponible, importe;
 
         console.log(`🔍 [Percepción] Match encontrado: "${match[0]}"`);
-        console.log(`   match[1]: "${match[1]}", match[2]: "${match[2]}", match[3]: "${match[3]}"`);
+        console.log(`   match[1]: "${match[1]}", match[2]: "${match[2]}", match[3]: "${match[3]}", match[4]: "${match[4]}"`);
 
-        // Detectar qué patrón hizo match basado en la estructura
-        if (match[0].match(/IIBB\s+[\d.,]+%/)) {
-          // Patrón 3: "IIBB 5.00% $1000.00 $50.00" (con alícuota, base e importe)
+        // ⚠️ VALIDACIÓN: Excluir falsos positivos (Subtotal, Total, Neto)
+        const matchText = match[0].toUpperCase();
+        if (matchText.includes('SUBTOTAL') || matchText.includes('TOTAL') || matchText.includes('NETO')) {
+          console.log(`   ⚠️ Descartado: "${match[0]}" (no es un impuesto, es un total)`);
+          continue;
+        }
+
+        // Detectar qué patrón hizo match basado en la estructura y número de grupos
+        if (match[3] && !match[4]) {
+          // Patrón 1: "IIBB 5.00% $1000.00 $50.00" (3 grupos: alícuota, base, importe)
           alicuota = this.normalizeAmount(match[1]);
           baseImponible = this.normalizeAmount(match[2]);
           importe = this.normalizeAmount(match[3]);
           descripcion = 'Percepción IIBB';
           console.log(`   ✅ Patrón tabla con %: alícuota=${alicuota}%, base=${baseImponible}, importe=${importe}`);
-        } else if (match[0].match(/Perc(?:epci[oó]n)?\s+IIBB/i)) {
-          // Patrón 1: "Percepción IIBB : 47,448.00" (directo, solo importe)
-          importe = this.normalizeAmount(match[1]);
+        } else if (match[0].match(/Perc(?:epci[oó]n)?\s+IIBB/i) && match[2]) {
+          // Patrón 2: "Percepcion IIBB : [basura] 47,448.00" (2 grupos: basura + importe)
+          // El grupo 1 es basura (espacios, saltos de línea), el grupo 2 es el importe
+          importe = this.normalizeAmount(match[2]);
           descripcion = 'Percepción IIBB';
           alicuota = null;
           baseImponible = null;
-          console.log(`   ✅ Patrón IIBB directo: importe=${importe}`);
-        } else {
-          // Patrón 2: "Percepción Ingresos Brutos: $100,00" (con descripción)
+          console.log(`   ✅ Patrón IIBB con ventana: importe=${importe}`);
+        } else if (match[4]) {
+          // Patrón 3: "Percepción XXX : [basura] $100,00" (3 grupos: descripción, basura, importe)
           descripcion = `Percepción ${match[1]?.trim() || 'IIBB'}`;
-          importe = this.normalizeAmount(match[2]);
+          importe = this.normalizeAmount(match[3]);
           alicuota = null;
           baseImponible = null;
-          console.log(`   ✅ Patrón genérico: descripción="${descripcion}", importe=${importe}`);
+          console.log(`   ✅ Patrón genérico con ventana: descripción="${descripcion}", importe=${importe}`);
+        } else {
+          console.log(`   ⚠️ Patrón no reconocido, descartando`);
+          continue;
         }
 
         if (importe > 0) {
+          // ⚠️ VALIDACIÓN CRÍTICA: Evitar guardar el neto gravado como impuesto
+          // Si el importe capturado coincide con el neto gravado, es un error de parsing
+          if (validacion.netoGravado && Math.abs(importe - validacion.netoGravado) < 1) {
+            console.log(`   ⚠️ Descartado: importe ${importe} coincide con neto gravado (error de parsing)`);
+            continue;
+          }
+
+          // Si tenemos el total de impuestos de Document AI y es muy diferente, advertir
+          if (validacion.totalImpuestos && Math.abs(importe - validacion.totalImpuestos) > validacion.totalImpuestos * 0.5) {
+            console.log(`   ⚠️ Advertencia: importe ${importe} muy diferente del total de impuestos ${validacion.totalImpuestos}`);
+            // No lo descartamos completamente porque podría ser un impuesto individual
+          }
+
           impuestos.push({
             tipo: 'PERCEPCION',
             descripcion: descripcion,
@@ -1185,6 +1285,19 @@ class DocumentAIProcessor {
       }
     }
 
+    // Si NO se encontraron impuestos detallados PERO Document AI detectó un total de impuestos,
+    // crear un impuesto genérico con el valor correcto
+    if (impuestos.length === 0 && validacion.totalImpuestos && validacion.totalImpuestos > 0) {
+      console.log(`   ℹ️  No se encontraron impuestos detallados en texto, usando total de Document AI: ${validacion.totalImpuestos}`);
+      impuestos.push({
+        tipo: 'PERCEPCION',
+        descripcion: 'Percepción IIBB',
+        alicuota: null,
+        baseImponible: validacion.netoGravado || null,
+        importe: validacion.totalImpuestos
+      });
+    }
+
     // Eliminar duplicados (mismo tipo, descripción e importe)
     const uniqueImpuestos = [];
     const seen = new Set();
@@ -1198,6 +1311,68 @@ class DocumentAIProcessor {
     }
 
     return uniqueImpuestos;
+  }
+
+  /**
+   * Extraer CAE (Código de Autorización Electrónico) del texto
+   * Formato típico: "CAE: 75467757407997" o "CAE 75467757407997"
+   */
+  extractCAEFromText(text) {
+    const result = { cae: null, fechaVencimiento: null };
+
+    if (!text) return result;
+
+    // Patrón para CAE: 14 dígitos
+    const caePattern = /CAE\s*:?\s*(\d{14})/i;
+    const caeMatch = text.match(caePattern);
+
+    if (caeMatch) {
+      result.cae = caeMatch[1];
+    }
+
+    // Patrón para Fecha Vencimiento CAE
+    // "Fecha Vto. CAE: 29/11/2025" o "Vencimiento CAE: 29/11/2025"
+    const fechaVtoPattern = /(?:Fecha\s+)?Vto\.?\s*(?:CAE|del\s+CAE)?\s*:?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i;
+    const fechaMatch = text.match(fechaVtoPattern);
+
+    if (fechaMatch) {
+      result.fechaVencimiento = this.normalizeDate(fechaMatch[1]);
+    }
+
+    return result;
+  }
+
+  /**
+   * Extraer observaciones del texto del documento
+   * Busca secciones típicas como "Observaciones:", "Notas:", "Comentarios:", etc.
+   */
+  extractObservacionesFromText(text) {
+    if (!text) return null;
+
+    // Patrones para detectar sección de observaciones
+    const patterns = [
+      // "Observaciones: texto hasta fin de línea o siguiente sección"
+      /Observaciones?\s*:?\s*\n?(.*?)(?:\n(?:[A-Z]{2,}|CAE|TOTAL|Subtotal)|$)/is,
+      // "Notas: ..."
+      /Notas?\s*:?\s*\n?(.*?)(?:\n(?:[A-Z]{2,}|CAE|TOTAL|Subtotal)|$)/is,
+      // "Comentarios: ..."
+      /Comentarios?\s*:?\s*\n?(.*?)(?:\n(?:[A-Z]{2,}|CAE|TOTAL|Subtotal)|$)/is,
+      // "Observación: ..."
+      /Observaci[oó]n\s*:?\s*\n?(.*?)(?:\n(?:[A-Z]{2,}|CAE|TOTAL|Subtotal)|$)/is
+    ];
+
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        const observacion = match[1].trim();
+        // Solo retornar si tiene contenido significativo (más de 3 caracteres)
+        if (observacion.length > 3) {
+          return observacion;
+        }
+      }
+    }
+
+    return null;
   }
 
   /**

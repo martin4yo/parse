@@ -170,7 +170,7 @@ router.get('/:id', authWithTenant, async (req, res) => {
 router.post('/', authWithTenant, async (req, res) => {
   try {
     const tenantId = req.tenantId;
-    const { provider, apiKey, modelo, maxRequestsPerDay, activo } = req.body;
+    const { provider, apiKey, modelo, maxRequestsPerDay, activo, preprocessWithDocumentAI } = req.body;
 
     if (!tenantId) {
       return res.status(400).json({
@@ -207,6 +207,7 @@ router.post('/', authWithTenant, async (req, res) => {
           modelo: modelo || existing.modelo,
           maxRequestsPerDay: maxRequestsPerDay || existing.maxRequestsPerDay,
           activo: activo !== undefined ? activo : existing.activo,
+          preprocessWithDocumentAI: preprocessWithDocumentAI !== undefined ? preprocessWithDocumentAI : existing.preprocessWithDocumentAI,
           updatedAt: new Date()
         },
         select: {
@@ -215,6 +216,7 @@ router.post('/', authWithTenant, async (req, res) => {
           modelo: true,
           maxRequestsPerDay: true,
           activo: true,
+          preprocessWithDocumentAI: true,
           createdAt: true,
           updatedAt: true
         }
@@ -243,6 +245,7 @@ router.post('/', authWithTenant, async (req, res) => {
         modelo: true,
         maxRequestsPerDay: true,
         activo: true,
+        preprocessWithDocumentAI: true,
         createdAt: true,
         updatedAt: true
       }
@@ -267,7 +270,7 @@ router.put('/:id', authWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
     const tenantId = req.tenantId;
-    const { modelo, maxRequestsPerDay, activo, apiKey } = req.body;
+    const { modelo, maxRequestsPerDay, activo, apiKey, preprocessWithDocumentAI } = req.body;
 
     // Verificar que la configuración existe y pertenece al tenant
     const existing = await prisma.ai_provider_configs.findFirst({
@@ -288,6 +291,7 @@ router.put('/:id', authWithTenant, async (req, res) => {
     if (modelo !== undefined) updateData.modelo = modelo;
     if (maxRequestsPerDay !== undefined) updateData.maxRequestsPerDay = maxRequestsPerDay;
     if (activo !== undefined) updateData.activo = activo;
+    if (preprocessWithDocumentAI !== undefined) updateData.preprocessWithDocumentAI = preprocessWithDocumentAI;
 
     // Si se proporciona nueva API key, cifrarla
     if (apiKey) {
@@ -305,6 +309,7 @@ router.put('/:id', authWithTenant, async (req, res) => {
         modelo: true,
         maxRequestsPerDay: true,
         activo: true,
+        preprocessWithDocumentAI: true,
         createdAt: true,
         updatedAt: true
       }

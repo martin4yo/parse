@@ -2254,7 +2254,7 @@ function getUpdateDataFromDatosExtraidos(datosExtraidos, textoExtraido, metodoEx
     importeExtraido: datosExtraidos?.importe || null,
     cuitExtraido: datosExtraidos?.cuit || null,
     numeroComprobanteExtraido: datosExtraidos?.numeroComprobante || null,
-    caeExtraido: datosExtraidos?.cae || null,
+    caeExtraido: datosExtraidos?.caeExtraido || datosExtraidos?.cae || null,
     razonSocialExtraida: datosExtraidos?.razonSocial || null,
     netoGravadoExtraido: (() => {
       const total = datosExtraidos?.importe;
@@ -2740,7 +2740,7 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo, forceAI 
         importeExtraido: datosExtraidos?.importe || null,
         cuitExtraido: datosExtraidos?.cuit || null,
         numeroComprobanteExtraido: datosExtraidos?.numeroComprobante || null,
-        caeExtraido: datosExtraidos?.cae || null,
+        caeExtraido: datosExtraidos?.caeExtraido || datosExtraidos?.cae || null,
         razonSocialExtraida: datosExtraidos?.razonSocial || null,
         // EXTRAER neto gravado directamente (NO calcular)
         netoGravadoExtraido: datosExtraidos?.netoGravado ? parseFloat(datosExtraidos.netoGravado) : null,

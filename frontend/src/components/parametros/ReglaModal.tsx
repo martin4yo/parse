@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Eye, Play, Save, AlertCircle, Info, Settings, CheckCircle } from 'lucide-react';
+import { X, Plus, Trash2, Eye, Play, Save, AlertCircle, Info, Settings, CheckCircle, AlertTriangle, XCircle, CheckCircle2, ShieldAlert, AlertOctagon, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -716,25 +716,86 @@ export default function ReglaModal({
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Severidad *
                     </label>
-                    <select
-                      value={formData.configuracion.severidad || 'ERROR'}
-                      onChange={(e) => handleConfigChange('severidad', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="BLOQUEANTE">🔴 BLOQUEANTE - Detiene la exportación</option>
-                      <option value="ERROR">🟠 ERROR - Permite exportar pero advierte</option>
-                      <option value="WARNING">🟡 WARNING - Solo informa</option>
-                    </select>
-                    <p className="text-xs text-gray-500 mt-1">
-                      BLOQUEANTE: Impide exportar | ERROR: Exporta con aviso | WARNING: Solo notifica
-                    </p>
+                    <div className="space-y-2">
+                      {/* Opción BLOQUEANTE */}
+                      <label className={`flex items-start gap-3 p-3 border-2 rounded-lg cursor-pointer transition-colors ${
+                        formData.configuracion.severidad === 'BLOQUEANTE'
+                          ? 'border-red-500 bg-red-50'
+                          : 'border-gray-200 hover:border-red-300 hover:bg-red-50'
+                      }`}>
+                        <input
+                          type="radio"
+                          name="severidad"
+                          value="BLOQUEANTE"
+                          checked={formData.configuracion.severidad === 'BLOQUEANTE'}
+                          onChange={(e) => handleConfigChange('severidad', e.target.value)}
+                          className="mt-0.5"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <ShieldAlert className="w-4 h-4 text-red-600" />
+                            <span className="font-semibold text-red-900">BLOQUEANTE</span>
+                          </div>
+                          <p className="text-xs text-red-700 mt-1">Detiene la exportación - Debe corregirse antes de continuar</p>
+                        </div>
+                      </label>
+
+                      {/* Opción ERROR */}
+                      <label className={`flex items-start gap-3 p-3 border-2 rounded-lg cursor-pointer transition-colors ${
+                        formData.configuracion.severidad === 'ERROR'
+                          ? 'border-orange-500 bg-orange-50'
+                          : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50'
+                      }`}>
+                        <input
+                          type="radio"
+                          name="severidad"
+                          value="ERROR"
+                          checked={formData.configuracion.severidad === 'ERROR'}
+                          onChange={(e) => handleConfigChange('severidad', e.target.value)}
+                          className="mt-0.5"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <AlertOctagon className="w-4 h-4 text-orange-600" />
+                            <span className="font-semibold text-orange-900">ERROR</span>
+                          </div>
+                          <p className="text-xs text-orange-700 mt-1">Permite exportar pero muestra advertencia - Se recomienda corregir</p>
+                        </div>
+                      </label>
+
+                      {/* Opción WARNING */}
+                      <label className={`flex items-start gap-3 p-3 border-2 rounded-lg cursor-pointer transition-colors ${
+                        formData.configuracion.severidad === 'WARNING'
+                          ? 'border-yellow-500 bg-yellow-50'
+                          : 'border-gray-200 hover:border-yellow-300 hover:bg-yellow-50'
+                      }`}>
+                        <input
+                          type="radio"
+                          name="severidad"
+                          value="WARNING"
+                          checked={formData.configuracion.severidad === 'WARNING'}
+                          onChange={(e) => handleConfigChange('severidad', e.target.value)}
+                          className="mt-0.5"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-yellow-600" />
+                            <span className="font-semibold text-yellow-900">WARNING</span>
+                          </div>
+                          <p className="text-xs text-yellow-700 mt-1">Solo informa - No impide la exportación</p>
+                        </div>
+                      </label>
+                    </div>
                   </div>
 
                   <div className="bg-blue-50 border border-blue-200 rounded p-3">
-                    <p className="text-sm text-blue-800">
-                      <strong>ℹ️ Nota:</strong> Las reglas de validación NO requieren acciones.
-                      Solo defina las condiciones que deben cumplirse para que sea válido.
-                    </p>
+                    <div className="flex items-start gap-2">
+                      <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                      <p className="text-sm text-blue-800">
+                        <strong>Nota:</strong> Las reglas de validación NO requieren acciones.
+                        Solo defina las condiciones que deben cumplirse para que sea válido.
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -945,13 +1006,22 @@ export default function ReglaModal({
             <div className="space-y-6">
               {formData.tipo === 'VALIDACION' && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <p className="text-sm text-yellow-900">
-                    <strong>⚠️ Importante para Validaciones:</strong> Las condiciones definen lo que <strong>DEBE cumplirse</strong> para que sea válido.
-                    <br />
-                    ✅ Si las condiciones se cumplen → <strong>VÁLIDO</strong> (todo OK)
-                    <br />
-                    ❌ Si las condiciones NO se cumplen → <strong>INVÁLIDO</strong> (se muestra el mensaje de error)
-                  </p>
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-yellow-900 space-y-2">
+                      <p><strong>Importante para Validaciones:</strong> Las condiciones definen lo que <strong>DEBE cumplirse</strong> para que sea válido.</p>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+                          <span>Si las condiciones se cumplen → <strong>VÁLIDO</strong> (todo OK)</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <XCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                          <span>Si las condiciones NO se cumplen → <strong>INVÁLIDO</strong> (se muestra el mensaje de error)</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -1289,7 +1359,10 @@ export default function ReglaModal({
                             </div>
 
                             <div className="md:col-span-2 bg-blue-100 p-3 rounded border border-blue-300">
-                              <p className="text-xs text-blue-900 font-medium mb-2">💡 Ejemplos de uso de Campo JSON:</p>
+                              <div className="flex items-center gap-2 mb-2">
+                                <Lightbulb className="w-4 h-4 text-blue-700" />
+                                <p className="text-xs text-blue-900 font-medium">Ejemplos de uso de Campo JSON:</p>
+                              </div>
                               <div className="space-y-1 text-xs text-blue-800">
                                 <div>• Simple: <code className="bg-white px-1 rounded">cuenta_contable</code> → Extrae el valor directo</div>
                                 <div>• Anidado: <code className="bg-white px-1 rounded">cuentas.compra</code> → Extrae de objeto anidado</div>
