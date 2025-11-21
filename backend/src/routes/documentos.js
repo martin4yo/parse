@@ -730,12 +730,35 @@ router.get('/:id/lineas', authWithTenant, async (req, res) => {
     // Enrich lines with parameter names
     if (lineas.length > 0) {
       // Get all unique codes for each field type
+      const tiposProducto = [...new Set(lineas.map(l => l.tipoProducto).filter(Boolean))];
       const codigosProducto = [...new Set(lineas.map(l => l.codigoProducto).filter(Boolean))];
       const codigosDimension = [...new Set(lineas.map(l => l.codigoDimension).filter(Boolean))];
       const subcuentas = [...new Set(lineas.map(l => l.subcuenta).filter(Boolean))];
+      const cuentasContables = [...new Set(lineas.map(l => l.cuentaContable).filter(Boolean))];
+      const tiposOrdenCompra = [...new Set(lineas.map(l => l.tipoOrdenCompra).filter(Boolean))];
+      const ordenesCompra = [...new Set(lineas.map(l => l.ordenCompra).filter(Boolean))];
 
       // Fetch parameter names in parallel
-      const [productosMap, dimensionesMap, subcuentasMap] = await Promise.all([
+      const [
+        tiposProductoMap,
+        productosMap,
+        dimensionesMap,
+        subcuentasMap,
+        cuentasContablesMap,
+        tiposOrdenCompraMap,
+        ordenesCompraMap
+      ] = await Promise.all([
+        tiposProducto.length > 0
+          ? prisma.parametros_maestros.findMany({
+              where: {
+                tipo_campo: 'tipo_producto',
+                codigo: { in: tiposProducto },
+                ...(tenantId ? { tenantId } : {})
+              },
+              select: { codigo: true, nombre: true }
+            }).then(results => new Map(results.map(r => [r.codigo, r.nombre])))
+          : Promise.resolve(new Map()),
+
         codigosProducto.length > 0
           ? prisma.parametros_maestros.findMany({
               where: {
@@ -767,15 +790,52 @@ router.get('/:id/lineas', authWithTenant, async (req, res) => {
               },
               select: { codigo: true, nombre: true }
             }).then(results => new Map(results.map(r => [r.codigo, r.nombre])))
+          : Promise.resolve(new Map()),
+
+        cuentasContables.length > 0
+          ? prisma.parametros_maestros.findMany({
+              where: {
+                tipo_campo: 'cuenta_contable',
+                codigo: { in: cuentasContables },
+                ...(tenantId ? { tenantId } : {})
+              },
+              select: { codigo: true, nombre: true }
+            }).then(results => new Map(results.map(r => [r.codigo, r.nombre])))
+          : Promise.resolve(new Map()),
+
+        tiposOrdenCompra.length > 0
+          ? prisma.parametros_maestros.findMany({
+              where: {
+                tipo_campo: 'tipo_orden_compra',
+                codigo: { in: tiposOrdenCompra },
+                ...(tenantId ? { tenantId } : {})
+              },
+              select: { codigo: true, nombre: true }
+            }).then(results => new Map(results.map(r => [r.codigo, r.nombre])))
+          : Promise.resolve(new Map()),
+
+        ordenesCompra.length > 0
+          ? prisma.parametros_maestros.findMany({
+              where: {
+                tipo_campo: 'orden_compra',
+                codigo: { in: ordenesCompra },
+                ...(tenantId ? { tenantId } : {})
+              },
+              select: { codigo: true, nombre: true }
+            }).then(results => new Map(results.map(r => [r.codigo, r.nombre])))
           : Promise.resolve(new Map())
       ]);
 
       // Enrich each line with the corresponding names
       lineas = lineas.map(linea => ({
         ...linea,
+        tipoProductoNombre: linea.tipoProducto ? tiposProductoMap.get(linea.tipoProducto) || null : null,
         codigoProductoNombre: linea.codigoProducto ? productosMap.get(linea.codigoProducto) || null : null,
         codigoDimensionNombre: linea.codigoDimension ? dimensionesMap.get(linea.codigoDimension) || null : null,
-        subcuentaNombre: linea.subcuenta ? subcuentasMap.get(linea.subcuenta) || null : null
+        subcuentaNombre: linea.subcuenta ? subcuentasMap.get(linea.subcuenta) || null : null,
+        cuentaContableNombre: linea.cuentaContable ? cuentasContablesMap.get(linea.cuentaContable) || null : null,
+        tipoOrdenCompraNombre: linea.tipoOrdenCompra ? tiposOrdenCompraMap.get(linea.tipoOrdenCompra) || null : null,
+        ordenCompraNombre: linea.ordenCompra ? ordenesCompraMap.get(linea.ordenCompra) || null : null
       }));
     }
 
@@ -821,13 +881,65 @@ router.get('/:id/impuestos', authWithTenant, async (req, res) => {
     }
 
     // Obtener impuestos detallados
-    const impuestos = await prisma.documento_impuestos.findMany({
+    let impuestos = await prisma.documento_impuestos.findMany({
       where: {
         documentoId: id,
         tenantId: tenantId
       },
       orderBy: { tipo: 'asc' }
     });
+
+    // Enrich impuestos with parameter names
+    if (impuestos.length > 0) {
+      // Get all unique codes for each field type
+      const codigosDimension = [...new Set(impuestos.map(i => i.codigoDimension).filter(Boolean))];
+      const subcuentas = [...new Set(impuestos.map(i => i.subcuenta).filter(Boolean))];
+      const cuentasContables = [...new Set(impuestos.map(i => i.cuentaContable).filter(Boolean))];
+
+      // Fetch parameter names in parallel
+      const [dimensionesMap, subcuentasMap, cuentasContablesMap] = await Promise.all([
+        codigosDimension.length > 0
+          ? prisma.parametros_maestros.findMany({
+              where: {
+                tipo_campo: 'codigo_dimension',
+                codigo: { in: codigosDimension },
+                ...(tenantId ? { tenantId } : {})
+              },
+              select: { codigo: true, nombre: true }
+            }).then(results => new Map(results.map(r => [r.codigo, r.nombre])))
+          : Promise.resolve(new Map()),
+
+        subcuentas.length > 0
+          ? prisma.parametros_maestros.findMany({
+              where: {
+                tipo_campo: 'subcuenta',
+                codigo: { in: subcuentas },
+                ...(tenantId ? { tenantId } : {})
+              },
+              select: { codigo: true, nombre: true }
+            }).then(results => new Map(results.map(r => [r.codigo, r.nombre])))
+          : Promise.resolve(new Map()),
+
+        cuentasContables.length > 0
+          ? prisma.parametros_maestros.findMany({
+              where: {
+                tipo_campo: 'cuenta_contable',
+                codigo: { in: cuentasContables },
+                ...(tenantId ? { tenantId } : {})
+              },
+              select: { codigo: true, nombre: true }
+            }).then(results => new Map(results.map(r => [r.codigo, r.nombre])))
+          : Promise.resolve(new Map())
+      ]);
+
+      // Enrich each impuesto with the corresponding names
+      impuestos = impuestos.map(impuesto => ({
+        ...impuesto,
+        codigoDimensionNombre: impuesto.codigoDimension ? dimensionesMap.get(impuesto.codigoDimension) || null : null,
+        subcuentaNombre: impuesto.subcuenta ? subcuentasMap.get(impuesto.subcuenta) || null : null,
+        cuentaContableNombre: impuesto.cuentaContable ? cuentasContablesMap.get(impuesto.cuentaContable) || null : null
+      }));
+    }
 
     // Calcular totales por tipo
     const totalesPorTipo = impuestos.reduce((acc, imp) => {
@@ -901,27 +1013,44 @@ router.put('/lineas/:id', authWithTenant, async (req, res) => {
       });
     }
 
+    // Construir objeto de actualización de datos
+    const updateData = {
+      numero: numero !== undefined ? parseInt(numero) : undefined,
+      descripcion: descripcion !== undefined ? descripcion : undefined,
+      codigoProducto: codigoProducto !== undefined ? codigoProducto : undefined,
+      cantidad: cantidad !== undefined ? parseFloat(cantidad) : undefined,
+      unidad: unidad !== undefined ? unidad : undefined,
+      precioUnitario: precioUnitario !== undefined ? parseFloat(precioUnitario) : undefined,
+      subtotal: subtotal !== undefined ? parseFloat(subtotal) : undefined,
+      alicuotaIva: alicuotaIva !== undefined ? (alicuotaIva ? parseFloat(alicuotaIva) : null) : undefined,
+      importeIva: importeIva !== undefined ? (importeIva ? parseFloat(importeIva) : null) : undefined,
+      totalLinea: totalLinea !== undefined ? parseFloat(totalLinea) : undefined,
+      tipoProducto: tipoProducto !== undefined ? tipoProducto : undefined,
+      codigoDimension: codigoDimension !== undefined ? codigoDimension : undefined,
+      subcuenta: subcuenta !== undefined ? subcuenta : undefined,
+      cuentaContable: cuentaContable !== undefined ? cuentaContable : undefined,
+      tipoOrdenCompra: tipoOrdenCompra !== undefined ? tipoOrdenCompra : undefined,
+      ordenCompra: ordenCompra !== undefined ? ordenCompra : undefined
+    };
+
+    // Obtener campos editados manualmente existentes
+    const currentEditedFields = lineItem.camposEditadosManualmente || {};
+
+    // Marcar campos que están siendo actualizados como editados manualmente
+    const editedFields = { ...currentEditedFields };
+    Object.keys(req.body).forEach(field => {
+      editedFields[field] = true;
+    });
+
+    // Agregar el objeto de campos editados manualmente a la actualización
+    updateData.camposEditadosManualmente = editedFields;
+
+    console.log(`🔒 Marcando campos como editados manualmente en línea ${id}:`, Object.keys(req.body));
+
     // Actualizar line item
     const updated = await prisma.documento_lineas.update({
       where: { id },
-      data: {
-        numero: numero !== undefined ? parseInt(numero) : undefined,
-        descripcion: descripcion !== undefined ? descripcion : undefined,
-        codigoProducto: codigoProducto !== undefined ? codigoProducto : undefined,
-        cantidad: cantidad !== undefined ? parseFloat(cantidad) : undefined,
-        unidad: unidad !== undefined ? unidad : undefined,
-        precioUnitario: precioUnitario !== undefined ? parseFloat(precioUnitario) : undefined,
-        subtotal: subtotal !== undefined ? parseFloat(subtotal) : undefined,
-        alicuotaIva: alicuotaIva !== undefined ? (alicuotaIva ? parseFloat(alicuotaIva) : null) : undefined,
-        importeIva: importeIva !== undefined ? (importeIva ? parseFloat(importeIva) : null) : undefined,
-        totalLinea: totalLinea !== undefined ? parseFloat(totalLinea) : undefined,
-        tipoProducto: tipoProducto !== undefined ? tipoProducto : undefined,
-        codigoDimension: codigoDimension !== undefined ? codigoDimension : undefined,
-        subcuenta: subcuenta !== undefined ? subcuenta : undefined,
-        cuentaContable: cuentaContable !== undefined ? cuentaContable : undefined,
-        tipoOrdenCompra: tipoOrdenCompra !== undefined ? tipoOrdenCompra : undefined,
-        ordenCompra: ordenCompra !== undefined ? ordenCompra : undefined
-      }
+      data: updateData
     });
 
     res.json({
@@ -957,19 +1086,36 @@ router.put('/impuestos/:id', authWithTenant, async (req, res) => {
       });
     }
 
+    // Construir objeto de actualización de datos
+    const updateData = {
+      tipo: tipo !== undefined ? tipo : undefined,
+      descripcion: descripcion !== undefined ? descripcion : undefined,
+      alicuota: alicuota !== undefined ? (alicuota ? parseFloat(alicuota) : null) : undefined,
+      baseImponible: baseImponible !== undefined ? (baseImponible ? parseFloat(baseImponible) : null) : undefined,
+      importe: importe !== undefined ? parseFloat(importe) : undefined,
+      codigoDimension: codigoDimension !== undefined ? codigoDimension : undefined,
+      subcuenta: subcuenta !== undefined ? subcuenta : undefined,
+      cuentaContable: cuentaContable !== undefined ? cuentaContable : undefined
+    };
+
+    // Obtener campos editados manualmente existentes
+    const currentEditedFields = impuesto.camposEditadosManualmente || {};
+
+    // Marcar campos que están siendo actualizados como editados manualmente
+    const editedFields = { ...currentEditedFields };
+    Object.keys(req.body).forEach(field => {
+      editedFields[field] = true;
+    });
+
+    // Agregar el objeto de campos editados manualmente a la actualización
+    updateData.camposEditadosManualmente = editedFields;
+
+    console.log(`🔒 Marcando campos como editados manualmente en impuesto ${id}:`, Object.keys(req.body));
+
     // Actualizar impuesto
     const updated = await prisma.documento_impuestos.update({
       where: { id },
-      data: {
-        tipo: tipo !== undefined ? tipo : undefined,
-        descripcion: descripcion !== undefined ? descripcion : undefined,
-        alicuota: alicuota !== undefined ? (alicuota ? parseFloat(alicuota) : null) : undefined,
-        baseImponible: baseImponible !== undefined ? (baseImponible ? parseFloat(baseImponible) : null) : undefined,
-        importe: importe !== undefined ? parseFloat(importe) : undefined,
-        codigoDimension: codigoDimension !== undefined ? codigoDimension : undefined,
-        subcuenta: subcuenta !== undefined ? subcuenta : undefined,
-        cuentaContable: cuentaContable !== undefined ? cuentaContable : undefined
-      }
+      data: updateData
     });
 
     res.json({

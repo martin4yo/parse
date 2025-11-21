@@ -2,7 +2,7 @@
  * Test final de validación con los valores reales del PDF
  */
 
-const documentAIProcessor = require('./src/services/documentAIProcessor');
+const documentAIProcessor = require('../src/services/documentAIProcessor');
 
 console.log('='.repeat(80));
 console.log('TEST FINAL: Validación con Datos Reales del PDF');

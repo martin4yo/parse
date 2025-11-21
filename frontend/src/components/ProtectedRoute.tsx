@@ -3,6 +3,8 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import Image from 'next/image';
+import axiomaLogo from '@/assets/axioma_logo_300x500.png';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -35,10 +37,13 @@ export default function ProtectedRoute({
       >
         <div className="flex flex-col items-center justify-center gap-8">
           <div className="relative w-96 h-96 animate-pulse">
-            <img
-              src="/axioma_logo_invertido.png"
+            <Image
+              src={axiomaLogo}
               alt="Axioma Logo"
-              className="w-full h-full object-contain"
+              fill
+              sizes="384px"
+              className="object-contain"
+              priority
             />
           </div>
           <div className="w-96">

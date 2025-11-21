@@ -215,7 +215,20 @@ class BusinessRulesEngine {
   /**
    * Establecer valor anidado en un objeto usando notación de punto
    */
-  setNestedValue(obj, path, value) {
+  setNestedValue(obj, path, value, options = {}) {
+    const { skipIfManuallyEdited = true } = options;
+
+    // Verificar si el campo fue editado manualmente
+    if (skipIfManuallyEdited && obj.camposEditadosManualmente) {
+      const parts = path.split('.');
+      const fieldName = parts[parts.length - 1]; // Get last part of path (field name)
+
+      if (obj.camposEditadosManualmente[fieldName] === true) {
+        console.log(`🔒 Campo "${fieldName}" fue editado manualmente, saltando regla`);
+        return; // Skip setting the value
+      }
+    }
+
     const parts = path.split('.');
     const last = parts.pop();
     const target = parts.reduce((current, prop) => {
@@ -224,7 +237,7 @@ class BusinessRulesEngine {
       }
       return current[prop];
     }, obj);
-    
+
     target[last] = value;
   }
 
@@ -298,13 +311,28 @@ class BusinessRulesEngine {
 
   /**
    * Verifica si una regla aplica al contexto actual
-   * @param {string} aplicaA - A qué aplica la regla: TODOS, LINEAS, IMPUESTOS, DOCUMENTO
+   * @param {string|Array} aplicaA - A qué aplica la regla: array ['DOCUMENTO', 'LINEAS', 'IMPUESTOS'] o string 'TODOS', 'LINEAS', etc.
    * @param {string} contexto - Contexto actual: LINEA_DOCUMENTO, IMPUESTO_DOCUMENTO, DOCUMENTO, etc.
    * @returns {boolean}
    */
   checkContextMatch(aplicaA, contexto) {
     // Si no se especifica, aplica a todo
-    if (!aplicaA || aplicaA === 'TODOS') {
+    if (!aplicaA) {
+      return true;
+    }
+
+    // Compatibilidad: convertir string antiguo a array
+    let aplicaAArray;
+    if (typeof aplicaA === 'string') {
+      if (aplicaA === 'TODOS') {
+        aplicaAArray = ['DOCUMENTO', 'LINEAS', 'IMPUESTOS'];
+      } else {
+        aplicaAArray = [aplicaA];
+      }
+    } else if (Array.isArray(aplicaA)) {
+      aplicaAArray = aplicaA;
+    } else {
+      // Si no es ni string ni array, aplicar a todo
       return true;
     }
 
@@ -316,9 +344,11 @@ class BusinessRulesEngine {
       'RENDICION': ['DKT_IMPORT', 'IMPORTACION_DKT']
     };
 
-    // Verificar si el contexto actual está en la lista de contextos válidos para esta regla
-    const validContexts = contextMap[aplicaA] || [];
-    return validContexts.includes(contexto);
+    // Verificar si alguno de los valores en aplicaAArray coincide con el contexto actual
+    return aplicaAArray.some(aplicaTipo => {
+      const validContexts = contextMap[aplicaTipo] || [];
+      return validContexts.includes(contexto);
+    });
   }
 
   /**
@@ -355,13 +385,14 @@ class BusinessRulesEngine {
         const isValidationRule = rule.tipo === 'VALIDACION';
 
         // 0. Filtrar regla según contexto (LINEAS vs IMPUESTOS vs DOCUMENTO vs TODOS)
-        const aplicaA = config.aplicaA || 'TODOS'; // Por defecto aplica a todo
+        const aplicaA = config.aplicaA || ['DOCUMENTO', 'LINEAS', 'IMPUESTOS']; // Por defecto aplica a todo
         const shouldApplyBasedOnContext = this.checkContextMatch(aplicaA, contexto);
 
         if (!shouldApplyBasedOnContext) {
           // Saltar esta regla si no aplica al contexto actual
           if (logExecution) {
-            console.log(`⏭️ Regla "${rule.nombre}" se salta (aplicaA: ${aplicaA}, contexto: ${contexto})`);
+            const aplicaAStr = Array.isArray(aplicaA) ? aplicaA.join(', ') : aplicaA;
+            console.log(`⏭️ Regla "${rule.nombre}" se salta (aplicaA: ${aplicaAStr}, contexto: ${contexto})`);
           }
           continue;
         }
@@ -1305,6 +1336,7 @@ class BusinessRulesEngine {
                 ...err,
                 origen: `linea ${i + 1}`,
                 lineaIndex: i,
+                lineaId: linea.id, // Agregar ID real del registro
                 documentoId: documento.id,
                 nombreArchivo: documento.nombreArchivo
               })));
@@ -1369,6 +1401,7 @@ class BusinessRulesEngine {
                 ...err,
                 origen: `impuesto ${i + 1}`,
                 impuestoIndex: i,
+                impuestoId: impuesto.id, // Agregar ID real del registro
                 documentoId: documento.id,
                 nombreArchivo: documento.nombreArchivo
               })));

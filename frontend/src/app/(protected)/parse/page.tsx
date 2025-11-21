@@ -12,6 +12,10 @@ import toast from 'react-hot-toast';
 import { useConfirmDialog } from '@/hooks/useConfirm';
 import { SmartSelector } from '@/components/rendiciones/SmartSelector';
 import { DistribucionesModal } from '@/components/comprobantes/DistribucionesModal';
+import { useComprobanteEdit } from '@/hooks/useComprobanteEdit';
+import { ValidationErrorIcon } from '@/components/comprobantes/ValidationErrorIcon';
+import { ComprobanteEditModal } from '@/components/comprobantes/ComprobanteEditModal';
+import { DocumentoProcessado } from '@/types/documento';
 
 interface DashboardMetrics {
   subidos: number;
@@ -21,46 +25,6 @@ interface DashboardMetrics {
   asociados?: number;
 }
 
-interface DocumentoProcessado {
-  id: string;
-  nombreArchivo: string;
-  tipoArchivo: string;
-  rutaArchivo?: string;
-  fechaProcesamiento: string;
-  estadoProcesamiento: string;
-  fechaExtraida?: string;
-  importeExtraido?: number;
-  cuitExtraido?: string;
-  numeroComprobanteExtraido?: string;
-  razonSocialExtraida?: string;
-  tipo?: string;
-  netoGravadoExtraido?: number;
-  exentoExtraido?: number;
-  impuestosExtraido?: number;
-  descuentoGlobalExtraido?: number;
-  descuentoGlobalTipo?: string;
-  codigoProveedor?: string;
-  monedaExtraida?: string;
-  cuponExtraido?: string;
-  caeExtraido?: string;
-  tipoComprobanteExtraido?: string;
-  observaciones?: string;
-  exportado?: boolean;
-  reglasAplicadas?: boolean;
-  fechaReglasAplicadas?: string;
-  validationErrors?: {
-    errors: any[];
-    summary: {
-      total: number;
-      bloqueantes: number;
-      errores: number;
-      warnings: number;
-    };
-    timestamp: string;
-  };
-  documentosAsociados: any[];
-  datosExtraidos?: any;
-}
 
 export default function ComprobantesPage() {
   const { confirmDelete } = useConfirmDialog();
@@ -100,57 +64,19 @@ export default function ComprobantesPage() {
     findDocument: (documentId: string) => documentos.find(doc => doc.id === documentId),
     formatItemData: formatComprobantesEfectivoData
   });
+
+  // Hook para edición de comprobantes (reemplaza todos los estados anteriores)
+  const comprobanteEdit = useComprobanteEdit({
+    onSaveSuccess: (updatedDoc) => {
+      // Actualizar documento en la lista local
+      setDocumentos(prev => prev.map(doc =>
+        doc.id === updatedDoc.id ? updatedDoc as DocumentoProcessado : doc
+      ));
+    }
+  });
+
+  // Estado local para controlar visibilidad del modal
   const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedDocumentForEdit, setSelectedDocumentForEdit] = useState<DocumentoProcessado | null>(null);
-  const [editFormData, setEditFormData] = useState<any>({});
-  const [savingEdit, setSavingEdit] = useState(false);
-
-  // Estados para tabs del modal de edición
-  const [activeTab, setActiveTab] = useState<'encabezado' | 'items' | 'impuestos'>('encabezado');
-  const [documentoLineas, setDocumentoLineas] = useState<any[]>([]);
-  const [documentoImpuestos, setDocumentoImpuestos] = useState<any[]>([]);
-
-  // Estados para modal de dimensiones
-  const [showDistribucionesModal, setShowDistribucionesModal] = useState(false);
-  const [distribucionesEntidad, setDistribucionesEntidad] = useState<{
-    tipo: 'linea' | 'impuesto' | 'documento';
-    id: string;
-    total: number;
-    codigo: string;
-    nombre: string;
-  } | null>(null);
-  const [distribucionesStatus, setDistribucionesStatus] = useState<{
-    [key: string]: 'none' | 'valid' | 'invalid';
-  }>({});
-  const [loadingLineas, setLoadingLineas] = useState(false);
-  const [loadingImpuestos, setLoadingImpuestos] = useState(false);
-
-  // Estados para modal de edición de item
-  const [showItemModal, setShowItemModal] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<any>(null);
-  const [itemFormData, setItemFormData] = useState<any>({});
-  const [savingItem, setSavingItem] = useState(false);
-
-  // Estados para modal de edición de impuesto
-  const [showImpuestoModal, setShowImpuestoModal] = useState(false);
-  const [selectedImpuesto, setSelectedImpuesto] = useState<any>(null);
-  const [impuestoFormData, setImpuestoFormData] = useState<any>({});
-  const [savingImpuesto, setSavingImpuesto] = useState(false);
-
-  // Estados para proveedores
-  const [proveedores, setProveedores] = useState<ParametroMaestro[]>([]);
-
-  // Estados para productos (selectores en cascada)
-  const [tiposProducto, setTiposProducto] = useState<ParametroMaestro[]>([]);
-  const [codigosProducto, setCodigosProducto] = useState<ParametroMaestro[]>([]);
-
-  // Estados para contabilidad (selectores en cascada)
-  const [codigosDimension, setCodigosDimension] = useState<ParametroMaestro[]>([]);
-  const [subcuentas, setSubcuentas] = useState<ParametroMaestro[]>([]);
-  const [cuentasContables, setCuentasContables] = useState<ParametroMaestro[]>([]);
-
-  // Estados para órdenes de compra
-  const [tiposOrdenCompra, setTiposOrdenCompra] = useState<ParametroMaestro[]>([]);
 
   // Estados para SmartSelector
   const [showSmartSelector, setShowSmartSelector] = useState(false);
@@ -222,164 +148,30 @@ export default function ComprobantesPage() {
     }
   };
 
-  // Función para abrir modal de edición
+  // Función para abrir modal de edición (ahora usa el hook)
   const handleOpenEditModal = async (doc: DocumentoProcessado) => {
-    setSelectedDocumentForEdit(doc);
-
-    // Convertir fecha al formato YYYY-MM-DD que espera el input type="date"
-    let fechaFormateada = '';
-    if (doc.fechaExtraida) {
-      try {
-        // Si viene en formato ISO (2024-01-15T00:00:00.000Z), extraer solo la fecha
-        fechaFormateada = doc.fechaExtraida.split('T')[0];
-      } catch (e) {
-        fechaFormateada = doc.fechaExtraida;
-      }
-    }
-
-    setEditFormData({
-      fechaExtraida: fechaFormateada,
-      importeExtraido: doc.importeExtraido ? Number(doc.importeExtraido).toFixed(2) : '',
-      cuitExtraido: doc.cuitExtraido || '',
-      numeroComprobanteExtraido: doc.numeroComprobanteExtraido || '',
-      razonSocialExtraida: doc.razonSocialExtraida || '',
-      caeExtraido: doc.caeExtraido || '',
-      tipoComprobanteExtraido: doc.tipoComprobanteExtraido || '',
-      netoGravadoExtraido: doc.netoGravadoExtraido ? Number(doc.netoGravadoExtraido).toFixed(2) : '',
-      exentoExtraido: doc.exentoExtraido ? Number(doc.exentoExtraido).toFixed(2) : '',
-      impuestosExtraido: doc.impuestosExtraido ? Number(doc.impuestosExtraido).toFixed(2) : '',
-      descuentoGlobalExtraido: doc.descuentoGlobalExtraido ? Number(doc.descuentoGlobalExtraido).toFixed(2) : '',
-      descuentoGlobalTipo: doc.descuentoGlobalTipo || '',
-      codigoProveedor: doc.codigoProveedor || ''
-    });
-    setActiveTab('encabezado');
+    await comprobanteEdit.openEditModal(doc);
     setShowEditModal(true);
-
-    // Cargar proveedores
-    try {
-      console.log('Cargando proveedores del tipo_campo: proveedor');
-      const response = await parametrosApi.getPorCampo('proveedor');
-      console.log('Respuesta de proveedores:', response);
-      setProveedores(response.parametros);
-      console.log('Proveedores cargados:', response.parametros);
-    } catch (error) {
-      console.error('Error loading proveedores:', error);
-    }
-
-    // Cargar líneas e impuestos
-    await loadDocumentoLineas(doc.id);
-    await loadDocumentoImpuestos(doc.id);
-
-    // Cargar estado de distribuciones después de cargar lineas e impuestos
-    const lineas = await api.get(`/documentos/${doc.id}/lineas`).then(r => r.data.lineas || []);
-    const impuestos = await api.get(`/documentos/${doc.id}/impuestos`).then(r => r.data.impuestos || []);
-    await loadDistribucionesStatus(lineas, impuestos);
   };
 
-  // Función para guardar cambios de edición
+  // Función para guardar cambios de edición (ahora usa el hook)
   const handleSaveEdit = async () => {
-    if (!selectedDocumentForEdit) return;
-    
-    try {
-      setSavingEdit(true);
-      
-      // Validar suma de importes si hay valores
-      const netoGravado = parseFloat(editFormData.netoGravadoExtraido) || 0;
-      const exento = parseFloat(editFormData.exentoExtraido) || 0;
-      const impuestos = parseFloat(editFormData.impuestosExtraido) || 0;
-      const importeTotal = parseFloat(editFormData.importeExtraido) || 0;
-      
-      // Solo validar si hay un importe total definido
-      if (importeTotal > 0) {
-        const sumaComponentes = netoGravado + exento + impuestos;
-        const diferencia = Math.abs(sumaComponentes - importeTotal);
-        
-        // Tolerancia de 0.01 para errores de redondeo
-        if (diferencia > 0.01) {
-          toast.error(`La suma de Neto Gravado + Exento + Impuestos (${sumaComponentes.toFixed(2)}) debe ser igual al Importe Total (${importeTotal.toFixed(2)})`);
-          return;
-        }
-      }
-      
-      // Preparar datos para enviar
-      const descuentoGlobal = editFormData.descuentoGlobalExtraido ? parseFloat(editFormData.descuentoGlobalExtraido) : null;
-      const dataToSend = {
-        ...editFormData,
-        fechaExtraida: editFormData.fechaExtraida || null,
-        importeExtraido: importeTotal || null,
-        netoGravadoExtraido: netoGravado || null,
-        exentoExtraido: exento || null,
-        impuestosExtraido: impuestos || null,
-        descuentoGlobalExtraido: descuentoGlobal,
-        descuentoGlobalTipo: editFormData.descuentoGlobalTipo || null
-      };
-      
-      await api.put(`/documentos/${selectedDocumentForEdit.id}/datos-extraidos`, dataToSend);
-      
-      // Actualizar el documento local
-      setDocumentos(prev => prev.map(doc => 
-        doc.id === selectedDocumentForEdit.id 
-          ? { 
-              ...doc, 
-              ...dataToSend,
-              datosExtraidos: {
-                ...doc.datosExtraidos,
-                tipoComprobante: dataToSend.tipoComprobanteExtraido,
-                netoGravado: dataToSend.netoGravadoExtraido,
-                exento: dataToSend.exentoExtraido,
-                impuestos: dataToSend.impuestosExtraido
-              }
-            }
-          : doc
-      ));
-      
-      toast.success('Datos actualizados correctamente');
+    const success = await comprobanteEdit.saveEdit();
+    if (success) {
       setShowEditModal(false);
-      setSelectedDocumentForEdit(null);
-      setEditFormData({});
-    } catch (error) {
-      console.error('Error saving edit:', error);
-      toast.error('Error al actualizar los datos');
-    } finally {
-      setSavingEdit(false);
+      comprobanteEdit.closeEditModal();
     }
   };
 
   // ========== FUNCIONES PARA VALIDACIÓN DE ERRORES ==========
 
   /**
-   * Obtiene los errores de validación para un campo específico
-   * @param fieldName - Nombre del campo a buscar errores
-   * @param origen - Origen del error ('documento', 'linea X', 'impuesto X')
-   * @returns Array de errores encontrados para ese campo
-   */
-  const getFieldErrors = (fieldName: string, origen?: string): any[] => {
-    if (!selectedDocumentForEdit?.validationErrors?.errors) return [];
-
-    return selectedDocumentForEdit.validationErrors.errors.filter((err: any) => {
-      // Si se especifica origen, primero filtrar por origen
-      if (origen && err.origen !== origen) return false;
-
-      // Si no hay fieldName (string vacío), devolver todos los errores del origen
-      if (!fieldName && origen) return true;
-
-      // Buscar en contexto
-      if (fieldName && err.contexto && err.contexto.toLowerCase().includes(fieldName.toLowerCase())) return true;
-
-      // Buscar en mensaje
-      if (fieldName && (err.mensaje || err.message) && (err.mensaje || err.message).toLowerCase().includes(fieldName.toLowerCase())) return true;
-
-      return false;
-    });
-  };
-
-  /**
-   * Cuenta errores por sección
+   * Cuenta errores por sección (mantenida local, específica de UI)
    */
   const getErrorCountBySection = (section: 'documento' | 'lineas' | 'impuestos'): { total: number; bloqueantes: number; errores: number } => {
-    if (!selectedDocumentForEdit?.validationErrors?.errors) return { total: 0, bloqueantes: 0, errores: 0 };
+    if (!comprobanteEdit.selectedDocument?.validationErrors?.errors) return { total: 0, bloqueantes: 0, errores: 0 };
 
-    const sectionErrors = selectedDocumentForEdit.validationErrors.errors.filter((err: any) => {
+    const sectionErrors = comprobanteEdit.selectedDocument.validationErrors.errors.filter((err: any) => {
       if (section === 'documento') {
         return err.origen === 'documento';
       } else if (section === 'lineas') {
@@ -397,173 +189,19 @@ export default function ComprobantesPage() {
     };
   };
 
-  /**
-   * Componente de icono de error con tooltip
-   */
-  const ValidationErrorIcon = ({ fieldName, origen }: { fieldName: string; origen?: string }) => {
-    const errors = getFieldErrors(fieldName, origen);
-    if (errors.length === 0) return null;
-
-    // Obtener el error más severo
-    const hasBloqueante = errors.some(e => e.severidad === 'BLOQUEANTE');
-    const hasError = errors.some(e => e.severidad === 'ERROR');
-
-    const Icon = hasBloqueante ? ShieldAlert : hasError ? AlertOctagon : AlertTriangle;
-    const colorClass = hasBloqueante
-      ? 'text-red-600'
-      : hasError
-      ? 'text-orange-600'
-      : 'text-yellow-600';
-
-    const bgClass = hasBloqueante
-      ? 'bg-red-50 border-red-200'
-      : hasError
-      ? 'bg-orange-50 border-orange-200'
-      : 'bg-yellow-50 border-yellow-200';
-
-    return (
-      <div className="relative group inline-block ml-2">
-        <Icon className={`w-4 h-4 ${colorClass} cursor-help`} />
-
-        {/* Tooltip */}
-        <div className={`absolute left-0 top-6 z-50 hidden group-hover:block w-64 p-3 rounded-lg border-2 shadow-lg ${bgClass}`}>
-          <div className="space-y-2">
-            {errors.map((err, idx) => (
-              <div key={idx} className="text-xs">
-                <div className={`font-semibold mb-1 ${
-                  err.severidad === 'BLOQUEANTE' ? 'text-red-800' :
-                  err.severidad === 'ERROR' ? 'text-orange-800' : 'text-yellow-800'
-                }`}>
-                  {err.severidad === 'BLOQUEANTE' ? '🚫' : err.severidad === 'ERROR' ? '⚠️' : '⚡'} {err.regla || 'Validación'}
-                </div>
-                <div className="text-gray-700">{err.mensaje || err.message}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   // ========== FUNCIONES PARA LÍNEAS (ITEMS) ==========
 
   // Función auxiliar para enriquecer códigos con nombres
-  const enrichWithNames = async (items: any[], fieldMappings: { field: string, tipoCampo: string, nameField: string }[]) => {
-    const enrichedItems = [...items];
+  // enrichWithNames - Ahora en useComprobanteEdit hook
 
-    // Cache para evitar llamadas repetidas
-    const cache: Record<string, Record<string, string>> = {};
+  // loadDocumentoLineas - Ahora en useComprobanteEdit hook
 
-    for (const mapping of fieldMappings) {
-      const { field, tipoCampo, nameField } = mapping;
+  // validateDistribuciones - Ahora en useComprobanteEdit hook
 
-      // Recolectar códigos únicos para este campo
-      const uniqueCodes = Array.from(new Set(
-        enrichedItems
-          .map(item => item[field])
-          .filter(code => code && code.trim() !== '')
-      ));
-
-      if (uniqueCodes.length === 0) continue;
-
-      // Inicializar cache para este tipo de campo
-      if (!cache[tipoCampo]) {
-        cache[tipoCampo] = {};
-
-        // Hacer UNA sola llamada a la API para este tipo de campo
-        try {
-          const response = await parametrosApi.getPorCampo(tipoCampo);
-
-          // Construir el cache con todos los parámetros de este tipo
-          response.parametros.forEach((p: ParametroMaestro) => {
-            cache[tipoCampo][p.codigo] = p.nombre;
-          });
-        } catch (error) {
-          console.error(`Error loading names for ${tipoCampo}`, error);
-        }
-      }
-
-      // Enriquecer items con los nombres del cache
-      enrichedItems.forEach(item => {
-        if (item[field] && cache[tipoCampo][item[field]]) {
-          item[nameField] = cache[tipoCampo][item[field]];
-        }
-      });
-    }
-
-    return enrichedItems;
-  };
-
-  const loadDocumentoLineas = async (documentoId: string) => {
-    try {
-      setLoadingLineas(true);
-      const response = await api.get(`/documentos/${documentoId}/lineas`);
-      const lineas = response.data.lineas || [];
-
-      // Enriquecer con nombres de parametros_maestros
-      const lineasEnriquecidas = await enrichWithNames(lineas, [
-        { field: 'tipoProducto', tipoCampo: 'tipo_producto', nameField: 'tipoProductoNombre' },
-        { field: 'codigoProducto', tipoCampo: 'codigo_producto', nameField: 'codigoProductoNombre' },
-        { field: 'codigoDimension', tipoCampo: 'codigo_dimension', nameField: 'codigoDimensionNombre' },
-        { field: 'subcuenta', tipoCampo: 'subcuenta', nameField: 'subcuentaNombre' },
-        { field: 'cuentaContable', tipoCampo: 'cuenta_contable', nameField: 'cuentaContableNombre' },
-        { field: 'tipoOrdenCompra', tipoCampo: 'tipo_orden_compra', nameField: 'tipoOrdenCompraNombre' }
-      ]);
-
-      setDocumentoLineas(lineasEnriquecidas);
-    } catch (error) {
-      console.error('Error loading lineas:', error);
-      toast.error('Error al cargar items del documento');
-      setDocumentoLineas([]);
-    } finally {
-      setLoadingLineas(false);
-    }
-  };
-
-  const validateDistribuciones = async (entidadId: string, tipo: 'linea' | 'impuesto', total: number) => {
-    try {
-      const endpoint = tipo === 'linea'
-        ? `/documentos/lineas/${entidadId}/distribuciones`
-        : `/documentos/impuestos/${entidadId}/distribuciones`;
-
-      const response = await api.get(endpoint);
-      const distribuciones = response.data.distribuciones || [];
-
-      if (distribuciones.length === 0) {
-        return 'none';
-      }
-
-      const totalDistribuido = distribuciones.reduce((sum: number, dist: any) => {
-        return sum + parseFloat(dist.importeDimension || 0);
-      }, 0);
-
-      const diferencia = Math.abs(total - totalDistribuido);
-      const tolerancia = 0.01;
-
-      return diferencia <= tolerancia ? 'valid' : 'invalid';
-    } catch (error) {
-      return 'none';
-    }
-  };
-
-  const loadDistribucionesStatus = async (lineas: any[], impuestos: any[]) => {
-    const newStatus: { [key: string]: 'none' | 'valid' | 'invalid' } = {};
-
-    for (const linea of lineas) {
-      const status = await validateDistribuciones(linea.id, 'linea', parseFloat(linea.totalLinea || 0));
-      newStatus[`linea-${linea.id}`] = status;
-    }
-
-    for (const impuesto of impuestos) {
-      const status = await validateDistribuciones(impuesto.id, 'impuesto', parseFloat(impuesto.importe || 0));
-      newStatus[`impuesto-${impuesto.id}`] = status;
-    }
-
-    setDistribucionesStatus(newStatus);
-  };
+  // loadDistribucionesStatus - Ahora en useComprobanteEdit hook
 
   const handleOpenItemModal = async (item: any = null) => {
-    setSelectedItem(item);
+    comprobanteEdit.setSelectedItem(item);
 
     // Cargar tipos de producto, códigos de dimensión y tipos de orden de compra
     try {
@@ -572,16 +210,16 @@ export default function ComprobantesPage() {
         parametrosApi.getPorCampo('codigo_dimension'),
         parametrosApi.getPorCampo('tipo_orden_compra')
       ]);
-      setTiposProducto(responseTipos.parametros);
-      setCodigosDimension(responseDimensiones.parametros);
-      setTiposOrdenCompra(responseTiposOC.parametros);
+      comprobanteEdit.setTiposProducto(responseTipos.parametros);
+      comprobanteEdit.setCodigosDimension(responseDimensiones.parametros);
+      comprobanteEdit.setTiposOrdenCompra(responseTiposOC.parametros);
     } catch (error) {
       console.error('Error loading parametros:', error);
     }
 
     if (item) {
       // Edición
-      setItemFormData({
+      comprobanteEdit.setItemFormData({
         numero: item.numero,
         descripcion: item.descripcion || '',
         tipoProducto: item.tipoProducto || '',
@@ -604,19 +242,19 @@ export default function ComprobantesPage() {
       if (item.tipoProducto) {
         try {
           const response = await parametrosApi.getPorCampo('codigo_producto', item.tipoProducto);
-          setCodigosProducto(response.parametros);
+          comprobanteEdit.setCodigosProducto(response.parametros);
         } catch (error) {
           console.error('Error loading codigos producto:', error);
         }
       }
 
-      // Si tiene código de dimensión, cargar subcuentas filtradas
+      // Si tiene código de dimensión, cargar comprobanteEdit.subcuentas filtradas
       if (item.codigoDimension) {
         try {
           const response = await parametrosApi.getPorCampo('subcuenta', item.codigoDimension);
-          setSubcuentas(response.parametros);
+          comprobanteEdit.setSubcuentas(response.parametros);
         } catch (error) {
-          console.error('Error loading subcuentas:', error);
+          console.error('Error loading comprobanteEdit.subcuentas:', error);
         }
       }
 
@@ -624,17 +262,17 @@ export default function ComprobantesPage() {
       if (item.subcuenta) {
         try {
           const response = await parametrosApi.getPorCampo('cuenta_contable');
-          setCuentasContables(response.parametros);
+          comprobanteEdit.setCuentasContables(response.parametros);
         } catch (error) {
           console.error('Error loading cuentas contables:', error);
         }
       }
     } else {
       // Nuevo item
-      const nextNumero = documentoLineas.length > 0
-        ? Math.max(...documentoLineas.map(l => l.numero)) + 1
+      const nextNumero = comprobanteEdit.documentoLineas.length > 0
+        ? Math.max(...comprobanteEdit.documentoLineas.map(l => l.numero)) + 1
         : 1;
-      setItemFormData({
+      comprobanteEdit.setItemFormData({
         numero: nextNumero,
         descripcion: '',
         tipoProducto: '',
@@ -653,112 +291,112 @@ export default function ComprobantesPage() {
         ordenCompra: ''
       });
     }
-    setShowItemModal(true);
+    comprobanteEdit.setShowItemModal(true);
   };
 
   // Función para manejar cambio de tipo de producto (cascada)
   const handleTipoProductoChange = async (tipoProducto: string) => {
-    setItemFormData({ ...itemFormData, tipoProducto, codigoProducto: '' });
+    comprobanteEdit.setItemFormData({ ...comprobanteEdit.itemFormData, tipoProducto, codigoProducto: '' });
 
     if (tipoProducto) {
       try {
         const response = await parametrosApi.getPorCampo('codigo_producto', tipoProducto);
-        setCodigosProducto(response.parametros);
+        comprobanteEdit.setCodigosProducto(response.parametros);
       } catch (error) {
         console.error('Error loading codigos producto:', error);
-        setCodigosProducto([]);
+        comprobanteEdit.setCodigosProducto([]);
       }
     } else {
-      setCodigosProducto([]);
+      comprobanteEdit.setCodigosProducto([]);
     }
   };
 
   // Función para manejar cambio de código de dimensión (cascada)
   const handleCodigoDimensionChange = async (codigoDimension: string) => {
-    setItemFormData({ ...itemFormData, codigoDimension, subcuenta: '', cuentaContable: '' });
+    comprobanteEdit.setItemFormData({ ...comprobanteEdit.itemFormData, codigoDimension, subcuenta: '', cuentaContable: '' });
 
     if (codigoDimension) {
       try {
         const response = await parametrosApi.getPorCampo('subcuenta', codigoDimension);
-        setSubcuentas(response.parametros);
+        comprobanteEdit.setSubcuentas(response.parametros);
       } catch (error) {
-        console.error('Error loading subcuentas:', error);
-        setSubcuentas([]);
+        console.error('Error loading comprobanteEdit.subcuentas:', error);
+        comprobanteEdit.setSubcuentas([]);
       }
     } else {
-      setSubcuentas([]);
-      setCuentasContables([]);
+      comprobanteEdit.setSubcuentas([]);
+      comprobanteEdit.setCuentasContables([]);
     }
   };
 
   // Función para manejar cambio de subcuenta (cascada)
   const handleSubcuentaChange = async (subcuenta: string) => {
-    setItemFormData({ ...itemFormData, subcuenta, cuentaContable: '' });
+    comprobanteEdit.setItemFormData({ ...comprobanteEdit.itemFormData, subcuenta, cuentaContable: '' });
 
     if (subcuenta) {
       try {
         // cuenta_contable no tiene padre, se muestran todas
         const response = await parametrosApi.getPorCampo('cuenta_contable');
-        setCuentasContables(response.parametros);
+        comprobanteEdit.setCuentasContables(response.parametros);
       } catch (error) {
         console.error('Error loading cuentas contables:', error);
-        setCuentasContables([]);
+        comprobanteEdit.setCuentasContables([]);
       }
     } else {
-      setCuentasContables([]);
+      comprobanteEdit.setCuentasContables([]);
     }
   };
 
   const handleSaveItem = async () => {
-    if (!selectedDocumentForEdit) return;
+    if (!comprobanteEdit.selectedDocument) return;
 
     try {
-      setSavingItem(true);
+      comprobanteEdit.setSavingItem(true);
 
       const dataToSend = {
-        numero: parseInt(itemFormData.numero),
-        descripcion: itemFormData.descripcion,
-        codigoProducto: itemFormData.codigoProducto || null,
-        cantidad: parseFloat(itemFormData.cantidad) || 0,
-        unidad: itemFormData.unidad || null,
-        precioUnitario: parseFloat(itemFormData.precioUnitario) || 0,
-        subtotal: parseFloat(itemFormData.subtotal) || 0,
-        alicuotaIva: itemFormData.alicuotaIva ? parseFloat(itemFormData.alicuotaIva) : null,
-        importeIva: itemFormData.importeIva ? parseFloat(itemFormData.importeIva) : null,
-        totalLinea: parseFloat(itemFormData.totalLinea) || 0,
-        tipoProducto: itemFormData.tipoProducto || null,
-        codigoDimension: itemFormData.codigoDimension || null,
-        subcuenta: itemFormData.subcuenta || null,
-        cuentaContable: itemFormData.cuentaContable || null,
-        tipoOrdenCompra: itemFormData.tipoOrdenCompra || null,
-        ordenCompra: itemFormData.ordenCompra || null
+        numero: parseInt(comprobanteEdit.itemFormData.numero),
+        descripcion: comprobanteEdit.itemFormData.descripcion,
+        codigoProducto: comprobanteEdit.itemFormData.codigoProducto || null,
+        cantidad: parseFloat(comprobanteEdit.itemFormData.cantidad) || 0,
+        unidad: comprobanteEdit.itemFormData.unidad || null,
+        precioUnitario: parseFloat(comprobanteEdit.itemFormData.precioUnitario) || 0,
+        subtotal: parseFloat(comprobanteEdit.itemFormData.subtotal) || 0,
+        alicuotaIva: comprobanteEdit.itemFormData.alicuotaIva ? parseFloat(comprobanteEdit.itemFormData.alicuotaIva) : null,
+        importeIva: comprobanteEdit.itemFormData.importeIva ? parseFloat(comprobanteEdit.itemFormData.importeIva) : null,
+        totalLinea: parseFloat(comprobanteEdit.itemFormData.totalLinea) || 0,
+        tipoProducto: comprobanteEdit.itemFormData.tipoProducto || null,
+        codigoDimension: comprobanteEdit.itemFormData.codigoDimension || null,
+        subcuenta: comprobanteEdit.itemFormData.subcuenta || null,
+        cuentaContable: comprobanteEdit.itemFormData.cuentaContable || null,
+        tipoOrdenCompra: comprobanteEdit.itemFormData.tipoOrdenCompra || null,
+        ordenCompra: comprobanteEdit.itemFormData.ordenCompra || null
       };
 
-      if (selectedItem) {
+      if (comprobanteEdit.selectedItem) {
         // Actualizar
-        await api.put(`/documentos/lineas/${selectedItem.id}`, dataToSend);
+        await api.put(`/documentos/lineas/${comprobanteEdit.selectedItem.id}`, dataToSend);
         toast.success('Item actualizado correctamente');
       } else {
         // Crear
-        await api.post(`/documentos/${selectedDocumentForEdit.id}/lineas`, dataToSend);
+        await api.post(`/documentos/${comprobanteEdit.selectedDocument.id}/lineas`, dataToSend);
         toast.success('Item agregado correctamente');
       }
 
       // Recargar líneas
-      await loadDocumentoLineas(selectedDocumentForEdit.id);
-      setShowItemModal(false);
-      setSelectedItem(null);
-      setItemFormData({});
+      await comprobanteEdit.loadDocumentoLineas(comprobanteEdit.selectedDocument.id);
+      comprobanteEdit.setShowItemModal(false);
+      comprobanteEdit.setSelectedItem(null);
+      comprobanteEdit.setItemFormData({});
     } catch (error) {
       console.error('Error saving item:', error);
       toast.error('Error al guardar el item');
     } finally {
-      setSavingItem(false);
+      comprobanteEdit.setSavingItem(false);
     }
   };
 
   const handleDeleteItem = async (itemId: string) => {
-    if (!selectedDocumentForEdit) return;
+    if (!comprobanteEdit.selectedDocument) return;
 
     const confirmed = await confirmDelete('este item');
     if (!confirmed) return;
@@ -766,7 +404,7 @@ export default function ComprobantesPage() {
     try {
       await api.delete(`/documentos/lineas/${itemId}`);
       toast.success('Item eliminado correctamente');
-      await loadDocumentoLineas(selectedDocumentForEdit.id);
+      await comprobanteEdit.loadDocumentoLineas(comprobanteEdit.selectedDocument.id);
     } catch (error) {
       console.error('Error deleting item:', error);
       toast.error('Error al eliminar el item');
@@ -775,31 +413,10 @@ export default function ComprobantesPage() {
 
   // ========== FUNCIONES PARA IMPUESTOS ==========
 
-  const loadDocumentoImpuestos = async (documentoId: string) => {
-    try {
-      setLoadingImpuestos(true);
-      const response = await api.get(`/documentos/${documentoId}/impuestos`);
-      const impuestos = response.data.impuestos || [];
-
-      // Enriquecer con nombres de parametros_maestros
-      const impuestosEnriquecidos = await enrichWithNames(impuestos, [
-        { field: 'codigoDimension', tipoCampo: 'codigo_dimension', nameField: 'codigoDimensionNombre' },
-        { field: 'subcuenta', tipoCampo: 'subcuenta', nameField: 'subcuentaNombre' },
-        { field: 'cuentaContable', tipoCampo: 'cuenta_contable', nameField: 'cuentaContableNombre' }
-      ]);
-
-      setDocumentoImpuestos(impuestosEnriquecidos);
-    } catch (error) {
-      console.error('Error loading impuestos:', error);
-      toast.error('Error al cargar impuestos del documento');
-      setDocumentoImpuestos([]);
-    } finally {
-      setLoadingImpuestos(false);
-    }
-  };
+  // loadDocumentoImpuestos - Ahora en useComprobanteEdit hook
 
   const handleOpenImpuestoModal = async (impuesto: any = null) => {
-    setSelectedImpuesto(impuesto);
+    comprobanteEdit.setSelectedImpuesto(impuesto);
 
     // Cargar códigos de dimensión y cuentas contables
     try {
@@ -807,15 +424,15 @@ export default function ComprobantesPage() {
         parametrosApi.getPorCampo('codigo_dimension'),
         parametrosApi.getPorCampo('cuenta_contable')
       ]);
-      setCodigosDimension(responseDimensiones.parametros);
-      setCuentasContables(responseCuentas.parametros);
+      comprobanteEdit.setCodigosDimension(responseDimensiones.parametros);
+      comprobanteEdit.setCuentasContables(responseCuentas.parametros);
     } catch (error) {
       console.error('Error loading parametros:', error);
     }
 
     if (impuesto) {
       // Edición
-      setImpuestoFormData({
+      comprobanteEdit.setImpuestoFormData({
         tipo: impuesto.tipo || '',
         descripcion: impuesto.descripcion || '',
         alicuota: impuesto.alicuota ? Number(impuesto.alicuota).toString() : '',
@@ -826,18 +443,18 @@ export default function ComprobantesPage() {
         cuentaContable: impuesto.cuentaContable || ''
       });
 
-      // Si tiene código de dimensión, cargar subcuentas filtradas
+      // Si tiene código de dimensión, cargar comprobanteEdit.subcuentas filtradas
       if (impuesto.codigoDimension) {
         try {
           const response = await parametrosApi.getPorCampo('subcuenta', impuesto.codigoDimension);
-          setSubcuentas(response.parametros);
+          comprobanteEdit.setSubcuentas(response.parametros);
         } catch (error) {
-          console.error('Error loading subcuentas:', error);
+          console.error('Error loading comprobanteEdit.subcuentas:', error);
         }
       }
     } else {
       // Nuevo impuesto
-      setImpuestoFormData({
+      comprobanteEdit.setImpuestoFormData({
         tipo: 'IVA',
         descripcion: '',
         alicuota: '21',
@@ -848,92 +465,85 @@ export default function ComprobantesPage() {
         cuentaContable: ''
       });
     }
-    setShowImpuestoModal(true);
+    comprobanteEdit.setShowImpuestoModal(true);
   };
 
   // Funciones de cascada para modal de impuestos
   const handleCodigoDimensionChangeImpuesto = async (codigoDimension: string) => {
-    setImpuestoFormData({ ...impuestoFormData, codigoDimension, subcuenta: '', cuentaContable: '' });
+    comprobanteEdit.setImpuestoFormData({ ...comprobanteEdit.impuestoFormData, codigoDimension, subcuenta: '', cuentaContable: '' });
 
     if (codigoDimension) {
       try {
         const response = await parametrosApi.getPorCampo('subcuenta', codigoDimension);
-        setSubcuentas(response.parametros);
+        comprobanteEdit.setSubcuentas(response.parametros);
       } catch (error) {
-        console.error('Error loading subcuentas:', error);
-        setSubcuentas([]);
+        console.error('Error loading comprobanteEdit.subcuentas:', error);
+        comprobanteEdit.setSubcuentas([]);
       }
     } else {
-      setSubcuentas([]);
-      setCuentasContables([]);
+      comprobanteEdit.setSubcuentas([]);
+      comprobanteEdit.setCuentasContables([]);
     }
   };
 
   const handleSubcuentaChangeImpuesto = (subcuenta: string) => {
     // cuenta_contable es independiente, no se limpia al cambiar subcuenta
-    setImpuestoFormData({ ...impuestoFormData, subcuenta });
+    comprobanteEdit.setImpuestoFormData({ ...comprobanteEdit.impuestoFormData, subcuenta });
   };
 
   const handleSaveImpuesto = async () => {
-    if (!selectedDocumentForEdit) return;
+    if (!comprobanteEdit.selectedDocument) return;
 
     try {
-      setSavingImpuesto(true);
+      comprobanteEdit.setSavingImpuesto(true);
 
       const dataToSend = {
-        tipo: impuestoFormData.tipo,
-        descripcion: impuestoFormData.descripcion,
-        alicuota: impuestoFormData.alicuota ? parseFloat(impuestoFormData.alicuota) : null,
-        baseImponible: impuestoFormData.baseImponible ? parseFloat(impuestoFormData.baseImponible) : null,
-        importe: parseFloat(impuestoFormData.importe) || 0,
-        codigoDimension: impuestoFormData.codigoDimension || null,
-        subcuenta: impuestoFormData.subcuenta || null,
-        cuentaContable: impuestoFormData.cuentaContable || null
+        tipo: comprobanteEdit.impuestoFormData.tipo,
+        descripcion: comprobanteEdit.impuestoFormData.descripcion,
+        alicuota: comprobanteEdit.impuestoFormData.alicuota ? parseFloat(comprobanteEdit.impuestoFormData.alicuota) : null,
+        baseImponible: comprobanteEdit.impuestoFormData.baseImponible ? parseFloat(comprobanteEdit.impuestoFormData.baseImponible) : null,
+        importe: parseFloat(comprobanteEdit.impuestoFormData.importe) || 0,
+        codigoDimension: comprobanteEdit.impuestoFormData.codigoDimension || null,
+        subcuenta: comprobanteEdit.impuestoFormData.subcuenta || null,
+        cuentaContable: comprobanteEdit.impuestoFormData.cuentaContable || null
       };
 
-      if (selectedImpuesto) {
+      if (comprobanteEdit.selectedImpuesto) {
         // Actualizar
-        await api.put(`/documentos/impuestos/${selectedImpuesto.id}`, dataToSend);
+        await api.put(`/documentos/impuestos/${comprobanteEdit.selectedImpuesto.id}`, dataToSend);
         toast.success('Impuesto actualizado correctamente');
       } else {
         // Crear
-        await api.post(`/documentos/${selectedDocumentForEdit.id}/impuestos`, dataToSend);
+        await api.post(`/documentos/${comprobanteEdit.selectedDocument.id}/impuestos`, dataToSend);
         toast.success('Impuesto agregado correctamente');
       }
 
       // Recargar impuestos
-      await loadDocumentoImpuestos(selectedDocumentForEdit.id);
-      setShowImpuestoModal(false);
-      setSelectedImpuesto(null);
-      setImpuestoFormData({});
+      await comprobanteEdit.loadDocumentoImpuestos(comprobanteEdit.selectedDocument.id);
+      comprobanteEdit.setShowImpuestoModal(false);
+      comprobanteEdit.setSelectedImpuesto(null);
+      comprobanteEdit.setImpuestoFormData({});
     } catch (error) {
       console.error('Error saving impuesto:', error);
       toast.error('Error al guardar el impuesto');
     } finally {
-      setSavingImpuesto(false);
+      comprobanteEdit.setSavingImpuesto(false);
     }
   };
 
   const handleDeleteImpuesto = async (impuestoId: string) => {
-    if (!selectedDocumentForEdit) return;
+    if (!comprobanteEdit.selectedDocument) return;
 
     const confirmed = await confirmDelete('este impuesto');
     if (!confirmed) return;
 
-    try {
-      await api.delete(`/documentos/impuestos/${impuestoId}`);
-      toast.success('Impuesto eliminado correctamente');
-      await loadDocumentoImpuestos(selectedDocumentForEdit.id);
-    } catch (error) {
-      console.error('Error deleting impuesto:', error);
-      toast.error('Error al eliminar el impuesto');
-    }
+    await comprobanteEdit.handleDeleteImpuesto(impuestoId);
   };
 
   // Función para desasociar comprobante
   const handleDisassociateDocument = async (doc: DocumentoProcessado) => {
     const confirmed = await confirmDelete(
-      `la asociación del comprobante "${doc.nombreArchivo}" con el cupón ${doc.documentosAsociados[0]?.resumen_tarjeta?.numeroCupon || 'N/A'}`
+      `la asociación del comprobante "${doc.nombreArchivo}"`
     );
     if (!confirmed) return;
 
@@ -999,9 +609,9 @@ export default function ComprobantesPage() {
 
       // Actualizar la lista local
       if (entityType === 'item') {
-        await loadDocumentoLineas(selectedDocumentForEdit!.id);
+        await comprobanteEdit.loadDocumentoLineas(comprobanteEdit.selectedDocument!.id);
       } else {
-        await loadDocumentoImpuestos(selectedDocumentForEdit!.id);
+        await comprobanteEdit.loadDocumentoImpuestos(comprobanteEdit.selectedDocument!.id);
       }
 
       toast.success(`${fieldName} actualizado correctamente`);
@@ -1875,9 +1485,9 @@ export default function ComprobantesPage() {
                           </button>
                         </div>
 
-                        {/* Botón de eliminar - solo para documentos no asociados */}
+                        {/* Botón de eliminar */}
                         <div className="w-6 flex justify-center">
-                          {doc.documentosAsociados.length === 0 ? (
+                          {true ? (
                             <button
                               className="text-red-500 hover:text-red-700 p-1"
                               title="Eliminar documento"
@@ -1988,790 +1598,17 @@ export default function ComprobantesPage() {
       </Card>
 
       {/* Modal de Edición de Datos Extraídos */}
-      {showEditModal && selectedDocumentForEdit && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full mx-4 max-h-[90vh] flex flex-col animate-in fade-in-0 zoom-in-95">
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-border bg-white flex-shrink-0">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-palette-yellow rounded-lg flex items-center justify-center">
-                  <Edit className="w-6 h-6 text-palette-dark" />
-                </div>
-                <h2 className="text-lg font-semibold text-text-primary">
-                  Editar Datos Extraídos
-                </h2>
-              </div>
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="text-text-secondary hover:text-text-primary transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Información del Documento */}
-            <div className="px-6 pt-4 pb-2 flex-shrink-0">
-              <div className="text-sm text-text-secondary mb-1">Documento:</div>
-              <div className="text-sm font-medium text-text-primary bg-gray-50 p-2 rounded">
-                {selectedDocumentForEdit.nombreArchivo}
-              </div>
-            </div>
-
-            {/* Tabs */}
-            <div className="border-b border-gray-200 flex-shrink-0">
-              <nav className="flex px-6" aria-label="Tabs">
-                <button
-                  onClick={() => setActiveTab('encabezado')}
-                  className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
-                    activeTab === 'encabezado'
-                      ? 'border-palette-dark text-palette-dark'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    Encabezado
-                    {(() => {
-                      const errorCount = getErrorCountBySection('documento');
-                      if (errorCount.total > 0) {
-                        return (
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                            errorCount.bloqueantes > 0
-                              ? 'bg-red-100 text-red-700'
-                              : errorCount.errores > 0
-                              ? 'bg-orange-100 text-orange-700'
-                              : 'bg-yellow-100 text-yellow-700'
-                          }`}>
-                            {errorCount.total}
-                          </span>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </div>
-                </button>
-                <button
-                  onClick={() => setActiveTab('items')}
-                  className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
-                    activeTab === 'items'
-                      ? 'border-palette-dark text-palette-dark'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    Items {documentoLineas.length > 0 && `(${documentoLineas.length})`}
-                    {(() => {
-                      const errorCount = getErrorCountBySection('lineas');
-                      if (errorCount.total > 0) {
-                        return (
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                            errorCount.bloqueantes > 0
-                              ? 'bg-red-100 text-red-700'
-                              : errorCount.errores > 0
-                              ? 'bg-orange-100 text-orange-700'
-                              : 'bg-yellow-100 text-yellow-700'
-                          }`}>
-                            {errorCount.total}
-                          </span>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </div>
-                </button>
-                <button
-                  onClick={() => setActiveTab('impuestos')}
-                  className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
-                    activeTab === 'impuestos'
-                      ? 'border-palette-dark text-palette-dark'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    Impuestos {documentoImpuestos.length > 0 && `(${documentoImpuestos.length})`}
-                    {(() => {
-                      const errorCount = getErrorCountBySection('impuestos');
-                      if (errorCount.total > 0) {
-                        return (
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                            errorCount.bloqueantes > 0
-                              ? 'bg-red-100 text-red-700'
-                              : errorCount.errores > 0
-                              ? 'bg-orange-100 text-orange-700'
-                              : 'bg-yellow-100 text-yellow-700'
-                          }`}>
-                            {errorCount.total}
-                          </span>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </div>
-                </button>
-              </nav>
-            </div>
-
-            {/* Tab Content - Área de scroll fija */}
-            <div className="overflow-y-auto p-6" style={{ height: '500px' }}>
-              {/* TAB: ENCABEZADO */}
-              {activeTab === 'encabezado' && (
-                <div>
-                  <div className="grid grid-cols-2 gap-4">
-                {/* 1. Fecha */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    <Calendar className="w-4 h-4 inline mr-1" />
-                    Fecha
-                    <ValidationErrorIcon fieldName="fecha" origen="documento" />
-                  </label>
-                  <input
-                    type="date"
-                    value={editFormData.fechaExtraida || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, fechaExtraida: e.target.value })}
-                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                  />
-                </div>
-
-                {/* 2. Tipo de Comprobante */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    Tipo de Comprobante
-                    <ValidationErrorIcon fieldName="tipoComprobante" origen="documento" />
-                  </label>
-                  <select
-                    value={editFormData.tipoComprobanteExtraido || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, tipoComprobanteExtraido: e.target.value })}
-                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                  >
-                    <option value="">Seleccionar...</option>
-                    <option value="FACTURA A">FACTURA A</option>
-                    <option value="FACTURA B">FACTURA B</option>
-                    <option value="FACTURA C">FACTURA C</option>
-                    <option value="TICKET">TICKET</option>
-                    <option value="NOTA DE CREDITO">NOTA DE CREDITO</option>
-                    <option value="NOTA DE DEBITO">NOTA DE DEBITO</option>
-                    <option value="RECIBO">RECIBO</option>
-                    <option value="OTRO">OTRO</option>
-                  </select>
-                </div>
-
-                {/* 3. Número de Comprobante */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    Número de Comprobante
-                    <ValidationErrorIcon fieldName="numeroComprobante" origen="documento" />
-                  </label>
-                  <input
-                    type="text"
-                    value={editFormData.numeroComprobanteExtraido || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, numeroComprobanteExtraido: e.target.value })}
-                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    placeholder="00000-00000000"
-                  />
-                </div>
-
-                {/* 4. CUIT */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    CUIT
-                    <ValidationErrorIcon fieldName="cuit" origen="documento" />
-                  </label>
-                  <input
-                    type="text"
-                    value={editFormData.cuitExtraido || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, cuitExtraido: e.target.value })}
-                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    placeholder="XX-XXXXXXXX-X"
-                  />
-                </div>
-
-                {/* 5. Razón Social */}
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    Razón Social
-                    <ValidationErrorIcon fieldName="razonSocial" origen="documento" />
-                  </label>
-                  <input
-                    type="text"
-                    value={editFormData.razonSocialExtraida || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, razonSocialExtraida: e.target.value })}
-                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    placeholder="Nombre del emisor"
-                  />
-                </div>
-
-                {/* 5.1 Código de Proveedor */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    Código de Proveedor
-                  </label>
-                  <select
-                    value={editFormData.codigoProveedor || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, codigoProveedor: e.target.value })}
-                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                  >
-                    <option value="">Seleccionar proveedor...</option>
-                    {proveedores.map((proveedor) => (
-                      <option key={proveedor.id} value={proveedor.codigo}>
-                        {proveedor.nombre} ({proveedor.codigo})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* 6. Neto Gravado */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    Neto Gravado
-                    <ValidationErrorIcon fieldName="netoGravado" origen="documento" />
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={editFormData.netoGravadoExtraido || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, netoGravadoExtraido: e.target.value })}
-                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
-                    placeholder="0.00"
-                  />
-                </div>
-
-                {/* 7. Exento */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    Exento
-                    <ValidationErrorIcon fieldName="exento" origen="documento" />
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={editFormData.exentoExtraido || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, exentoExtraido: e.target.value })}
-                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
-                    placeholder="0.00"
-                  />
-                </div>
-
-                {/* 8. Impuestos */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    Impuestos
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={editFormData.impuestosExtraido || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, impuestosExtraido: e.target.value })}
-                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
-                    placeholder="0.00"
-                  />
-                </div>
-
-                {/* 9. Descuento/Recargo */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    Descuento/Recargo
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={editFormData.descuentoGlobalExtraido || ''}
-                      onChange={(e) => setEditFormData({ ...editFormData, descuentoGlobalExtraido: e.target.value })}
-                      className="flex-1 px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
-                      placeholder="0.00"
-                    />
-                    <select
-                      value={editFormData.descuentoGlobalTipo || ''}
-                      onChange={(e) => setEditFormData({ ...editFormData, descuentoGlobalTipo: e.target.value })}
-                      className="px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    >
-                      <option value="">-</option>
-                      <option value="DESCUENTO">Desc.</option>
-                      <option value="RECARGO">Rec.</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* 10. Moneda */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    Moneda
-                  </label>
-                  <select
-                    value={editFormData.monedaExtraida || 'ARS'}
-                    onChange={(e) => setEditFormData({ ...editFormData, monedaExtraida: e.target.value })}
-                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                  >
-                    <option value="ARS">ARS (Pesos Argentinos)</option>
-                    <option value="USD">USD (Dólares)</option>
-                  </select>
-                </div>
-
-                {/* 11. Importe Total */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    <Receipt className="w-4 h-4 inline mr-1" />
-                    Importe Total
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={editFormData.importeExtraido || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, importeExtraido: e.target.value })}
-                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
-                    placeholder="0.00"
-                  />
-                </div>
-
-                {/* 10. CAE */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    CAE
-                  </label>
-                  <input
-                    type="text"
-                    value={editFormData.caeExtraido || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, caeExtraido: e.target.value })}
-                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    placeholder="CAE del comprobante"
-                  />
-                </div>
-              </div>
-
-                {/* Sección de Dimensiones y Subcuentas */}
-                <div className="mt-6 pt-6 border-t border-gray-200">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-gray-800">Dimensiones y Subcuentas del Documento</h3>
-                    <Button
-                      onClick={() => {
-                        setDistribucionesEntidad({
-                          tipo: 'documento',
-                          id: selectedDocumentForEdit!.id,
-                          total: parseFloat(editFormData.importeExtraido || '0'),
-                          codigo: editFormData.tipoComprobanteExtraido || '',
-                          nombre: editFormData.numeroComprobanteExtraido || ''
-                        });
-                        setShowDistribucionesModal(true);
-                      }}
-                      className="bg-palette-dark hover:bg-palette-dark/90 text-palette-yellow"
-                      size="sm"
-                    >
-                      <Plus className="w-4 h-4 mr-1" />
-                      Editar Dimensiones
-                    </Button>
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    Define dimensiones y subcuentas que se aplicarán a nivel del documento completo.
-                    Esto es útil para asignar centros de costo, proyectos u otras dimensiones contables al comprobante entero.
-                  </p>
-                </div>
-              </div>
-              )}
-
-              {/* TAB: ITEMS */}
-              {activeTab === 'items' && (
-                <div>
-                  {/* Header con botón de agregar */}
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-md font-semibold text-gray-800">Line Items</h3>
-                    <Button
-                      onClick={() => handleOpenItemModal()}
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                      size="sm"
-                    >
-                      <Plus className="w-4 h-4 mr-1" />
-                      Agregar Item
-                    </Button>
-                  </div>
-
-                  {/* Grilla de items */}
-                  {loadingLineas ? (
-                    <div className="text-center py-8 text-gray-500">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
-                      <p className="mt-2">Cargando items...</p>
-                    </div>
-                  ) : documentoLineas.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
-                      <FileText className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-                      <p>No hay items cargados</p>
-                      <p className="text-sm mt-1">Haz clic en "Agregar Item" para comenzar</p>
-                    </div>
-                  ) : (
-                    <div className="grid gap-4">
-                      {documentoLineas.map((linea) => (
-                        <div key={linea.id} className="border border-gray-200 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
-                          {/* Header de la tarjeta */}
-                          <div className="bg-gradient-to-r from-blue-50 to-blue-100 px-4 py-3 border-b border-blue-200 flex justify-between items-center">
-                            <div className="flex items-center gap-3">
-                              <span className="bg-blue-600 text-white text-xs font-bold rounded-full w-7 h-7 flex items-center justify-center">
-                                {linea.numero}
-                              </span>
-                              <h4 className="font-semibold text-gray-900 text-sm truncate" title={linea.descripcion}>
-                                {linea.descripcion}
-                              </h4>
-                              <ValidationErrorIcon fieldName="" origen={`linea ${linea.numero}`} />
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => handleOpenItemModal(linea)}
-                                className="text-blue-600 hover:text-blue-800 hover:bg-blue-200 p-1.5 rounded transition-colors"
-                                title="Editar"
-                              >
-                                <Pencil className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteItem(linea.id)}
-                                className="text-red-600 hover:text-red-800 hover:bg-red-100 p-1.5 rounded transition-colors"
-                                title="Eliminar"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Contenido principal */}
-                          <div className="p-4">
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
-                              <div>
-                                <span className="text-xs font-medium text-gray-500 uppercase">Cód. Original</span>
-                                <p className="text-sm font-semibold text-palette-purple mt-1">
-                                  {linea.codigoProductoOriginal || '-'}
-                                </p>
-                              </div>
-                              <div>
-                                <span className="text-xs font-medium text-gray-500 uppercase">Cantidad</span>
-                                <p className="text-sm font-semibold text-gray-900 mt-1">
-                                  {formatNumber(Number(linea.cantidad))} {linea.unidad || ''}
-                                </p>
-                              </div>
-                              <div>
-                                <span className="text-xs font-medium text-gray-500 uppercase">Precio Unit.</span>
-                                <p className="text-sm font-semibold text-gray-900 mt-1">
-                                  ${formatNumber(Number(linea.precioUnitario))}
-                                </p>
-                              </div>
-                              <div>
-                                <span className="text-xs font-medium text-gray-500 uppercase">Subtotal</span>
-                                <p className="text-sm font-semibold text-gray-900 mt-1">
-                                  ${formatNumber(Number(linea.subtotal))}
-                                </p>
-                              </div>
-                              <div>
-                                <span className="text-xs font-medium text-gray-500 uppercase">IVA</span>
-                                <p className="text-sm font-semibold text-gray-900 mt-1">
-                                  {linea.alicuotaIva ? `${Number(linea.alicuotaIva)}%` : '-'}
-                                </p>
-                              </div>
-                              <div>
-                                <span className="text-xs font-medium text-gray-500 uppercase">Total Línea</span>
-                                <p className="text-lg font-bold text-blue-600 mt-1">
-                                  ${formatNumber(Number(linea.totalLinea))}
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* Separador */}
-                            <div className="border-t border-gray-200 my-3"></div>
-
-                            {/* Campos contables */}
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 text-xs">
-                              <div
-                                className="bg-blue-50 p-2 rounded cursor-pointer hover:bg-blue-100 transition-colors"
-                                onClick={(e) => handleFieldClick(e, 'tipo_producto', linea.tipoProducto || '', 'item', linea.id, 'tipoProducto')}
-                                title="Click para editar"
-                              >
-                                <span className="font-medium text-gray-600 block mb-1">Tipo Producto</span>
-                                <span className="text-gray-800 truncate block" title={linea.tipoProducto && linea.tipoProductoNombre ? `${linea.tipoProducto} - ${linea.tipoProductoNombre}` : linea.tipoProducto || '-'}>
-                                  {linea.tipoProducto ? `${linea.tipoProducto}${linea.tipoProductoNombre ? ` - ${linea.tipoProductoNombre}` : ''}` : '-'}
-                                </span>
-                              </div>
-                              <div
-                                className="bg-blue-50 p-2 rounded cursor-pointer hover:bg-blue-100 transition-colors"
-                                onClick={(e) => handleFieldClick(e, 'codigo_producto', linea.codigoProducto || '', 'item', linea.id, 'codigoProducto', linea.tipoProducto)}
-                                title="Click para editar"
-                              >
-                                <span className="font-medium text-gray-600 block mb-1">Cód. Producto</span>
-                                <span className="text-gray-800 truncate block" title={linea.codigoProducto && linea.codigoProductoNombre ? `${linea.codigoProducto} - ${linea.codigoProductoNombre}` : linea.codigoProducto || '-'}>
-                                  {linea.codigoProducto ? `${linea.codigoProducto}${linea.codigoProductoNombre ? ` - ${linea.codigoProductoNombre}` : ''}` : '-'}
-                                </span>
-                              </div>
-                              <div
-                                className="bg-blue-50 p-2 rounded cursor-pointer hover:bg-blue-100 transition-colors"
-                                onClick={(e) => handleFieldClick(e, 'cuenta_contable', linea.cuentaContable || '', 'item', linea.id, 'cuentaContable', linea.subcuenta)}
-                                title="Click para editar"
-                              >
-                                <span className="font-medium text-gray-600 block mb-1">Cuenta Contable</span>
-                                <span className="text-gray-800 truncate block" title={linea.cuentaContable && linea.cuentaContableNombre ? `${linea.cuentaContable} - ${linea.cuentaContableNombre}` : linea.cuentaContable || '-'}>
-                                  {linea.cuentaContable ? `${linea.cuentaContable}${linea.cuentaContableNombre ? ` - ${linea.cuentaContableNombre}` : ''}` : '-'}
-                                </span>
-                              </div>
-                              <div
-                                className={`p-2 rounded cursor-pointer transition-colors border ${
-                                  distribucionesStatus[`linea-${linea.id}`] === 'valid'
-                                    ? 'bg-green-50 hover:bg-green-100 border-green-300'
-                                    : distribucionesStatus[`linea-${linea.id}`] === 'invalid'
-                                    ? 'bg-yellow-50 hover:bg-yellow-100 border-yellow-300'
-                                    : 'bg-orange-50 hover:bg-orange-100 border-orange-300'
-                                }`}
-                                onClick={() => {
-                                  setDistribucionesEntidad({
-                                    tipo: 'linea',
-                                    id: linea.id,
-                                    total: parseFloat(linea.totalLinea || 0),
-                                    codigo: linea.codigoProducto || '',
-                                    nombre: linea.descripcion || ''
-                                  });
-                                  setShowDistribucionesModal(true);
-                                }}
-                                title={
-                                  distribucionesStatus[`linea-${linea.id}`] === 'valid'
-                                    ? 'Distribuciones correctas'
-                                    : distribucionesStatus[`linea-${linea.id}`] === 'invalid'
-                                    ? 'Error en suma de distribuciones'
-                                    : 'Sin distribuciones configuradas'
-                                }
-                              >
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center space-x-2">
-                                    {distribucionesStatus[`linea-${linea.id}`] === 'valid' ? (
-                                      <CheckCircle className="w-4 h-4 text-green-600" />
-                                    ) : distribucionesStatus[`linea-${linea.id}`] === 'invalid' ? (
-                                      <AlertCircle className="w-4 h-4 text-yellow-600" />
-                                    ) : (
-                                      <AlertCircle className="w-4 h-4 text-orange-600" />
-                                    )}
-                                    <span className="font-medium text-gray-600 block">Dimensiones</span>
-                                  </div>
-                                  <Grid3x3 className="w-4 h-4 text-gray-500" />
-                                </div>
-                                <span className={`text-xs mt-1 block ${
-                                  distribucionesStatus[`linea-${linea.id}`] === 'valid'
-                                    ? 'text-green-700'
-                                    : distribucionesStatus[`linea-${linea.id}`] === 'invalid'
-                                    ? 'text-yellow-700'
-                                    : 'text-orange-700'
-                                }`}>
-                                  {distribucionesStatus[`linea-${linea.id}`] === 'valid'
-                                    ? 'Configuradas correctamente'
-                                    : distribucionesStatus[`linea-${linea.id}`] === 'invalid'
-                                    ? 'Error en suma'
-                                    : 'No configuradas'}
-                                </span>
-                              </div>
-                              <div
-                                className="bg-blue-50 p-2 rounded cursor-pointer hover:bg-blue-100 transition-colors"
-                                onClick={(e) => handleFieldClick(e, 'tipo_orden_compra', linea.tipoOrdenCompra || '', 'item', linea.id, 'tipoOrdenCompra')}
-                                title="Click para editar"
-                              >
-                                <span className="font-medium text-gray-600 block mb-1">Tipo OC</span>
-                                <span className="text-gray-800 truncate block" title={linea.tipoOrdenCompra && linea.tipoOrdenCompraNombre ? `${linea.tipoOrdenCompra} - ${linea.tipoOrdenCompraNombre}` : linea.tipoOrdenCompra || '-'}>
-                                  {linea.tipoOrdenCompra ? `${linea.tipoOrdenCompra}${linea.tipoOrdenCompraNombre ? ` - ${linea.tipoOrdenCompraNombre}` : ''}` : '-'}
-                                </span>
-                              </div>
-                              <div className="bg-blue-50 p-2 rounded">
-                                <span className="font-medium text-gray-600 block mb-1">Orden Compra</span>
-                                <span className="text-gray-800">{linea.ordenCompra || '-'}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* TAB: IMPUESTOS */}
-              {activeTab === 'impuestos' && (
-                <div>
-                  {/* Header con botón de agregar */}
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-md font-semibold text-gray-800">Impuestos</h3>
-                    <Button
-                      onClick={() => handleOpenImpuestoModal()}
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                      size="sm"
-                    >
-                      <Plus className="w-4 h-4 mr-1" />
-                      Agregar Impuesto
-                    </Button>
-                  </div>
-
-                  {/* Grilla de impuestos */}
-                  {loadingImpuestos ? (
-                    <div className="text-center py-8 text-gray-500">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
-                      <p className="mt-2">Cargando impuestos...</p>
-                    </div>
-                  ) : documentoImpuestos.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
-                      <Receipt className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-                      <p>No hay impuestos cargados</p>
-                      <p className="text-sm mt-1">Haz clic en "Agregar Impuesto" para comenzar</p>
-                    </div>
-                  ) : (
-                    <div className="grid gap-4">
-                      {documentoImpuestos.map((impuesto, index) => (
-                        <div key={impuesto.id} className="border border-gray-200 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
-                          {/* Header de la tarjeta */}
-                          <div className="bg-gradient-to-r from-green-50 to-green-100 px-4 py-3 border-b border-green-200 flex justify-between items-center">
-                            <div className="flex items-center gap-3">
-                              <span className="bg-green-600 text-white text-xs font-bold rounded px-3 py-1">
-                                {impuesto.tipo}
-                              </span>
-                              <h4 className="font-semibold text-gray-900 text-sm truncate" title={impuesto.descripcion}>
-                                {impuesto.descripcion}
-                              </h4>
-                              <ValidationErrorIcon fieldName="" origen={`impuesto ${index + 1}`} />
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => handleOpenImpuestoModal(impuesto)}
-                                className="text-blue-600 hover:text-blue-800 hover:bg-blue-200 p-1.5 rounded transition-colors"
-                                title="Editar"
-                              >
-                                <Pencil className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteImpuesto(impuesto.id)}
-                                className="text-red-600 hover:text-red-800 hover:bg-red-100 p-1.5 rounded transition-colors"
-                                title="Eliminar"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Contenido principal */}
-                          <div className="p-4">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                              <div>
-                                <span className="text-xs font-medium text-gray-500 uppercase">Alícuota</span>
-                                <p className="text-sm font-semibold text-gray-900 mt-1">
-                                  {impuesto.alicuota ? `${Number(impuesto.alicuota)}%` : '-'}
-                                </p>
-                              </div>
-                              <div>
-                                <span className="text-xs font-medium text-gray-500 uppercase">Base Imponible</span>
-                                <p className="text-sm font-semibold text-gray-900 mt-1">
-                                  {impuesto.baseImponible ? `$${Number(impuesto.baseImponible).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
-                                </p>
-                              </div>
-                              <div>
-                                <span className="text-xs font-medium text-gray-500 uppercase">Importe</span>
-                                <p className="text-lg font-bold text-green-600 mt-1">
-                                  ${Number(impuesto.importe).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* Separador */}
-                            <div className="border-t border-gray-200 my-3"></div>
-
-                            {/* Campos contables */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                              <div
-                                className="bg-green-50 p-2 rounded cursor-pointer hover:bg-green-100 transition-colors"
-                                onClick={(e) => handleFieldClick(e, 'cuenta_contable', impuesto.cuentaContable || '', 'impuesto', impuesto.id, 'cuentaContable', impuesto.subcuenta)}
-                                title="Click para editar"
-                              >
-                                <span className="font-medium text-gray-600 block mb-1">Cuenta Contable</span>
-                                <span className="text-gray-800 truncate block" title={impuesto.cuentaContable && impuesto.cuentaContableNombre ? `${impuesto.cuentaContable} - ${impuesto.cuentaContableNombre}` : impuesto.cuentaContable || '-'}>
-                                  {impuesto.cuentaContable ? `${impuesto.cuentaContable}${impuesto.cuentaContableNombre ? ` - ${impuesto.cuentaContableNombre}` : ''}` : '-'}
-                                </span>
-                              </div>
-                              <div
-                                className={`p-2 rounded cursor-pointer transition-colors border ${
-                                  distribucionesStatus[`impuesto-${impuesto.id}`] === 'valid'
-                                    ? 'bg-green-50 hover:bg-green-100 border-green-300'
-                                    : distribucionesStatus[`impuesto-${impuesto.id}`] === 'invalid'
-                                    ? 'bg-yellow-50 hover:bg-yellow-100 border-yellow-300'
-                                    : 'bg-orange-50 hover:bg-orange-100 border-orange-300'
-                                }`}
-                                onClick={() => {
-                                  setDistribucionesEntidad({
-                                    tipo: 'impuesto',
-                                    id: impuesto.id,
-                                    total: parseFloat(impuesto.importe || 0),
-                                    codigo: impuesto.tipo || '',
-                                    nombre: impuesto.descripcion || ''
-                                  });
-                                  setShowDistribucionesModal(true);
-                                }}
-                                title={
-                                  distribucionesStatus[`impuesto-${impuesto.id}`] === 'valid'
-                                    ? 'Distribuciones correctas'
-                                    : distribucionesStatus[`impuesto-${impuesto.id}`] === 'invalid'
-                                    ? 'Error en suma de distribuciones'
-                                    : 'Sin distribuciones configuradas'
-                                }
-                              >
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center space-x-2">
-                                    {distribucionesStatus[`impuesto-${impuesto.id}`] === 'valid' ? (
-                                      <CheckCircle className="w-4 h-4 text-green-600" />
-                                    ) : distribucionesStatus[`impuesto-${impuesto.id}`] === 'invalid' ? (
-                                      <AlertCircle className="w-4 h-4 text-yellow-600" />
-                                    ) : (
-                                      <AlertCircle className="w-4 h-4 text-orange-600" />
-                                    )}
-                                    <span className="font-medium text-gray-600 block">Dimensiones</span>
-                                  </div>
-                                  <Grid3x3 className="w-4 h-4 text-gray-500" />
-                                </div>
-                                <span className={`text-xs mt-1 block ${
-                                  distribucionesStatus[`impuesto-${impuesto.id}`] === 'valid'
-                                    ? 'text-green-700'
-                                    : distribucionesStatus[`impuesto-${impuesto.id}`] === 'invalid'
-                                    ? 'text-yellow-700'
-                                    : 'text-orange-700'
-                                }`}>
-                                  {distribucionesStatus[`impuesto-${impuesto.id}`] === 'valid'
-                                    ? 'Configuradas correctamente'
-                                    : distribucionesStatus[`impuesto-${impuesto.id}`] === 'invalid'
-                                    ? 'Error en suma'
-                                    : 'No configuradas'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Footer - Visible en todos los tabs */}
-            <div className="flex items-center justify-end space-x-3 p-6 border-t border-border bg-gray-50 flex-shrink-0">
-              <Button
-                variant="outline"
-                onClick={() => setShowEditModal(false)}
-                disabled={savingEdit}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleSaveEdit}
-                disabled={savingEdit}
-                className="bg-palette-dark hover:bg-palette-dark/90 text-palette-yellow"
-              >
-                {savingEdit ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Guardando...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Guardar Cambios
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ComprobanteEditModal
+        isOpen={showEditModal}
+        documento={comprobanteEdit.selectedDocument}
+        onClose={() => setShowEditModal(false)}
+        onSave={(updatedDoc) => {
+          setDocumentos(prev => prev.map(doc =>
+            doc.id === updatedDoc.id ? updatedDoc as DocumentoProcessado : doc
+          ));
+          setShowEditModal(false);
+        }}
+      />
 
       {/* Modal de Observaciones */}
       {showObservationModal && selectedDocumentForObservation && (
@@ -2852,7 +1689,7 @@ export default function ComprobantesPage() {
       )}
 
       {/* Modal de Edición/Creación de Item */}
-      {showItemModal && (
+      {comprobanteEdit.showItemModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             {/* Header */}
@@ -2860,14 +1697,14 @@ export default function ComprobantesPage() {
               <div className="flex items-center space-x-3">
                 <FileText className="w-6 h-6 text-blue-600" />
                 <h2 className="text-lg font-semibold text-text-primary">
-                  {selectedItem ? 'Editar Item' : 'Agregar Item'}
+                  {comprobanteEdit.selectedItem ? 'Editar Item' : 'Agregar Item'}
                 </h2>
               </div>
               <button
                 onClick={() => {
-                  setShowItemModal(false);
-                  setSelectedItem(null);
-                  setItemFormData({});
+                  comprobanteEdit.setShowItemModal(false);
+                  comprobanteEdit.setSelectedItem(null);
+                  comprobanteEdit.setItemFormData({});
                 }}
                 className="text-text-secondary hover:text-text-primary transition-colors"
               >
@@ -2885,8 +1722,8 @@ export default function ComprobantesPage() {
                   </label>
                   <input
                     type="number"
-                    value={itemFormData.numero || ''}
-                    onChange={(e) => setItemFormData({ ...itemFormData, numero: e.target.value })}
+                    value={comprobanteEdit.itemFormData.numero || ''}
+                    onChange={(e) => comprobanteEdit.setItemFormData({ ...comprobanteEdit.itemFormData, numero: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder="1"
                   />
@@ -2899,8 +1736,8 @@ export default function ComprobantesPage() {
                   </label>
                   <input
                     type="text"
-                    value={itemFormData.codigoProducto || ''}
-                    onChange={(e) => setItemFormData({ ...itemFormData, codigoProducto: e.target.value })}
+                    value={comprobanteEdit.itemFormData.codigoProducto || ''}
+                    onChange={(e) => comprobanteEdit.setItemFormData({ ...comprobanteEdit.itemFormData, codigoProducto: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder="COD123"
                   />
@@ -2912,8 +1749,8 @@ export default function ComprobantesPage() {
                     Descripción *
                   </label>
                   <textarea
-                    value={itemFormData.descripcion || ''}
-                    onChange={(e) => setItemFormData({ ...itemFormData, descripcion: e.target.value })}
+                    value={comprobanteEdit.itemFormData.descripcion || ''}
+                    onChange={(e) => comprobanteEdit.setItemFormData({ ...comprobanteEdit.itemFormData, descripcion: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder="Descripción del producto o servicio"
                     rows={2}
@@ -2928,8 +1765,8 @@ export default function ComprobantesPage() {
                   <input
                     type="number"
                     step="0.001"
-                    value={itemFormData.cantidad || ''}
-                    onChange={(e) => setItemFormData({ ...itemFormData, cantidad: e.target.value })}
+                    value={comprobanteEdit.itemFormData.cantidad || ''}
+                    onChange={(e) => comprobanteEdit.setItemFormData({ ...comprobanteEdit.itemFormData, cantidad: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
                     placeholder="1.00"
                   />
@@ -2942,8 +1779,8 @@ export default function ComprobantesPage() {
                   </label>
                   <input
                     type="text"
-                    value={itemFormData.unidad || ''}
-                    onChange={(e) => setItemFormData({ ...itemFormData, unidad: e.target.value })}
+                    value={comprobanteEdit.itemFormData.unidad || ''}
+                    onChange={(e) => comprobanteEdit.setItemFormData({ ...comprobanteEdit.itemFormData, unidad: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder="un, kg, m, hs"
                   />
@@ -2957,8 +1794,8 @@ export default function ComprobantesPage() {
                   <input
                     type="number"
                     step="0.0001"
-                    value={itemFormData.precioUnitario || ''}
-                    onChange={(e) => setItemFormData({ ...itemFormData, precioUnitario: e.target.value })}
+                    value={comprobanteEdit.itemFormData.precioUnitario || ''}
+                    onChange={(e) => comprobanteEdit.setItemFormData({ ...comprobanteEdit.itemFormData, precioUnitario: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
                     placeholder="0.0000"
                   />
@@ -2972,8 +1809,8 @@ export default function ComprobantesPage() {
                   <input
                     type="number"
                     step="0.01"
-                    value={itemFormData.subtotal || ''}
-                    onChange={(e) => setItemFormData({ ...itemFormData, subtotal: e.target.value })}
+                    value={comprobanteEdit.itemFormData.subtotal || ''}
+                    onChange={(e) => comprobanteEdit.setItemFormData({ ...comprobanteEdit.itemFormData, subtotal: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
                     placeholder="0.00"
                   />
@@ -2987,8 +1824,8 @@ export default function ComprobantesPage() {
                   <input
                     type="number"
                     step="0.01"
-                    value={itemFormData.alicuotaIva || ''}
-                    onChange={(e) => setItemFormData({ ...itemFormData, alicuotaIva: e.target.value })}
+                    value={comprobanteEdit.itemFormData.alicuotaIva || ''}
+                    onChange={(e) => comprobanteEdit.setItemFormData({ ...comprobanteEdit.itemFormData, alicuotaIva: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
                     placeholder="21.00"
                   />
@@ -3002,8 +1839,8 @@ export default function ComprobantesPage() {
                   <input
                     type="number"
                     step="0.01"
-                    value={itemFormData.importeIva || ''}
-                    onChange={(e) => setItemFormData({ ...itemFormData, importeIva: e.target.value })}
+                    value={comprobanteEdit.itemFormData.importeIva || ''}
+                    onChange={(e) => comprobanteEdit.setItemFormData({ ...comprobanteEdit.itemFormData, importeIva: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
                     placeholder="0.00"
                   />
@@ -3017,8 +1854,8 @@ export default function ComprobantesPage() {
                   <input
                     type="number"
                     step="0.01"
-                    value={itemFormData.totalLinea || ''}
-                    onChange={(e) => setItemFormData({ ...itemFormData, totalLinea: e.target.value })}
+                    value={comprobanteEdit.itemFormData.totalLinea || ''}
+                    onChange={(e) => comprobanteEdit.setItemFormData({ ...comprobanteEdit.itemFormData, totalLinea: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
                     placeholder="0.00"
                   />
@@ -3033,12 +1870,12 @@ export default function ComprobantesPage() {
                     Tipo de Producto
                   </label>
                   <select
-                    value={itemFormData.tipoProducto || ''}
+                    value={comprobanteEdit.itemFormData.tipoProducto || ''}
                     onChange={(e) => handleTipoProductoChange(e.target.value)}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   >
                     <option value="">Seleccionar tipo...</option>
-                    {tiposProducto.map((tipo) => (
+                    {comprobanteEdit.tiposProducto.map((tipo) => (
                       <option key={tipo.id} value={tipo.codigo}>
                         {tipo.nombre} ({tipo.codigo})
                       </option>
@@ -3052,19 +1889,19 @@ export default function ComprobantesPage() {
                     Código de Producto
                   </label>
                   <select
-                    value={itemFormData.codigoProducto || ''}
-                    onChange={(e) => setItemFormData({ ...itemFormData, codigoProducto: e.target.value })}
+                    value={comprobanteEdit.itemFormData.codigoProducto || ''}
+                    onChange={(e) => comprobanteEdit.setItemFormData({ ...comprobanteEdit.itemFormData, codigoProducto: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    disabled={!itemFormData.tipoProducto}
+                    disabled={!comprobanteEdit.itemFormData.tipoProducto}
                   >
                     <option value="">Seleccionar código...</option>
-                    {codigosProducto.map((codigo) => (
+                    {comprobanteEdit.codigosProducto.map((codigo) => (
                       <option key={codigo.id} value={codigo.codigo}>
                         {codigo.nombre} ({codigo.codigo})
                       </option>
                     ))}
                   </select>
-                  {!itemFormData.tipoProducto && (
+                  {!comprobanteEdit.itemFormData.tipoProducto && (
                     <p className="text-xs text-gray-500 mt-1">Primero selecciona un tipo de producto</p>
                   )}
                 </div>
@@ -3075,12 +1912,12 @@ export default function ComprobantesPage() {
                     Código de Dimensión
                   </label>
                   <select
-                    value={itemFormData.codigoDimension || ''}
+                    value={comprobanteEdit.itemFormData.codigoDimension || ''}
                     onChange={(e) => handleCodigoDimensionChange(e.target.value)}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   >
                     <option value="">Seleccionar dimensión...</option>
-                    {codigosDimension.map((dim) => (
+                    {comprobanteEdit.codigosDimension.map((dim) => (
                       <option key={dim.id} value={dim.codigo}>
                         {dim.nombre} ({dim.codigo})
                       </option>
@@ -3094,19 +1931,19 @@ export default function ComprobantesPage() {
                     Subcuenta
                   </label>
                   <select
-                    value={itemFormData.subcuenta || ''}
+                    value={comprobanteEdit.itemFormData.subcuenta || ''}
                     onChange={(e) => handleSubcuentaChange(e.target.value)}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    disabled={!itemFormData.codigoDimension}
+                    disabled={!comprobanteEdit.itemFormData.codigoDimension}
                   >
                     <option value="">Seleccionar subcuenta...</option>
-                    {subcuentas.map((sub) => (
+                    {comprobanteEdit.subcuentas.map((sub) => (
                       <option key={sub.id} value={sub.codigo}>
                         {sub.nombre} ({sub.codigo})
                       </option>
                     ))}
                   </select>
-                  {!itemFormData.codigoDimension && (
+                  {!comprobanteEdit.itemFormData.codigoDimension && (
                     <p className="text-xs text-gray-500 mt-1">Primero selecciona un código de dimensión</p>
                   )}
                 </div>
@@ -3117,19 +1954,19 @@ export default function ComprobantesPage() {
                     Cuenta Contable
                   </label>
                   <select
-                    value={itemFormData.cuentaContable || ''}
-                    onChange={(e) => setItemFormData({ ...itemFormData, cuentaContable: e.target.value })}
+                    value={comprobanteEdit.itemFormData.cuentaContable || ''}
+                    onChange={(e) => comprobanteEdit.setItemFormData({ ...comprobanteEdit.itemFormData, cuentaContable: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    disabled={!itemFormData.subcuenta}
+                    disabled={!comprobanteEdit.itemFormData.subcuenta}
                   >
                     <option value="">Seleccionar cuenta...</option>
-                    {cuentasContables.map((cuenta) => (
+                    {comprobanteEdit.cuentasContables.map((cuenta) => (
                       <option key={cuenta.id} value={cuenta.codigo}>
                         {cuenta.nombre} ({cuenta.codigo})
                       </option>
                     ))}
                   </select>
-                  {!itemFormData.subcuenta && (
+                  {!comprobanteEdit.itemFormData.subcuenta && (
                     <p className="text-xs text-gray-500 mt-1">Primero selecciona una subcuenta</p>
                   )}
                 </div>
@@ -3140,12 +1977,12 @@ export default function ComprobantesPage() {
                     Tipo de Orden de Compra
                   </label>
                   <select
-                    value={itemFormData.tipoOrdenCompra || ''}
-                    onChange={(e) => setItemFormData({ ...itemFormData, tipoOrdenCompra: e.target.value })}
+                    value={comprobanteEdit.itemFormData.tipoOrdenCompra || ''}
+                    onChange={(e) => comprobanteEdit.setItemFormData({ ...comprobanteEdit.itemFormData, tipoOrdenCompra: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   >
                     <option value="">Seleccionar tipo OC...</option>
-                    {tiposOrdenCompra.map((tipo) => (
+                    {comprobanteEdit.tiposOrdenCompra.map((tipo) => (
                       <option key={tipo.id} value={tipo.codigo}>
                         {tipo.nombre} ({tipo.codigo})
                       </option>
@@ -3160,8 +1997,8 @@ export default function ComprobantesPage() {
                   </label>
                   <input
                     type="text"
-                    value={itemFormData.ordenCompra || ''}
-                    onChange={(e) => setItemFormData({ ...itemFormData, ordenCompra: e.target.value })}
+                    value={comprobanteEdit.itemFormData.ordenCompra || ''}
+                    onChange={(e) => comprobanteEdit.setItemFormData({ ...comprobanteEdit.itemFormData, ordenCompra: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder="Número de OC"
                   />
@@ -3174,20 +2011,20 @@ export default function ComprobantesPage() {
               <Button
                 variant="outline"
                 onClick={() => {
-                  setShowItemModal(false);
-                  setSelectedItem(null);
-                  setItemFormData({});
+                  comprobanteEdit.setShowItemModal(false);
+                  comprobanteEdit.setSelectedItem(null);
+                  comprobanteEdit.setItemFormData({});
                 }}
-                disabled={savingItem}
+                disabled={comprobanteEdit.savingItem}
               >
                 Cancelar
               </Button>
               <Button
                 onClick={handleSaveItem}
-                disabled={savingItem}
+                disabled={comprobanteEdit.savingItem}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
-                {savingItem ? (
+                {comprobanteEdit.savingItem ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                     Guardando...
@@ -3195,7 +2032,7 @@ export default function ComprobantesPage() {
                 ) : (
                   <>
                     <Save className="w-4 h-4 mr-2" />
-                    {selectedItem ? 'Actualizar' : 'Crear'} Item
+                    {comprobanteEdit.selectedItem ? 'Actualizar' : 'Crear'} Item
                   </>
                 )}
               </Button>
@@ -3205,7 +2042,7 @@ export default function ComprobantesPage() {
       )}
 
       {/* Modal de Edición/Creación de Impuesto */}
-      {showImpuestoModal && (
+      {comprobanteEdit.showImpuestoModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             {/* Header */}
@@ -3213,14 +2050,14 @@ export default function ComprobantesPage() {
               <div className="flex items-center space-x-3">
                 <Receipt className="w-6 h-6 text-purple-600" />
                 <h2 className="text-lg font-semibold text-text-primary">
-                  {selectedImpuesto ? 'Editar Impuesto' : 'Agregar Impuesto'}
+                  {comprobanteEdit.selectedImpuesto ? 'Editar Impuesto' : 'Agregar Impuesto'}
                 </h2>
               </div>
               <button
                 onClick={() => {
-                  setShowImpuestoModal(false);
-                  setSelectedImpuesto(null);
-                  setImpuestoFormData({});
+                  comprobanteEdit.setShowImpuestoModal(false);
+                  comprobanteEdit.setSelectedImpuesto(null);
+                  comprobanteEdit.setImpuestoFormData({});
                 }}
                 className="text-text-secondary hover:text-text-primary transition-colors"
               >
@@ -3237,8 +2074,8 @@ export default function ComprobantesPage() {
                     Tipo *
                   </label>
                   <select
-                    value={impuestoFormData.tipo || ''}
-                    onChange={(e) => setImpuestoFormData({ ...impuestoFormData, tipo: e.target.value })}
+                    value={comprobanteEdit.impuestoFormData.tipo || ''}
+                    onChange={(e) => comprobanteEdit.setImpuestoFormData({ ...comprobanteEdit.impuestoFormData, tipo: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   >
                     <option value="">Seleccionar...</option>
@@ -3258,8 +2095,8 @@ export default function ComprobantesPage() {
                   <input
                     type="number"
                     step="0.01"
-                    value={impuestoFormData.alicuota || ''}
-                    onChange={(e) => setImpuestoFormData({ ...impuestoFormData, alicuota: e.target.value })}
+                    value={comprobanteEdit.impuestoFormData.alicuota || ''}
+                    onChange={(e) => comprobanteEdit.setImpuestoFormData({ ...comprobanteEdit.impuestoFormData, alicuota: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
                     placeholder="21.00"
                   />
@@ -3272,8 +2109,8 @@ export default function ComprobantesPage() {
                   </label>
                   <input
                     type="text"
-                    value={impuestoFormData.descripcion || ''}
-                    onChange={(e) => setImpuestoFormData({ ...impuestoFormData, descripcion: e.target.value })}
+                    value={comprobanteEdit.impuestoFormData.descripcion || ''}
+                    onChange={(e) => comprobanteEdit.setImpuestoFormData({ ...comprobanteEdit.impuestoFormData, descripcion: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder="IVA 21%, Percepción IIBB, etc."
                   />
@@ -3287,8 +2124,8 @@ export default function ComprobantesPage() {
                   <input
                     type="number"
                     step="0.01"
-                    value={impuestoFormData.baseImponible || ''}
-                    onChange={(e) => setImpuestoFormData({ ...impuestoFormData, baseImponible: e.target.value })}
+                    value={comprobanteEdit.impuestoFormData.baseImponible || ''}
+                    onChange={(e) => comprobanteEdit.setImpuestoFormData({ ...comprobanteEdit.impuestoFormData, baseImponible: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
                     placeholder="0.00"
                   />
@@ -3302,8 +2139,8 @@ export default function ComprobantesPage() {
                   <input
                     type="number"
                     step="0.01"
-                    value={impuestoFormData.importe || ''}
-                    onChange={(e) => setImpuestoFormData({ ...impuestoFormData, importe: e.target.value })}
+                    value={comprobanteEdit.impuestoFormData.importe || ''}
+                    onChange={(e) => comprobanteEdit.setImpuestoFormData({ ...comprobanteEdit.impuestoFormData, importe: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-right"
                     placeholder="0.00"
                   />
@@ -3318,12 +2155,12 @@ export default function ComprobantesPage() {
                     Código de Dimensión
                   </label>
                   <select
-                    value={impuestoFormData.codigoDimension || ''}
+                    value={comprobanteEdit.impuestoFormData.codigoDimension || ''}
                     onChange={(e) => handleCodigoDimensionChangeImpuesto(e.target.value)}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   >
                     <option value="">Seleccionar dimensión...</option>
-                    {codigosDimension.map((dim) => (
+                    {comprobanteEdit.codigosDimension.map((dim) => (
                       <option key={dim.id} value={dim.codigo}>
                         {dim.nombre} ({dim.codigo})
                       </option>
@@ -3337,19 +2174,19 @@ export default function ComprobantesPage() {
                     Subcuenta
                   </label>
                   <select
-                    value={impuestoFormData.subcuenta || ''}
+                    value={comprobanteEdit.impuestoFormData.subcuenta || ''}
                     onChange={(e) => handleSubcuentaChangeImpuesto(e.target.value)}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                    disabled={!impuestoFormData.codigoDimension}
+                    disabled={!comprobanteEdit.impuestoFormData.codigoDimension}
                   >
                     <option value="">Seleccionar subcuenta...</option>
-                    {subcuentas.map((sub) => (
+                    {comprobanteEdit.subcuentas.map((sub) => (
                       <option key={sub.id} value={sub.codigo}>
                         {sub.nombre} ({sub.codigo})
                       </option>
                     ))}
                   </select>
-                  {!impuestoFormData.codigoDimension && (
+                  {!comprobanteEdit.impuestoFormData.codigoDimension && (
                     <p className="text-xs text-gray-500 mt-1">Primero selecciona un código de dimensión</p>
                   )}
                 </div>
@@ -3360,12 +2197,12 @@ export default function ComprobantesPage() {
                     Cuenta Contable
                   </label>
                   <select
-                    value={impuestoFormData.cuentaContable || ''}
-                    onChange={(e) => setImpuestoFormData({ ...impuestoFormData, cuentaContable: e.target.value })}
+                    value={comprobanteEdit.impuestoFormData.cuentaContable || ''}
+                    onChange={(e) => comprobanteEdit.setImpuestoFormData({ ...comprobanteEdit.impuestoFormData, cuentaContable: e.target.value })}
                     className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   >
                     <option value="">Seleccionar cuenta...</option>
-                    {cuentasContables.map((cuenta) => (
+                    {comprobanteEdit.cuentasContables.map((cuenta) => (
                       <option key={cuenta.id} value={cuenta.codigo}>
                         {cuenta.nombre} ({cuenta.codigo})
                       </option>
@@ -3380,20 +2217,20 @@ export default function ComprobantesPage() {
               <Button
                 variant="outline"
                 onClick={() => {
-                  setShowImpuestoModal(false);
-                  setSelectedImpuesto(null);
-                  setImpuestoFormData({});
+                  comprobanteEdit.setShowImpuestoModal(false);
+                  comprobanteEdit.setSelectedImpuesto(null);
+                  comprobanteEdit.setImpuestoFormData({});
                 }}
-                disabled={savingImpuesto}
+                disabled={comprobanteEdit.savingImpuesto}
               >
                 Cancelar
               </Button>
               <Button
                 onClick={handleSaveImpuesto}
-                disabled={savingImpuesto}
+                disabled={comprobanteEdit.savingImpuesto}
                 className="bg-purple-600 hover:bg-purple-700 text-white"
               >
-                {savingImpuesto ? (
+                {comprobanteEdit.savingImpuesto ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                     Guardando...
@@ -3401,7 +2238,7 @@ export default function ComprobantesPage() {
                 ) : (
                   <>
                     <Save className="w-4 h-4 mr-2" />
-                    {selectedImpuesto ? 'Actualizar' : 'Crear'} Impuesto
+                    {comprobanteEdit.selectedImpuesto ? 'Actualizar' : 'Crear'} Impuesto
                   </>
                 )}
               </Button>
@@ -3523,31 +2360,31 @@ export default function ComprobantesPage() {
       )}
 
       {/* Modal de Dimensiones */}
-      {showDistribucionesModal && distribucionesEntidad && (
+      {comprobanteEdit.showDistribucionesModal && comprobanteEdit.distribucionesEntidad && (
         <DistribucionesModal
-          isOpen={showDistribucionesModal}
+          isOpen={comprobanteEdit.showDistribucionesModal}
           onClose={() => {
-            setShowDistribucionesModal(false);
-            setDistribucionesEntidad(null);
+            comprobanteEdit.setShowDistribucionesModal(false);
+            comprobanteEdit.setDistribucionesEntidad(null);
           }}
-          tipo={distribucionesEntidad.tipo}
-          entidadId={distribucionesEntidad.id}
-          totalEntidad={distribucionesEntidad.total}
-          codigo={distribucionesEntidad.codigo}
-          nombre={distribucionesEntidad.nombre}
+          tipo={comprobanteEdit.distribucionesEntidad.tipo}
+          entidadId={comprobanteEdit.distribucionesEntidad.id}
+          totalEntidad={comprobanteEdit.distribucionesEntidad.total}
+          codigo={comprobanteEdit.distribucionesEntidad.codigo}
+          nombre={comprobanteEdit.distribucionesEntidad.nombre}
           onSave={async () => {
             // Recargar datos según el tipo de entidad
-            if (distribucionesEntidad.tipo === 'linea') {
-              await loadDocumentoLineas(selectedDocumentForEdit!.id);
-            } else if (distribucionesEntidad.tipo === 'impuesto') {
-              await loadDocumentoImpuestos(selectedDocumentForEdit!.id);
+            if (comprobanteEdit.distribucionesEntidad?.tipo === 'linea') {
+              await comprobanteEdit.loadDocumentoLineas(comprobanteEdit.selectedDocument!.id);
+            } else if (comprobanteEdit.distribucionesEntidad?.tipo === 'impuesto') {
+              await comprobanteEdit.loadDocumentoImpuestos(comprobanteEdit.selectedDocument!.id);
             }
             // Para tipo 'documento' no hay que recargar líneas ni impuestos
 
             // Recargar estado de distribuciones
-            const lineas = await api.get(`/documentos/${selectedDocumentForEdit!.id}/lineas`).then(r => r.data.lineas || []);
-            const impuestos = await api.get(`/documentos/${selectedDocumentForEdit!.id}/impuestos`).then(r => r.data.impuestos || []);
-            await loadDistribucionesStatus(lineas, impuestos);
+            const lineas = await api.get(`/documentos/${comprobanteEdit.selectedDocument!.id}/lineas`).then(r => r.data.lineas || []);
+            const impuestos = await api.get(`/documentos/${comprobanteEdit.selectedDocument!.id}/impuestos`).then(r => r.data.impuestos || []);
+            await comprobanteEdit.loadDistribucionesStatus(lineas, impuestos);
 
             toast.success('Dimensiones guardadas correctamente');
           }}

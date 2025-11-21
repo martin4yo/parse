@@ -7,7 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 const pdfParse = require('pdf-parse');
-const DocumentProcessor = require('./src/lib/documentProcessor');
+const DocumentProcessor = require('../src/lib/documentProcessor');
 
 async function testExtraction(pdfFilename) {
   const pdfPath = path.join(__dirname, '..', 'docs', pdfFilename);

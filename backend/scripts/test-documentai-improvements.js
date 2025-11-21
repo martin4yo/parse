@@ -8,7 +8,7 @@
  * 4. ✅ Extracción de observaciones (documento y líneas)
  */
 
-const documentAIProcessor = require('./src/services/documentAIProcessor');
+const documentAIProcessor = require('../src/services/documentAIProcessor');
 
 console.log('='.repeat(80));
 console.log('TEST: Mejoras Document AI - Percepciones, CAE y Observaciones');

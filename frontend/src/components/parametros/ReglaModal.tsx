@@ -26,7 +26,7 @@ interface ReglaNegocio {
     stopOnMatch: boolean;
     mensajeError?: string;
     severidad?: string;
-    aplicaA?: 'TODOS' | 'LINEAS' | 'IMPUESTOS' | 'DOCUMENTO';
+    aplicaA?: ('DOCUMENTO' | 'LINEAS' | 'IMPUESTOS')[];
   };
   createdAt?: string;
   updatedAt?: string;
@@ -152,7 +152,7 @@ export default function ReglaModal({
       stopOnMatch: false,
       mensajeError: '',
       severidad: 'ERROR',
-      aplicaA: 'TODOS'
+      aplicaA: ['DOCUMENTO', 'LINEAS', 'IMPUESTOS']
     }
   });
 
@@ -180,13 +180,41 @@ export default function ReglaModal({
   // Inicializar formulario cuando cambia la regla
   useEffect(() => {
     if (regla) {
+      // Convertir aplicaA antiguo (string) a nuevo formato (array)
+      let aplicaAArray: ('DOCUMENTO' | 'LINEAS' | 'IMPUESTOS')[] = ['DOCUMENTO', 'LINEAS', 'IMPUESTOS'];
+
+      if (regla.configuracion.aplicaA) {
+        const aplicaAValue = regla.configuracion.aplicaA as any;
+        if (Array.isArray(aplicaAValue)) {
+          aplicaAArray = aplicaAValue;
+        } else if (typeof aplicaAValue === 'string') {
+          // Compatibilidad con valores antiguos
+          switch (aplicaAValue) {
+            case 'TODOS':
+              aplicaAArray = ['DOCUMENTO', 'LINEAS', 'IMPUESTOS'];
+              break;
+            case 'DOCUMENTO':
+              aplicaAArray = ['DOCUMENTO'];
+              break;
+            case 'LINEAS':
+              aplicaAArray = ['LINEAS'];
+              break;
+            case 'IMPUESTOS':
+              aplicaAArray = ['IMPUESTOS'];
+              break;
+            default:
+              aplicaAArray = ['DOCUMENTO', 'LINEAS', 'IMPUESTOS'];
+          }
+        }
+      }
+
       setFormData({
         ...regla,
         fechaVigencia: regla.fechaVigencia ? regla.fechaVigencia.split('T')[0] : '',
         configuracion: {
           ...regla.configuracion,
           transformacionesCampo: regla.configuracion.transformacionesCampo || [],
-          aplicaA: regla.configuracion.aplicaA || 'TODOS'
+          aplicaA: aplicaAArray
         }
       });
     } else {
@@ -206,7 +234,7 @@ export default function ReglaModal({
           stopOnMatch: false,
           mensajeError: '',
           severidad: 'ERROR',
-          aplicaA: 'TODOS'
+          aplicaA: ['DOCUMENTO', 'LINEAS', 'IMPUESTOS']
         }
       });
     }
@@ -646,18 +674,55 @@ export default function ReglaModal({
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Aplica a *
                   </label>
-                  <select
-                    value={formData.configuracion.aplicaA || 'TODOS'}
-                    onChange={(e) => handleConfigChange('aplicaA', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="TODOS">Todos (documento, líneas e impuestos)</option>
-                    <option value="DOCUMENTO">Solo documento</option>
-                    <option value="LINEAS">Solo líneas/items</option>
-                    <option value="IMPUESTOS">Solo impuestos</option>
-                  </select>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Define si esta regla se aplica al documento completo, solo a las líneas, o solo a los impuestos
+                  <div className="space-y-2">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.configuracion.aplicaA?.includes('DOCUMENTO') || false}
+                        onChange={(e) => {
+                          const currentValues = formData.configuracion.aplicaA || [];
+                          const newValues = e.target.checked
+                            ? [...currentValues, 'DOCUMENTO']
+                            : currentValues.filter(v => v !== 'DOCUMENTO');
+                          handleConfigChange('aplicaA', newValues);
+                        }}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">Cabecera del documento</span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.configuracion.aplicaA?.includes('LINEAS') || false}
+                        onChange={(e) => {
+                          const currentValues = formData.configuracion.aplicaA || [];
+                          const newValues = e.target.checked
+                            ? [...currentValues, 'LINEAS']
+                            : currentValues.filter(v => v !== 'LINEAS');
+                          handleConfigChange('aplicaA', newValues);
+                        }}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">Líneas/Items</span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.configuracion.aplicaA?.includes('IMPUESTOS') || false}
+                        onChange={(e) => {
+                          const currentValues = formData.configuracion.aplicaA || [];
+                          const newValues = e.target.checked
+                            ? [...currentValues, 'IMPUESTOS']
+                            : currentValues.filter(v => v !== 'IMPUESTOS');
+                          handleConfigChange('aplicaA', newValues);
+                        }}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">Impuestos</span>
+                    </label>
+                  </div>
+                  <p className="mt-2 text-xs text-gray-500">
+                    Selecciona una o más secciones donde se aplicará esta regla
                   </p>
                 </div>
               </div>

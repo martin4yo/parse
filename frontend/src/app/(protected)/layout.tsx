@@ -7,6 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Toaster } from 'react-hot-toast';
 import { ConfirmProvider } from '@/hooks/useConfirm';
 import { SidebarProvider } from '@/contexts/SidebarContext';
+import Image from 'next/image';
+import axiomaLogo from '@/assets/axioma_logo_300x500.png';
 
 export default function ProtectedLayout({
   children,
@@ -33,10 +35,13 @@ export default function ProtectedLayout({
       >
         <div className="flex flex-col items-center justify-center gap-8">
           <div className="relative w-96 h-96 animate-pulse">
-            <img
-              src="/axioma_logo_invertido.png"
+            <Image
+              src={axiomaLogo}
               alt="Axioma Logo"
-              className="w-full h-full object-contain"
+              fill
+              sizes="384px"
+              className="object-contain"
+              priority
             />
           </div>
           <div className="w-96">
@@ -65,10 +70,13 @@ export default function ProtectedLayout({
       >
         <div className="flex flex-col items-center justify-center gap-8">
           <div className="relative w-96 h-96 animate-pulse">
-            <img
-              src="/axioma_logo_invertido.png"
+            <Image
+              src={axiomaLogo}
               alt="Axioma Logo"
-              className="w-full h-full object-contain"
+              fill
+              sizes="384px"
+              className="object-contain"
+              priority
             />
           </div>
           <div className="w-96">

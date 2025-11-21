@@ -106,6 +106,7 @@ model documento_impuestos {
   codigoDimension          String?                    @db.VarChar(50)
   cuentaContable           String?                    @db.VarChar(50)
   subcuenta                String?                    @db.VarChar(50)
+  camposEditadosManualmente Json?                     @default("{}")
   documento_distribuciones documento_distribuciones[]
   documentos_procesados    documentos_procesados      @relation(fields: [documentoId], references: [id], onDelete: Cascade)
   tenants                  tenants                    @relation(fields: [tenantId], references: [id])
@@ -140,6 +141,7 @@ model documento_lineas {
   tipoOrdenCompra          String?                    @db.VarChar(50)
   tipoProducto             String?                    @db.VarChar(50)
   codigoProductoOriginal   String?                    @db.VarChar(100)
+  camposEditadosManualmente Json?                     @default("{}")
   documento_distribuciones documento_distribuciones[]
   documentos_procesados    documentos_procesados      @relation(fields: [documentoId], references: [id], onDelete: Cascade)
   tenants                  tenants                    @relation(fields: [tenantId], references: [id])

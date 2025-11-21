@@ -7,7 +7,7 @@
  * Pero el importe correcto es 47,448.00 (no 2,965,500.00)
  */
 
-const documentAIProcessor = require('./src/services/documentAIProcessor');
+const documentAIProcessor = require('../src/services/documentAIProcessor');
 
 console.log('='.repeat(80));
 console.log('DEBUG: Formato Real del PDF según Document AI');

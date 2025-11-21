@@ -10,7 +10,7 @@
 
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const patternLearningService = require('./src/services/patternLearningService');
+const patternLearningService = require('../src/services/patternLearningService');
 
 async function main() {
   console.log('\n🧪 ========================================');
