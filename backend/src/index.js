@@ -48,6 +48,9 @@ const patronesAprendidosRoutes = require('./routes/patrones-aprendidos');
 const documentDetectionConfigRoutes = require('./routes/document-detection-config');
 const syncRoutes = require('./routes/sync');
 const { router: syncApiKeysRoutes } = require('./routes/syncApiKeys');
+const apiConnectorsRoutes = require('./routes/api-connectors');
+const webhooksRoutes = require('./routes/webhooks');
+const metricsRoutes = require('./routes/metrics');
 const jobsRoutes = require('./routes/jobs');
 const planesRoutes = require('./routes/planes');
 const menuRoutes = require('./routes/menu');
@@ -165,6 +168,15 @@ app.use('/api/document-detection-config', documentDetectionConfigRoutes);
 // Sincronización SQL
 app.use('/api/sync', syncRoutes);
 app.use('/api/sync/api-keys', syncApiKeysRoutes);
+
+// API Connectors - Sincronización via APIs REST
+app.use('/api/api-connectors', apiConnectorsRoutes);
+
+// Webhooks - Notificaciones de eventos
+app.use('/api/webhooks', webhooksRoutes);
+
+// Métricas y monitoreo
+app.use('/api/metrics', metricsRoutes);
 
 // Parse API Pública - Endpoints para aplicaciones externas (autenticación con API Key)
 app.use('/api/v1/parse', parseApiRoutes);

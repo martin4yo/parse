@@ -188,6 +188,9 @@ model documentos_procesados {
   codigoDimension           String?                    @db.VarChar(50)
   subcuenta                 String?                    @db.VarChar(50)
   validationErrors          Json?
+  externalSystemId          String?                    @db.VarChar(100)
+  lastExportedAt            DateTime?
+  exportConfigId            String?
   documento_distribuciones  documento_distribuciones[]
   documento_impuestos       documento_impuestos[]
   documento_lineas          documento_lineas[]
@@ -421,6 +424,43 @@ model sync_api_keys {
   @@index([tenantId])
 }
 
+model webhooks {
+  id          String    @id
+  tenantId    String
+  nombre      String
+  url         String
+  secret      String
+  eventos     Json      @default("[]")
+  activo      Boolean   @default(true)
+  ultimoEnvio DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+  tenants     tenants   @relation(fields: [tenantId], references: [id])
+  webhook_logs webhook_logs[]
+
+  @@index([tenantId])
+  @@index([activo])
+}
+
+model webhook_logs {
+  id            String    @id
+  webhookId     String
+  evento        String
+  payload       Json
+  statusCode    Int?
+  respuesta     String?
+  error         String?
+  intentos      Int       @default(1)
+  exitoso       Boolean   @default(false)
+  enviadoEn     DateTime  @default(now())
+  webhooks      webhooks  @relation(fields: [webhookId], references: [id])
+
+  @@index([webhookId])
+  @@index([evento])
+  @@index([exitoso])
+  @@index([enviadoEn])
+}
+
 model sync_configurations {
   id                  String      @id
   tenantId            String      @unique
@@ -488,6 +528,10 @@ model tenants {
   updatedAt                 DateTime
   ai_prompts                ai_prompts[]
   ai_provider_configs       ai_provider_configs[]
+  api_connector_configs     api_connector_configs[]
+  api_export_logs           api_export_logs[]
+  api_pull_logs             api_pull_logs[]
+  api_sync_staging          api_sync_staging[]
   atributos                 atributos[]
   document_detection_config document_detection_config[]
   documento_distribuciones  documento_distribuciones[]
@@ -504,6 +548,7 @@ model tenants {
   sync_configurations       sync_configurations?
   sync_logs                 sync_logs[]
   tenant_reglas_globales    tenant_reglas_globales[]
+  webhooks                  webhooks[]
   planes                    planes?                     @relation(fields: [planId], references: [id])
   users                     users[]
 
@@ -673,4 +718,155 @@ model document_detection_config {
 
   @@index([tenantId])
   @@index([activo])
+}
+
+// ============================================
+// SISTEMA DE CONECTOR API BIDIRECCIONAL
+// ============================================
+
+model api_connector_configs {
+  id                String   @id @default(uuid())
+  tenantId          String
+  nombre            String   @db.VarChar(100)
+  descripcion       String?  @db.Text
+  activo            Boolean  @default(true)
+
+  // Dirección del conector: pull, push, bidirectional
+  direction         String   @db.VarChar(20)
+
+  // Configuración de conexión
+  baseUrl           String   @db.VarChar(500)
+  authType          String   @db.VarChar(50)
+  authConfig        Json
+
+  // Recursos (endpoints)
+  pullResources     Json?
+  pushResources     Json?
+
+  // Mapeo de campos
+  pullFieldMapping  Json?
+  pushFieldMapping  Json?
+
+  // Validación
+  requireValidation Boolean  @default(false)
+  validationRules   Json?
+
+  // Programación
+  pullSchedule      Json?
+  pushSchedule      Json?
+
+  // Callbacks
+  callbackConfig    Json?
+
+  // Metadata
+  lastPullSync      DateTime?
+  lastPullStatus    String?  @db.VarChar(50)
+  lastPushSync      DateTime?
+  lastPushStatus    String?  @db.VarChar(50)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  createdBy         String?
+
+  tenants           tenants  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Relaciones
+  sync_staging      api_sync_staging[]
+  export_logs       api_export_logs[]
+  pull_logs         api_pull_logs[]
+
+  @@index([tenantId])
+  @@index([activo])
+  @@index([direction])
+}
+
+model api_sync_staging {
+  id                String   @id @default(uuid())
+  configId          String
+  resourceId        String   @db.VarChar(100)
+  tenantId          String
+
+  // Datos
+  rawData           Json
+  transformedData   Json
+
+  // Validación
+  validationStatus  String   @db.VarChar(50) // pending, approved, rejected
+  validationErrors  Json?
+  validatedBy       String?
+  validatedAt       DateTime?
+
+  // Metadata
+  syncBatchId       String?
+  createdAt         DateTime @default(now())
+
+  config            api_connector_configs @relation(fields: [configId], references: [id], onDelete: Cascade)
+  tenants           tenants  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([configId])
+  @@index([tenantId])
+  @@index([validationStatus])
+  @@index([syncBatchId])
+}
+
+model api_pull_logs {
+  id                String   @id @default(uuid())
+  configId          String
+  tenantId          String
+  resourceId        String?  @db.VarChar(100)
+
+  // Resultado
+  status            String   @db.VarChar(50) // success, partial, failed
+  recordsFound      Int      @default(0)
+  recordsImported   Int      @default(0)
+  recordsFailed     Int      @default(0)
+
+  // Respuesta
+  apiResponse       Json?
+
+  // Metadata
+  executedAt        DateTime @default(now())
+  durationMs        Int?
+  errorDetails      Json?
+
+  config            api_connector_configs @relation(fields: [configId], references: [id], onDelete: Cascade)
+  tenants           tenants  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([configId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([executedAt])
+}
+
+model api_export_logs {
+  id                String   @id @default(uuid())
+  configId          String
+  tenantId          String
+
+  // Documentos exportados
+  documentIds       String[]
+  totalDocuments    Int
+
+  // Resultado
+  status            String   @db.VarChar(50) // success, partial, failed
+  successfulCount   Int      @default(0)
+  failedCount       Int      @default(0)
+
+  // Respuesta de API externa
+  externalResponse  Json?
+  externalIds       String[]
+
+  // Metadata
+  exportedBy        String?
+  exportedAt        DateTime @default(now())
+  durationMs        Int?
+  errorDetails      Json?
+
+  config            api_connector_configs @relation(fields: [configId], references: [id], onDelete: Cascade)
+  tenants           tenants  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([configId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([exportedAt])
 }

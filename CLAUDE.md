@@ -589,6 +589,86 @@ AI_LOOKUP_MODEL=gemini-2.5-flash
 
 ## 📋 ROADMAP - Mejoras Futuras
 
+---
+
+### 🚀 EN DESARROLLO: Sistema de Conector API Bidireccional
+
+**Estado:** 🟡 Sprint 1 - Inicio (21 Enero 2025)
+**Prioridad:** ⭐⭐⭐ MUY ALTA
+**Documentación:** Ver `docs/CONECTOR-API-BIDIRECCIONAL.md`
+
+#### Resumen
+
+Sistema universal para sincronización bidireccional con APIs REST externas:
+- **PULL:** Importar datos desde ERPs/APIs (facturas, órdenes de compra, etc.)
+- **PUSH:** Exportar documentos procesados a sistemas contables/APIs
+- **Configuración Self-Service:** UI completa para configurar sin código
+- **Soporte Universal:** Cualquier API REST con mapeo declarativo JSON
+
+#### Progreso por Sprint
+
+**🟡 Sprint 1: Base + PULL Básico** (Semana 1-2)
+- ✅ Schema BD (4 tablas nuevas) - COMPLETADO (21 Enero 2025)
+- ⬜ ApiConnectorService (base) - PENDIENTE
+- ⬜ ApiPullService - PENDIENTE
+- ⬜ Endpoints CRUD configs - PENDIENTE
+- ⬜ Endpoints PULL básicos - PENDIENTE
+- ⬜ UI: Lista de conectores - PENDIENTE
+- ⬜ UI: Wizard pasos 1-3 - PENDIENTE
+
+**⬜ Sprint 2: PULL Completo + Validación** (Semana 3)
+- ⬜ Sistema de validación y staging
+- ⬜ Endpoints staging
+- ⬜ UI: Preview de staging
+- ⬜ Completar wizard pasos 4-9
+- ⬜ OAuth2 con refresh token
+
+**⬜ Sprint 3: PUSH** (Semana 4)
+- ⬜ ApiPushService
+- ⬜ Endpoints PUSH
+- ⬜ Integración en /exportar
+- ⬜ Mapeo inverso en wizard
+
+**⬜ Sprint 4: Orquestación** (Semana 5)
+- ⬜ ApiSyncOrchestrator
+- ⬜ Cron jobs
+- ⬜ Callbacks
+- ⬜ UI: Logs e historial
+
+**⬜ Sprint 5: Testing y Docs** (Semana 6)
+- ⬜ Tests unitarios
+- ⬜ Tests de integración
+- ⬜ Documentación de usuario
+
+#### Características Clave
+
+**Autenticación Soportada:**
+- ✅ API Key
+- ✅ Bearer Token
+- ✅ OAuth 2.0 (client_credentials + authorization_code)
+- ✅ Basic Auth
+- ✅ Custom Headers
+
+**Capacidades:**
+- ✅ Paginación automática (page-based, cursor-based, offset-based)
+- ✅ Mapeo flexible de campos (visual drag & drop)
+- ✅ Validación opcional con staging manual
+- ✅ Programación automática (cron/interval)
+- ✅ Rate limiting y reintentos
+- ✅ Descarga/envío de archivos (Base64)
+- ✅ Callbacks post-procesamiento
+- ✅ Logs completos de import/export
+
+#### Próximos Hitos
+
+1. **Esta Semana:** Schema BD + Servicios base
+2. **Próxima Semana:** PULL funcional con API de prueba
+3. **Semana 3:** PULL completo con staging
+4. **Semana 4:** PUSH para exportar documentos
+5. **Semana 5-6:** Orquestación + Testing
+
+---
+
 ### 🎯 Prioridad Alta: Google Document AI para Extracción de PDFs
 
 **Objetivo**: Reemplazar Gemini con Document AI de Vertex AI para mejorar precisión de extracción de facturas y documentos fiscales.

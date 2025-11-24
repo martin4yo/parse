@@ -2,12 +2,16 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const { authenticateSyncClient } = require('../middleware/syncAuth');
+const { rateLimiter } = require('../middleware/rateLimiter');
 const DocumentProcessor = require('../lib/documentProcessor');
 const BusinessRulesEngine = require('../services/businessRulesEngine');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const fs = require('fs').promises;
 const path = require('path');
+
+// Aplicar rate limiting a todas las rutas de esta API
+router.use(rateLimiter);
 
 // Instancia global de DocumentProcessor
 const documentProcessor = new DocumentProcessor();
@@ -802,6 +806,446 @@ router.get('/health', async (req, res) => {
     service: 'Parse API',
     version: '1.0.0'
   });
+});
+
+// ============================================================================
+// SINCRONIZACIÓN DE TABLAS MAESTRAS
+// ============================================================================
+
+/**
+ * GET /api/v1/parse/sync/proveedores
+ * Obtiene lista de proveedores del tenant
+ *
+ * Query params:
+ *   - limit: número de registros (default: 100, max: 1000)
+ *   - offset: offset para paginación (default: 0)
+ *   - search: búsqueda por razón social o CUIT
+ *   - activo: filtrar por estado activo (true/false)
+ *   - updatedSince: fecha ISO para obtener solo actualizados desde esa fecha
+ */
+router.get('/sync/proveedores', authenticateSyncClient, async (req, res) => {
+  try {
+    // Validar permiso
+    if (!req.syncClient.permisos.sync) {
+      return res.status(403).json({
+        success: false,
+        error: 'Sin permiso "sync". La API key debe tener el permiso "sync" habilitado.'
+      });
+    }
+
+    const {
+      limit = 100,
+      offset = 0,
+      search,
+      activo,
+      updatedSince
+    } = req.query;
+
+    const where = {
+      tenantId: req.syncClient.tenantId
+    };
+
+    // Filtros opcionales
+    if (search) {
+      where.OR = [
+        { razonSocial: { contains: search, mode: 'insensitive' } },
+        { cuit: { contains: search } }
+      ];
+    }
+
+    if (activo !== undefined) {
+      where.activo = activo === 'true';
+    }
+
+    if (updatedSince) {
+      where.updatedAt = { gte: new Date(updatedSince) };
+    }
+
+    const [proveedores, total] = await Promise.all([
+      prisma.proveedores.findMany({
+        where,
+        take: Math.min(parseInt(limit), 1000),
+        skip: parseInt(offset),
+        orderBy: { updatedAt: 'desc' },
+        select: {
+          id: true,
+          razonSocial: true,
+          cuit: true,
+          email: true,
+          telefono: true,
+          direccion: true,
+          activo: true,
+          lastExportedAt: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      }),
+      prisma.proveedores.count({ where })
+    ]);
+
+    res.json({
+      success: true,
+      data: proveedores,
+      pagination: {
+        total,
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        hasMore: total > (parseInt(offset) + proveedores.length)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error sync proveedores:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al sincronizar proveedores'
+    });
+  }
+});
+
+/**
+ * GET /api/v1/parse/sync/productos
+ * Obtiene lista de productos (parámetros maestros tipo 'producto')
+ */
+router.get('/sync/productos', authenticateSyncClient, async (req, res) => {
+  try {
+    if (!req.syncClient.permisos.sync) {
+      return res.status(403).json({
+        success: false,
+        error: 'Sin permiso "sync"'
+      });
+    }
+
+    const {
+      limit = 100,
+      offset = 0,
+      search,
+      activo,
+      updatedSince
+    } = req.query;
+
+    const where = {
+      tenantId: req.syncClient.tenantId,
+      tipo_campo: 'producto'
+    };
+
+    if (search) {
+      where.OR = [
+        { valor: { contains: search, mode: 'insensitive' } },
+        { codigo: { contains: search } }
+      ];
+    }
+
+    if (activo !== undefined) {
+      where.activo = activo === 'true';
+    }
+
+    if (updatedSince) {
+      where.updatedAt = { gte: new Date(updatedSince) };
+    }
+
+    const [productos, total] = await Promise.all([
+      prisma.parametros_maestros.findMany({
+        where,
+        take: Math.min(parseInt(limit), 1000),
+        skip: parseInt(offset),
+        orderBy: { updatedAt: 'desc' },
+        select: {
+          id: true,
+          codigo: true,
+          valor: true,
+          descripcion: true,
+          activo: true,
+          lastExportedAt: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      }),
+      prisma.parametros_maestros.count({ where })
+    ]);
+
+    res.json({
+      success: true,
+      data: productos,
+      pagination: {
+        total,
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        hasMore: total > (parseInt(offset) + productos.length)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error sync productos:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al sincronizar productos'
+    });
+  }
+});
+
+/**
+ * GET /api/v1/parse/sync/cuentas-contables
+ * Obtiene lista de cuentas contables (parámetros maestros tipo 'cuenta_contable')
+ */
+router.get('/sync/cuentas-contables', authenticateSyncClient, async (req, res) => {
+  try {
+    if (!req.syncClient.permisos.sync) {
+      return res.status(403).json({
+        success: false,
+        error: 'Sin permiso "sync"'
+      });
+    }
+
+    const {
+      limit = 100,
+      offset = 0,
+      search,
+      activo,
+      updatedSince
+    } = req.query;
+
+    const where = {
+      tenantId: req.syncClient.tenantId,
+      tipo_campo: 'cuenta_contable'
+    };
+
+    if (search) {
+      where.OR = [
+        { valor: { contains: search, mode: 'insensitive' } },
+        { codigo: { contains: search } }
+      ];
+    }
+
+    if (activo !== undefined) {
+      where.activo = activo === 'true';
+    }
+
+    if (updatedSince) {
+      where.updatedAt = { gte: new Date(updatedSince) };
+    }
+
+    const [cuentas, total] = await Promise.all([
+      prisma.parametros_maestros.findMany({
+        where,
+        take: Math.min(parseInt(limit), 1000),
+        skip: parseInt(offset),
+        orderBy: { updatedAt: 'desc' },
+        select: {
+          id: true,
+          codigo: true,
+          valor: true,
+          descripcion: true,
+          activo: true,
+          lastExportedAt: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      }),
+      prisma.parametros_maestros.count({ where })
+    ]);
+
+    res.json({
+      success: true,
+      data: cuentas,
+      pagination: {
+        total,
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        hasMore: total > (parseInt(offset) + cuentas.length)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error sync cuentas contables:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al sincronizar cuentas contables'
+    });
+  }
+});
+
+/**
+ * GET /api/v1/parse/sync/centros-costo
+ * Obtiene lista de centros de costo (parámetros maestros tipo 'centro_costo')
+ */
+router.get('/sync/centros-costo', authenticateSyncClient, async (req, res) => {
+  try {
+    if (!req.syncClient.permisos.sync) {
+      return res.status(403).json({
+        success: false,
+        error: 'Sin permiso "sync"'
+      });
+    }
+
+    const {
+      limit = 100,
+      offset = 0,
+      search,
+      activo,
+      updatedSince
+    } = req.query;
+
+    const where = {
+      tenantId: req.syncClient.tenantId,
+      tipo_campo: 'centro_costo'
+    };
+
+    if (search) {
+      where.OR = [
+        { valor: { contains: search, mode: 'insensitive' } },
+        { codigo: { contains: search } }
+      ];
+    }
+
+    if (activo !== undefined) {
+      where.activo = activo === 'true';
+    }
+
+    if (updatedSince) {
+      where.updatedAt = { gte: new Date(updatedSince) };
+    }
+
+    const [centros, total] = await Promise.all([
+      prisma.parametros_maestros.findMany({
+        where,
+        take: Math.min(parseInt(limit), 1000),
+        skip: parseInt(offset),
+        orderBy: { updatedAt: 'desc' },
+        select: {
+          id: true,
+          codigo: true,
+          valor: true,
+          descripcion: true,
+          activo: true,
+          lastExportedAt: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      }),
+      prisma.parametros_maestros.count({ where })
+    ]);
+
+    res.json({
+      success: true,
+      data: centros,
+      pagination: {
+        total,
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        hasMore: total > (parseInt(offset) + centros.length)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error sync centros de costo:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al sincronizar centros de costo'
+    });
+  }
+});
+
+/**
+ * GET /api/v1/parse/sync/documentos
+ * Obtiene lista de documentos procesados
+ */
+router.get('/sync/documentos', authenticateSyncClient, async (req, res) => {
+  try {
+    if (!req.syncClient.permisos.sync) {
+      return res.status(403).json({
+        success: false,
+        error: 'Sin permiso "sync"'
+      });
+    }
+
+    const {
+      limit = 100,
+      offset = 0,
+      tipoComprobante,
+      proveedorId,
+      updatedSince,
+      exportedOnly = false
+    } = req.query;
+
+    const where = {
+      tenantId: req.syncClient.tenantId,
+      estadoProcesamiento: 'completado'
+    };
+
+    if (tipoComprobante) {
+      where.tipoComprobanteExtraido = tipoComprobante;
+    }
+
+    if (proveedorId) {
+      where.proveedorId = proveedorId;
+    }
+
+    if (updatedSince) {
+      where.updatedAt = { gte: new Date(updatedSince) };
+    }
+
+    if (exportedOnly === 'true') {
+      where.exportado = true;
+    }
+
+    const [documentos, total] = await Promise.all([
+      prisma.documentos_procesados.findMany({
+        where,
+        take: Math.min(parseInt(limit), 1000),
+        skip: parseInt(offset),
+        orderBy: { updatedAt: 'desc' },
+        include: {
+          proveedor: {
+            select: {
+              razonSocial: true,
+              cuit: true
+            }
+          },
+          documento_lineas: {
+            select: {
+              id: true,
+              numeroLinea: true,
+              descripcion: true,
+              cantidad: true,
+              precioUnitario: true,
+              subtotal: true,
+              cuentaContable: true
+            }
+          },
+          documento_impuestos: {
+            select: {
+              id: true,
+              tipoImpuesto: true,
+              baseImponible: true,
+              tasaPorcentaje: true,
+              importeImpuesto: true,
+              cuentaContable: true
+            }
+          }
+        }
+      }),
+      prisma.documentos_procesados.count({ where })
+    ]);
+
+    res.json({
+      success: true,
+      data: documentos,
+      pagination: {
+        total,
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        hasMore: total > (parseInt(offset) + documentos.length)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error sync documentos:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al sincronizar documentos'
+    });
+  }
 });
 
 module.exports = router;
