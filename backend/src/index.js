@@ -114,6 +114,7 @@ app.use(cors({
     ? true // Permite todos los orígenes en desarrollo
     : [
         process.env.FRONTEND_URL || 'http://localhost:3000',
+        'https://parsedemo.axiomacloud.com',
         'http://localhost:3001',
         'http://localhost:8084',
         'http://149.50.148.198:8084'
