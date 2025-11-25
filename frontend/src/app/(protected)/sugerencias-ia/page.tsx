@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Check, X, Trash2, Filter, TrendingUp, Clock, CheckCircle2, XCircle, Lightbulb } from 'lucide-react';
 import { useConfirmDialog } from '@/hooks/useConfirm';
 import toast from 'react-hot-toast';
+import { useApiMutation, useDeleteMutation } from '@/hooks/useApiMutation';
 
 export default function SugerenciasIAPage() {
   const [sugerencias, setSugerencias] = useState<SugerenciaIA[]>([]);
@@ -18,6 +19,32 @@ export default function SugerenciasIAPage() {
   // Filtros
   const [estadoFilter, setEstadoFilter] = useState<string>('pendiente');
   const [confianzaMinFilter, setConfianzaMinFilter] = useState<number>(0);
+
+  // Mutations
+  const aprobarMutation = useApiMutation({
+    successMessage: 'Sugerencia aprobada',
+    onSuccess: () => loadData(),
+  });
+
+  const rechazarMutation = useApiMutation({
+    successMessage: 'Sugerencia rechazada',
+    onSuccess: () => loadData(),
+  });
+
+  const aprobarBatchMutation = useApiMutation({
+    showSuccessToast: false,
+    onSuccess: (result: any) => {
+      toast.success(`${result.aprobadas} sugerencias aprobadas`);
+      setSelectedIds(new Set());
+      loadData();
+    },
+  });
+
+  const deleteMutation = useDeleteMutation({
+    skipConfirm: true,
+    successMessage: 'Sugerencia eliminada',
+    onSuccess: () => loadData(),
+  });
 
   useEffect(() => {
     loadData();
@@ -46,60 +73,32 @@ export default function SugerenciasIAPage() {
     }
   };
 
-  const handleAprobar = async (id: string) => {
-    try {
-      await sugerenciasIAApi.aprobar(id);
-      toast.success('Sugerencia aprobada');
-      loadData();
-    } catch (error: any) {
-      console.error('Error aprobando sugerencia:', error);
-      toast.error(error.response?.data?.error || 'Error al aprobar sugerencia');
-    }
+  const handleAprobar = (id: string) => {
+    aprobarMutation.mutate(() => sugerenciasIAApi.aprobar(id));
   };
 
-  const handleRechazar = async (id: string) => {
-    try {
-      await sugerenciasIAApi.rechazar(id);
-      toast.success('Sugerencia rechazada');
-      loadData();
-    } catch (error: any) {
-      console.error('Error rechazando sugerencia:', error);
-      toast.error(error.response?.data?.error || 'Error al rechazar sugerencia');
-    }
+  const handleRechazar = (id: string) => {
+    rechazarMutation.mutate(() => sugerenciasIAApi.rechazar(id));
   };
 
-  const handleAprobarBatch = async () => {
+  const handleAprobarBatch = () => {
     if (selectedIds.size === 0) {
       toast.error('Selecciona al menos una sugerencia');
       return;
     }
 
-    try {
-      const result = await sugerenciasIAApi.aprobarBatch(
+    aprobarBatchMutation.mutate(() =>
+      sugerenciasIAApi.aprobarBatch(
         Array.from(selectedIds),
         confianzaMinFilter > 0 ? confianzaMinFilter / 100 : undefined
-      );
-      toast.success(`${result.data.aprobadas} sugerencias aprobadas`);
-      setSelectedIds(new Set());
-      loadData();
-    } catch (error: any) {
-      console.error('Error aprobando batch:', error);
-      toast.error('Error al aprobar sugerencias');
-    }
+      )
+    );
   };
 
   const handleDelete = async (id: string, texto: string) => {
     const confirmed = await confirmDelete(`"${texto.substring(0, 50)}..."`);
     if (!confirmed) return;
-
-    try {
-      await sugerenciasIAApi.delete(id);
-      toast.success('Sugerencia eliminada');
-      loadData();
-    } catch (error: any) {
-      console.error('Error eliminando sugerencia:', error);
-      toast.error('Error al eliminar sugerencia');
-    }
+    deleteMutation.mutate(() => sugerenciasIAApi.delete(id));
   };
 
   const toggleSelect = (id: string) => {

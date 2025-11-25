@@ -12,6 +12,7 @@ import { useComprobanteEdit } from '@/hooks/useComprobanteEdit';
 import { DocumentViewerProvider } from '@/components/shared/DocumentViewerProvider';
 import { useDocumentViewer, formatComprobantesEfectivoData } from '@/hooks/useDocumentViewer';
 import { ComprobanteEditModal } from '@/components/comprobantes/ComprobanteEditModal';
+import { useApiMutation } from '@/hooks/useApiMutation';
 
 
 
@@ -53,6 +54,55 @@ export default function ExportarPage() {
   const [validationErrors, setValidationErrors] = useState<any[]>([]);
   const [documentsWithErrors, setDocumentsWithErrors] = useState<Map<string, any>>(new Map());
     const [forceExportWarnings, setForceExportWarnings] = useState(false); // Nuevo: para exportar con warnings
+
+  // Mutations
+  const exportMutation = useApiMutation({
+    showSuccessToast: false,
+    onSuccess: (response: any) => {
+      // Verificar si hay validaciones
+      if (response.validaciones && response.validaciones.documentosConErrores > 0) {
+        const detalles = response.validaciones.detalles;
+        setValidationErrors(detalles);
+        setShowValidationModal(true);
+
+        // Guardar documentos con errores en el Map
+        const errorsMap = new Map();
+        detalles.forEach((docError: any) => {
+          errorsMap.set(docError.documentoId, docError);
+        });
+        setDocumentsWithErrors(errorsMap);
+
+        // Toast con resumen
+        const { totalWarnings, totalErrors } = response.validaciones;
+        toast(`Exportado con ${totalWarnings} warning(s) y ${totalErrors} error(es) de validación`, {
+          icon: '⚠️',
+          duration: 5000,
+        });
+      } else {
+        toast.success(response.message || `${selectedDocuments.size} documento(s) exportado(s) correctamente`);
+      }
+
+      setSelectedDocuments(new Set());
+      loadDocumentos();
+    },
+    onError: (error: any) => {
+      // Si es un error de validaciones bloqueantes
+      if (error.response?.data?.validationErrors) {
+        const validationErrors = error.response.data.validationErrors;
+        setValidationErrors(validationErrors);
+        setShowValidationModal(true);
+
+        // Guardar documentos con errores en el Map
+        const errorsMap = new Map();
+        validationErrors.forEach((docError: any) => {
+          errorsMap.set(docError.documentoId, docError);
+        });
+        setDocumentsWithErrors(errorsMap);
+
+        toast.error('Existen validaciones bloqueantes que impiden la exportación');
+      }
+    },
+  });
 
   useEffect(() => {
     loadDocumentos();
@@ -136,60 +186,18 @@ const handleSelectDocument = (documentId: string) => {
 
     if (!confirmed) return;
 
-    try {
-      setExporting(true);
-      const response = await api.post('/documentos/exportar', {
+    setExporting(true);
+    exportMutation.mutate(() =>
+      api.post('/documentos/exportar', {
         documentoIds: Array.from(selectedDocuments)
-      });
-
-      // Verificar si hay validaciones
-      if (response.data.validaciones && response.data.validaciones.documentosConErrores > 0) {
-        const detalles = response.data.validaciones.detalles;
-        setValidationErrors(detalles);
-        setShowValidationModal(true);
-
-        // Guardar documentos con errores en el Map
-        const errorsMap = new Map();
-        detalles.forEach((docError: any) => {
-          errorsMap.set(docError.documentoId, docError);
-        });
-        setDocumentsWithErrors(errorsMap);
-
-        // Toast con resumen
-        const { totalWarnings, totalErrors } = response.data.validaciones;
-        toast(`Exportado con ${totalWarnings} warning(s) y ${totalErrors} error(es) de validación`, {
-          icon: '⚠️',
-          duration: 5000,
-        });
-      } else {
-        toast.success(response.data.message || `${selectedDocuments.size} documento(s) exportado(s) correctamente`);
-      }
-
-      setSelectedDocuments(new Set());
-      await loadDocumentos();
-    } catch (error: any) {
-      console.error('Error exporting documents:', error);
-
-      // Si es un error de validaciones bloqueantes
-      if (error.response?.data?.validationErrors) {
-        const validationErrors = error.response.data.validationErrors;
-        setValidationErrors(validationErrors);
-        setShowValidationModal(true);
-
-        // Guardar documentos con errores en el Map
-        const errorsMap = new Map();
-        validationErrors.forEach((docError: any) => {
-          errorsMap.set(docError.documentoId, docError);
-        });
-        setDocumentsWithErrors(errorsMap);
-
-        toast.error('Existen validaciones bloqueantes que impiden la exportación');
-      } else {
-        toast.error(error.response?.data?.error || 'Error al exportar documentos');
-      }
-    } finally {
-      setExporting(false);
-    }
+      }).then(res => {
+        setExporting(false);
+        return res.data;
+      }).catch(err => {
+        setExporting(false);
+        throw err;
+      })
+    );
   };
 
   const handleOpenEditModal = async (doc: DocumentoProcessado, readOnly: boolean = false) => {

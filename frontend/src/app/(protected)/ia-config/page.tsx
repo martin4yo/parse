@@ -5,8 +5,11 @@ import { Brain, Plus, Edit, Trash2, X, Eye, EyeOff, Check, AlertCircle, RefreshC
 import { Button } from '@/components/ui/Button';
 import { aiConfigsApi, aiModelsApi, type AIProviderConfig, type AIProvider, type AIAvailableModels, type AIModel, type AIModelData } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { useApiMutation, useDeleteMutation } from '@/hooks/useApiMutation';
+import { useConfirmDialog } from '@/hooks/useConfirm';
 
 export default function IAConfigPage() {
+  const { confirm } = useConfirmDialog();
   const [configs, setConfigs] = useState<AIProviderConfig[]>([]);
   const [providers, setProviders] = useState<AIProvider[]>([]);
   const [availableModels, setAvailableModels] = useState<AIAvailableModels | null>(null);
@@ -38,6 +41,22 @@ export default function IAConfigPage() {
     active: true,
     deprecated: false,
     orderIndex: 0
+  });
+
+  // Mutations
+  const saveMutation = useApiMutation({
+    showSuccessToast: false,
+    onSuccess: () => {
+      toast.success(editingConfig ? 'Configuración actualizada' : 'Configuración creada');
+      setShowModal(false);
+      loadData();
+    },
+  });
+
+  const deleteMutation = useDeleteMutation({
+    skipConfirm: true,
+    successMessage: 'Configuración eliminada',
+    onSuccess: () => loadData(),
   });
 
   useEffect(() => {
@@ -89,54 +108,39 @@ export default function IAConfigPage() {
     setShowModal(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    try {
+    if (!editingConfig && !formData.apiKey) {
+      toast.error('API Key es requerida');
+      return;
+    }
+
+    saveMutation.mutate(() => {
       if (editingConfig) {
-        // Actualizar
-        await aiConfigsApi.update(editingConfig.id, {
+        return aiConfigsApi.update(editingConfig.id, {
           modelo: formData.modelo,
           maxRequestsPerDay: formData.maxRequestsPerDay,
           activo: formData.activo,
           preprocessWithDocumentAI: formData.preprocessWithDocumentAI,
-          apiKey: formData.apiKey || undefined // Solo enviar si hay nueva key
+          apiKey: formData.apiKey || undefined
         });
-        toast.success('Configuración actualizada');
       } else {
-        // Crear
-        if (!formData.apiKey) {
-          toast.error('API Key es requerida');
-          return;
-        }
-        await aiConfigsApi.create({
+        return aiConfigsApi.create({
           ...formData,
           preprocessWithDocumentAI: formData.preprocessWithDocumentAI || false
         });
-        toast.success('Configuración creada');
       }
-
-      setShowModal(false);
-      loadData();
-    } catch (error: any) {
-      console.error('Error saving config:', error);
-      toast.error(error.response?.data?.message || 'Error al guardar');
-    }
+    });
   };
 
   const handleDelete = async (config: AIProviderConfig) => {
-    if (!confirm(`¿Eliminar configuración de ${getProviderName(config.provider)}?`)) {
-      return;
-    }
-
-    try {
-      await aiConfigsApi.delete(config.id);
-      toast.success('Configuración eliminada');
-      loadData();
-    } catch (error) {
-      console.error('Error deleting config:', error);
-      toast.error('Error al eliminar');
-    }
+    const confirmed = await confirm(
+      `¿Eliminar configuración de ${getProviderName(config.provider)}?`,
+      'Esta acción no se puede deshacer.'
+    );
+    if (!confirmed) return;
+    deleteMutation.mutate(() => aiConfigsApi.delete(config.id));
   };
 
   const getProviderName = (providerId: string) => {
@@ -250,7 +254,11 @@ export default function IAConfigPage() {
   };
 
   const handleDeleteModel = async (model: AIModelData) => {
-    if (!confirm(`¿Eliminar el modelo "${model.name}"?`)) return;
+    const confirmed = await confirm(
+      `¿Eliminar el modelo "${model.name}"?`,
+      'Esta acción no se puede deshacer.'
+    );
+    if (!confirmed) return;
 
     try {
       await aiModelsApi.delete(model.id);

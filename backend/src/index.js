@@ -105,8 +105,10 @@ console.log(`🛡️  [RATE LIMIT CONFIG] Límite: ${rateLimitConfig.max} reques
 console.log(`🛡️  [RATE LIMIT CONFIG] Ambiente: ${process.env.NODE_ENV}`);
 
 // Middleware
+const apiResponse = require('./middleware/apiResponse');
 app.use(helmet());
 app.use(limiter);
+app.use(apiResponse); // Agregar helper methods a res
 app.use(cors({
   origin: process.env.NODE_ENV === 'development'
     ? true // Permite todos los orígenes en desarrollo

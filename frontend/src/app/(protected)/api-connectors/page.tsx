@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
+import { useUpdateMutation, useDeleteMutation, useApiMutation } from '@/hooks/useApiMutation';
+import { useConfirmDialog } from '@/hooks/useConfirm';
 import {
   Plus,
   Settings,
@@ -42,11 +44,37 @@ interface ApiConnector {
 
 export default function ApiConnectorsPage() {
   const router = useRouter();
+  const { confirm } = useConfirmDialog();
   const [connectors, setConnectors] = useState<ApiConnector[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterDirection, setFilterDirection] = useState<string>('');
   const [filterActivo, setFilterActivo] = useState<string>('');
   const [executingPull, setExecutingPull] = useState<string | null>(null);
+
+  // Mutations
+  const toggleMutation = useUpdateMutation({
+    showSuccessToast: true,
+    onSuccess: () => loadConnectors(),
+  });
+
+  const deleteMutation = useDeleteMutation({
+    confirmMessage: '¿Estás seguro de eliminar este conector?',
+    onSuccess: () => loadConnectors(),
+  });
+
+  const executePullMutation = useApiMutation({
+    showSuccessToast: false,
+    onSuccess: (result: any) => {
+      toast.success(
+        `PULL completado: ${result.importedRecords} importados, ${result.failedRecords} fallidos`,
+        { duration: 5000 }
+      );
+      loadConnectors();
+    },
+    onError: () => {
+      setExecutingPull(null);
+    },
+  });
 
   useEffect(() => {
     loadConnectors();
@@ -69,54 +97,29 @@ export default function ApiConnectorsPage() {
     }
   };
 
-  const handleToggleActivo = async (id: string, activo: boolean) => {
-    try {
-      await api.put(`/api-connectors/${id}`, { activo: !activo });
-      toast.success(activo ? 'Conector desactivado' : 'Conector activado');
-      loadConnectors();
-    } catch (error: any) {
-      console.error('Error actualizando conector:', error);
-      toast.error('Error al actualizar conector');
-    }
+  const handleToggleActivo = (id: string, activo: boolean) => {
+    const message = activo ? 'Conector desactivado' : 'Conector activado';
+    toggleMutation.mutate(() =>
+      api.put(`/api-connectors/${id}`, { activo: !activo })
+        .then(res => {
+          toast.success(message);
+          return res;
+        })
+    );
   };
 
-  const handleDelete = async (id: string, nombre: string) => {
-    if (!confirm(`¿Estás seguro de eliminar el conector "${nombre}"?`)) {
-      return;
-    }
-
-    try {
-      await api.delete(`/api-connectors/${id}`);
-      toast.success('Conector eliminado');
-      loadConnectors();
-    } catch (error: any) {
-      console.error('Error eliminando conector:', error);
-      toast.error('Error al eliminar conector');
-    }
+  const handleDelete = (id: string, nombre: string) => {
+    deleteMutation.mutate(() => api.delete(`/api-connectors/${id}?hardDelete=true`));
   };
 
   const handleExecutePull = async (id: string, nombre: string) => {
-    if (!confirm(`¿Ejecutar sincronización PULL para "${nombre}"?`)) {
-      return;
-    }
-
-    try {
-      setExecutingPull(id);
-      const response = await api.post(`/api-connectors/${id}/pull`, {});
-      const result = response.data.data;
-
-      toast.success(
-        `PULL completado: ${result.importedRecords} importados, ${result.failedRecords} fallidos`,
-        { duration: 5000 }
-      );
-
-      loadConnectors();
-    } catch (error: any) {
-      console.error('Error ejecutando PULL:', error);
-      toast.error(error.response?.data?.error || 'Error al ejecutar PULL');
-    } finally {
-      setExecutingPull(null);
-    }
+    const confirmed = await confirm(
+      `¿Ejecutar sincronización PULL para "${nombre}"?`,
+      'Se descargarán datos desde el sistema externo.'
+    );
+    if (!confirmed) return;
+    setExecutingPull(id);
+    executePullMutation.mutate(() => api.post(`/api-connectors/${id}/pull`, {}));
   };
 
   const getDirectionIcon = (direction: string) => {

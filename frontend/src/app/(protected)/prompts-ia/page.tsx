@@ -5,6 +5,7 @@ import { Sparkles, Plus, Pencil, Trash2, RefreshCw, TestTube, Database, Globe } 
 import { promptsApi, AIPrompt } from '@/lib/api';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useApiMutation, useDeleteMutation } from '@/hooks/useApiMutation';
 
 interface MotorIA {
   id: string;
@@ -47,6 +48,34 @@ export default function PromptsIAPage() {
   // Test form state
   const [testVariables, setTestVariables] = useState('{}');
   const [testResult, setTestResult] = useState('');
+
+  // Mutations
+  const saveMutation = useApiMutation({
+    showSuccessToast: false,
+    onSuccess: () => {
+      toast.success(editingPrompt ? 'Prompt actualizado correctamente' : 'Prompt creado correctamente');
+      setShowModal(false);
+      loadPrompts();
+    },
+  });
+
+  const deleteMutation = useDeleteMutation({
+    skipConfirm: true,
+    successMessage: 'Prompt eliminado correctamente',
+    onSuccess: () => {
+      setShowDeleteModal(false);
+      setDeletingPromptId(null);
+      loadPrompts();
+    },
+  });
+
+  const testMutation = useApiMutation({
+    showSuccessToast: false,
+    onSuccess: (result: any) => {
+      setTestResult(result.prompt);
+      toast.success('Prompt generado correctamente');
+    },
+  });
 
   useEffect(() => {
     loadPrompts();
@@ -142,88 +171,65 @@ export default function PromptsIAPage() {
     setShowDeleteModal(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    try {
-      // Parse variables JSON
-      let parsedVariables = {};
-      if (formData.variables.trim()) {
-        try {
-          parsedVariables = JSON.parse(formData.variables);
-        } catch (error) {
-          toast.error('El campo "Variables" debe ser un JSON válido');
-          return;
-        }
+    // Parse variables JSON
+    let parsedVariables = {};
+    if (formData.variables.trim()) {
+      try {
+        parsedVariables = JSON.parse(formData.variables);
+      } catch (error) {
+        toast.error('El campo "Variables" debe ser un JSON válido');
+        return;
       }
-
-      const data = {
-        clave: formData.clave,
-        nombre: formData.nombre,
-        descripcion: formData.descripcion || undefined,
-        prompt: formData.prompt,
-        systemPrompt: formData.systemPrompt || undefined,
-        userPromptTemplate: formData.userPromptTemplate || undefined,
-        motor: formData.motor || undefined,
-        activo: formData.activo,
-        isGlobal: formData.isGlobal, // Enviar flag GLOBAL
-        variables: parsedVariables
-      };
-
-      if (editingPrompt) {
-        await promptsApi.update(editingPrompt.id, data);
-        toast.success('Prompt actualizado correctamente');
-      } else {
-        await promptsApi.create(data);
-        toast.success('Prompt creado correctamente');
-      }
-
-      setShowModal(false);
-      loadPrompts();
-    } catch (error: any) {
-      toast.error('Error al guardar: ' + (error.response?.data?.error || error.message));
     }
+
+    const data = {
+      clave: formData.clave,
+      nombre: formData.nombre,
+      descripcion: formData.descripcion || undefined,
+      prompt: formData.prompt,
+      systemPrompt: formData.systemPrompt || undefined,
+      userPromptTemplate: formData.userPromptTemplate || undefined,
+      motor: formData.motor || undefined,
+      activo: formData.activo,
+      isGlobal: formData.isGlobal,
+      variables: parsedVariables
+    };
+
+    saveMutation.mutate(() =>
+      editingPrompt
+        ? promptsApi.update(editingPrompt.id, data)
+        : promptsApi.create(data)
+    );
   };
 
-  const handleTest = async () => {
+  const handleTest = () => {
     if (!testingPrompt) return;
 
-    try {
-      let parsedVariables = {};
-      if (testVariables.trim()) {
-        try {
-          parsedVariables = JSON.parse(testVariables);
-        } catch (error) {
-          toast.error('Las variables deben ser un JSON válido');
-          return;
-        }
+    let parsedVariables = {};
+    if (testVariables.trim()) {
+      try {
+        parsedVariables = JSON.parse(testVariables);
+      } catch (error) {
+        toast.error('Las variables deben ser un JSON válido');
+        return;
       }
+    }
 
-      const result = await promptsApi.test({
+    testMutation.mutate(() =>
+      promptsApi.test({
         clave: testingPrompt.clave,
         variables: parsedVariables,
         motor: testingPrompt.motor || undefined
-      });
-
-      setTestResult(result.prompt);
-      toast.success('Prompt generado correctamente');
-    } catch (error: any) {
-      toast.error('Error al probar prompt: ' + (error.response?.data?.error || error.message));
-    }
+      })
+    );
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!deletingPromptId) return;
-
-    try {
-      await promptsApi.delete(deletingPromptId);
-      toast.success('Prompt eliminado correctamente');
-      setShowDeleteModal(false);
-      setDeletingPromptId(null);
-      loadPrompts();
-    } catch (error: any) {
-      toast.error('Error al eliminar: ' + (error.response?.data?.error || error.message));
-    }
+    deleteMutation.mutate(() => promptsApi.delete(deletingPromptId));
   };
 
   const getMotorBadgeColor = (motor?: string) => {

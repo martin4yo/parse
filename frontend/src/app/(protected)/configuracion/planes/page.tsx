@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { planesApi, Plan, PlanFeature } from '@/lib/api';
 import { toast } from 'react-hot-toast';
+import { useApiMutation, useDeleteMutation } from '@/hooks/useApiMutation';
 
 export default function PlanesPage() {
   const [planes, setPlanes] = useState<Plan[]>([]);
@@ -44,6 +45,45 @@ export default function PlanesPage() {
   const [newFeature, setNewFeature] = useState({
     feature: '',
     config: '{}'
+  });
+
+  // Mutations
+  const savePlanMutation = useApiMutation({
+    showSuccessToast: false,
+    onSuccess: () => {
+      setShowPlanModal(false);
+      loadPlanes();
+    },
+  });
+
+  const deletePlanMutation = useDeleteMutation({
+    skipConfirm: true,
+    successMessage: 'Plan eliminado correctamente',
+    onSuccess: () => {
+      setShowDeleteModal(false);
+      setDeletingPlanId(null);
+      loadPlanes();
+    },
+  });
+
+  const addFeatureMutation = useApiMutation({
+    successMessage: 'Feature agregada correctamente',
+    onSuccess: async () => {
+      if (!selectedPlan) return;
+      const data = await planesApi.getById(selectedPlan.id);
+      setSelectedPlan(data.plan);
+      setNewFeature({ feature: '', config: '{}' });
+    },
+  });
+
+  const deleteFeatureMutation = useDeleteMutation({
+    skipConfirm: true,
+    successMessage: 'Feature eliminada correctamente',
+    onSuccess: async () => {
+      if (!selectedPlan) return;
+      const data = await planesApi.getById(selectedPlan.id);
+      setSelectedPlan(data.plan);
+    },
   });
 
   useEffect(() => {
@@ -116,96 +156,67 @@ export default function PlanesPage() {
     }
   };
 
-  const handleSubmitPlan = async (e: React.FormEvent) => {
+  const handleSubmitPlan = (e: React.FormEvent) => {
     e.preventDefault();
 
-    try {
-      const data = {
-        codigo: planFormData.codigo,
-        nombre: planFormData.nombre,
-        descripcion: planFormData.descripcion || undefined,
-        precio: planFormData.precio ? parseFloat(planFormData.precio) : undefined,
-        activo: planFormData.activo,
-        orden: planFormData.orden,
-        color: planFormData.color || undefined
-      };
+    const data = {
+      codigo: planFormData.codigo,
+      nombre: planFormData.nombre,
+      descripcion: planFormData.descripcion || undefined,
+      precio: planFormData.precio ? parseFloat(planFormData.precio) : undefined,
+      activo: planFormData.activo,
+      orden: planFormData.orden,
+      color: planFormData.color || undefined
+    };
 
+    savePlanMutation.mutate(() => {
       if (editingPlan) {
         const { codigo, ...updateData } = data;
-        await planesApi.update(editingPlan.id, updateData);
-        toast.success('Plan actualizado correctamente');
+        return planesApi.update(editingPlan.id, updateData).then(res => {
+          toast.success('Plan actualizado correctamente');
+          return res;
+        });
       } else {
-        await planesApi.create(data);
-        toast.success('Plan creado correctamente');
+        return planesApi.create(data).then(res => {
+          toast.success('Plan creado correctamente');
+          return res;
+        });
       }
-
-      setShowPlanModal(false);
-      loadPlanes();
-    } catch (error: any) {
-      toast.error('Error al guardar plan: ' + (error.response?.data?.error || error.message));
-    }
+    });
   };
 
-  const handleDeletePlan = async () => {
+  const handleDeletePlan = () => {
     if (!deletingPlanId) return;
-
-    try {
-      await planesApi.delete(deletingPlanId);
-      toast.success('Plan eliminado correctamente');
-      setShowDeleteModal(false);
-      setDeletingPlanId(null);
-      loadPlanes();
-    } catch (error: any) {
-      toast.error('Error al eliminar plan: ' + (error.response?.data?.error || error.message));
-    }
+    deletePlanMutation.mutate(() => planesApi.delete(deletingPlanId));
   };
 
-  const handleAddFeature = async () => {
+  const handleAddFeature = () => {
     if (!selectedPlan || !newFeature.feature) {
       toast.error('Selecciona una feature');
       return;
     }
 
-    try {
-      let parsedConfig = null;
-      if (newFeature.config.trim()) {
-        try {
-          parsedConfig = JSON.parse(newFeature.config);
-        } catch (error) {
-          toast.error('El campo config debe ser JSON válido');
-          return;
-        }
+    let parsedConfig = null;
+    if (newFeature.config.trim()) {
+      try {
+        parsedConfig = JSON.parse(newFeature.config);
+      } catch (error) {
+        toast.error('El campo config debe ser JSON válido');
+        return;
       }
+    }
 
-      await planesApi.addFeature(selectedPlan.id, {
+    addFeatureMutation.mutate(() =>
+      planesApi.addFeature(selectedPlan.id, {
         feature: newFeature.feature,
         config: parsedConfig
-      });
-
-      toast.success('Feature agregada correctamente');
-
-      // Recargar plan
-      const data = await planesApi.getById(selectedPlan.id);
-      setSelectedPlan(data.plan);
-      setNewFeature({ feature: '', config: '{}' });
-    } catch (error: any) {
-      toast.error('Error al agregar feature: ' + (error.response?.data?.error || error.message));
-    }
+      })
+    );
   };
 
-  const handleDeleteFeature = async (featureId: string) => {
+  const handleDeleteFeature = (featureId: string) => {
     if (!selectedPlan) return;
-
-    try {
-      await planesApi.deleteFeature(selectedPlan.id, featureId);
-      toast.success('Feature eliminada correctamente');
-
-      // Recargar plan
-      const data = await planesApi.getById(selectedPlan.id);
-      setSelectedPlan(data.plan);
-    } catch (error: any) {
-      toast.error('Error al eliminar feature: ' + (error.response?.data?.error || error.message));
-    }
+    deleteFeatureMutation.mutate(() => planesApi.deleteFeature(selectedPlan.id, featureId));
   };
 
   const toggleExpandPlan = (planId: string) => {

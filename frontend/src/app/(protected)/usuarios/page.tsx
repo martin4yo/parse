@@ -10,6 +10,7 @@ import { z } from 'zod';
 import toast from 'react-hot-toast';
 import { useConfirmDialog } from '@/hooks/useConfirm';
 import { useAuth } from '@/contexts/AuthContext';
+import { useApiMutation, useDeleteMutation, useUpdateMutation } from '@/hooks/useApiMutation';
 
 // Esquemas de validación
 const userSchema = z.object({
@@ -88,6 +89,58 @@ export default function UsuariosPage() {
 
   // Hook para confirmación de eliminación
   const { confirm, confirmDelete } = useConfirmDialog();
+
+  // Mutations
+  const saveUserMutation = useApiMutation({
+    showSuccessToast: false,
+    onSuccess: async () => {
+      setShowUserModal(false);
+      userForm.reset();
+      await loadUsers();
+
+      if (editingUser && selectedUser && editingUser.id === selectedUser.id) {
+        const updatedUser = users.find(u => u.id === editingUser.id);
+        if (updatedUser) {
+          setSelectedUser(updatedUser);
+        }
+      }
+    },
+  });
+
+  const deleteUserMutation = useDeleteMutation({
+    skipConfirm: true,
+    successMessage: 'Usuario eliminado correctamente',
+    onSuccess: async () => {
+      await loadUsers();
+      if (selectedUser) {
+        const remainingUsers = users.filter(u => u.id !== selectedUser.id);
+        setSelectedUser(remainingUsers.length > 0 ? remainingUsers[0] : null);
+      }
+    },
+  });
+
+  const toggleUserStatusMutation = useUpdateMutation({
+    showSuccessToast: false,
+    onSuccess: (response: any) => {
+      toast.success(response.message);
+      setUsers(prevUsers => prevUsers.map(u =>
+        u.id === response.user.id ? { ...u, activo: response.user.activo } : u
+      ));
+      if (selectedUser && selectedUser.id === response.user.id) {
+        setSelectedUser(prev => prev ? { ...prev, activo: response.user.activo } : null);
+      }
+    },
+  });
+
+  const deleteUserAtributoMutation = useDeleteMutation({
+    skipConfirm: true,
+    successMessage: 'Atributo removido del usuario correctamente',
+    onSuccess: async () => {
+      if (selectedUser) {
+        await loadUserAtributos(selectedUser.id);
+      }
+    },
+  });
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -241,57 +294,32 @@ export default function UsuariosPage() {
     setShowAtributoModal(true);
   };
 
-  const onSubmitUser = async (data: UserFormData) => {
-    try {
-      setLoading(true);
+  const onSubmitUser = (data: UserFormData) => {
+    // Preparar los datos, excluyendo password si está vacío en edición
+    const submitData = { ...data };
+    if (editingUser && !data.password) {
+      delete submitData.password;
+    }
 
-      // Preparar los datos, excluyendo password si está vacío en edición
-      const submitData = { ...data };
-      if (editingUser && !data.password) {
-        delete submitData.password;
-      }
-
+    saveUserMutation.mutate(async () => {
       if (editingUser) {
         // Si se está editando y el tenant cambió, usar el endpoint de assign-tenant
         if (data.tenantId !== editingUser.tenantId) {
           await authApi.assignTenant(editingUser.id, data.tenantId || '');
           toast.success('Empresa del usuario actualizada correctamente');
+          return Promise.resolve({ data: {} });
         } else {
           // Para otros cambios, usar el endpoint normal de update
-          await usersApi.update(editingUser.id, submitData);
+          const result = await usersApi.update(editingUser.id, submitData);
           toast.success('Usuario actualizado correctamente');
+          return result;
         }
       } else {
-        await usersApi.create(submitData as Required<UserFormData>);
+        const result = await usersApi.create(submitData as Required<UserFormData>);
         toast.success('Usuario creado correctamente');
+        return result;
       }
-
-      setShowUserModal(false);
-      userForm.reset();
-      await loadUsers();
-
-      // Si estamos editando el usuario seleccionado, actualizar la selección
-      if (editingUser && selectedUser && editingUser.id === selectedUser.id) {
-        const updatedUser = users.find(u => u.id === editingUser.id);
-        if (updatedUser) {
-          setSelectedUser(updatedUser);
-        }
-      }
-    } catch (error: any) {
-      // Extraer mensaje de error específico del backend
-      console.log('Error completo:', error);
-      console.log('Error response:', error.response);
-      console.log('Error response data:', error.response?.data);
-      console.log('Error message extraído:', error.response?.data?.error);
-
-      const errorMessage = error.response?.data?.error || 'Error al guardar usuario';
-      console.log('🔴 Llamando toast.error con mensaje:', errorMessage);
-      toast.error(errorMessage);
-      console.log('✅ Toast.error llamado');
-      console.error('Error saving user:', error);
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   const onSubmitUserAtributo = async (data: UserAtributoFormData) => {
@@ -329,24 +357,7 @@ export default function UsuariosPage() {
     const confirmed = await confirmDelete(`${user.apellido}, ${user.nombre}`);
     if (!confirmed) return;
 
-    try {
-      setLoading(true);
-      await usersApi.delete(user.id);
-      await loadUsers();
-      toast.success('Usuario eliminado correctamente');
-
-      // Si eliminamos el usuario seleccionado, seleccionar otro
-      if (selectedUser && user.id === selectedUser.id) {
-        const remainingUsers = users.filter(u => u.id !== user.id);
-        setSelectedUser(remainingUsers.length > 0 ? remainingUsers[0] : null);
-      }
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Error al eliminar usuario';
-      toast.error(errorMessage);
-      console.error('Error deleting user:', error);
-    } finally {
-      setLoading(false);
-    }
+    deleteUserMutation.mutate(() => usersApi.delete(user.id));
   };
 
   const handleDeleteUserAtributo = async (userAtributo: UserAtributo) => {
@@ -354,44 +365,11 @@ export default function UsuariosPage() {
     const confirmed = await confirmDelete(atributoName);
     if (!confirmed) return;
 
-    try {
-      setLoading(true);
-      await userAtributosApi.delete(userAtributo.id);
-      if (selectedUser) {
-        await loadUserAtributos(selectedUser.id);
-      }
-      toast.success('Atributo removido del usuario correctamente');
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Error al eliminar atributo';
-      toast.error(errorMessage);
-      console.error('Error deleting user atributo:', error);
-    } finally {
-      setLoading(false);
-    }
+    deleteUserAtributoMutation.mutate(() => userAtributosApi.delete(userAtributo.id));
   };
 
-  const handleToggleUserStatus = async (user: User) => {
-    try {
-      setLoading(true);
-      const response = await usersApi.toggleStatus(user.id);
-      toast.success(response.message);
-
-      // Actualizar el estado local del usuario
-      setUsers(prevUsers => prevUsers.map(u =>
-        u.id === user.id ? { ...u, activo: response.user.activo } : u
-      ));
-
-      // Si el usuario seleccionado es el que cambió, actualizarlo también
-      if (selectedUser && selectedUser.id === user.id) {
-        setSelectedUser(prev => prev ? { ...prev, activo: response.user.activo } : null);
-      }
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Error al cambiar estado del usuario';
-      toast.error(errorMessage);
-      console.error('Error toggling user status:', error);
-    } finally {
-      setLoading(false);
-    }
+  const handleToggleUserStatus = (user: User) => {
+    toggleUserStatusMutation.mutate(() => usersApi.toggleStatus(user.id));
   };
 
   const handleResendVerification = async (user: User) => {

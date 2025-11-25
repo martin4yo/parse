@@ -10,12 +10,29 @@ import { Plus, Edit, Trash2, RefreshCw, Database, Eye } from 'lucide-react';
 import { SyncConfiguration } from '@/types/sync';
 import { toast } from 'sonner';
 import { useApiClient } from '@/hooks/useApiClient';
+import { useDeleteMutation, useUpdateMutation } from '@/hooks/useApiMutation';
+import { useConfirmDialog } from '@/hooks/useConfirm';
 
 export default function SyncAdminPage() {
   const router = useRouter();
+  const { confirm } = useConfirmDialog();
   const { get, put, delete: del } = useApiClient();
   const [configurations, setConfigurations] = useState<SyncConfiguration[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Mutations
+  const deleteMutation = useDeleteMutation({
+    skipConfirm: true,
+    successMessage: 'Configuración eliminada',
+    onSuccess: () => fetchConfigurations(),
+  });
+
+  const toggleMutation = useUpdateMutation({
+    showSuccessToast: false,
+    onSuccess: () => {
+      fetchConfigurations();
+    },
+  });
 
   useEffect(() => {
     fetchConfigurations();
@@ -40,43 +57,24 @@ export default function SyncAdminPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Está seguro de eliminar esta configuración?')) {
-      return;
-    }
-
-    try {
-      const data = await del(`/api/sync/configurations/${id}`);
-
-      if (data.success) {
-        toast.success('Configuración eliminada');
-        fetchConfigurations();
-      } else {
-        toast.error(data.error || 'Error al eliminar');
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      toast.error('Error al eliminar configuración');
-    }
+    const confirmed = await confirm(
+      '¿Está seguro de eliminar esta configuración?',
+      'Esta acción no se puede deshacer.'
+    );
+    if (!confirmed) return;
+    deleteMutation.mutate(() => del(`/api/sync/configurations/${id}`));
   };
 
-  const handleToggleActive = async (config: SyncConfiguration) => {
-    try {
-      const data = await put(`/api/sync/configurations/${config.id}`, {
-        activo: !config.activo,
-      });
-
-      if (data.success) {
-        toast.success(
-          config.activo ? 'Sincronización deshabilitada' : 'Sincronización habilitada'
-        );
-        fetchConfigurations();
-      } else {
-        toast.error(data.error || 'Error al actualizar');
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      toast.error('Error al actualizar configuración');
-    }
+  const handleToggleActive = (config: SyncConfiguration) => {
+    toggleMutation.mutate(() =>
+      put(`/api/sync/configurations/${config.id}`, { activo: !config.activo })
+        .then(res => {
+          if (!res.success) {
+            toast.error(res.error || 'Error al actualizar');
+          }
+          return res;
+        })
+    );
   };
 
   return (

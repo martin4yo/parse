@@ -161,8 +161,8 @@ export default function ApiKeysPage() {
 
   const handleDelete = async (id: string) => {
     const confirmed = await confirm(
-      '¿Está seguro de eliminar esta API key? Esta acción no se puede deshacer.',
-      'Confirmar eliminación',
+      'Esta acción no se puede deshacer.',
+      '¿Está seguro de eliminar esta API key?',
       'danger'
     );
 

@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/Card';
-import { Webhook, Plus, Trash2, Eye, EyeOff, Copy, Check, Activity } from 'lucide-react';
+import { Webhook, Plus, Trash2, Eye, EyeOff, Copy, Check, Activity, Pause, Play } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
+import { useCreateMutation, useDeleteMutation, useUpdateMutation } from '@/hooks/useApiMutation';
 
 interface Webhook {
   id: string;
@@ -39,6 +40,34 @@ export default function WebhooksPage() {
     eventos: [] as string[]
   });
 
+  // Mutations
+  const createMutation = useCreateMutation<Webhook>({
+    successMessage: 'Webhook creado exitosamente',
+    onSuccess: (newWebhook) => {
+      setShowSecret(newWebhook.id);
+      setWebhooks([newWebhook, ...webhooks]);
+      setShowModal(false);
+      setFormData({ nombre: '', url: '', eventos: [] });
+    },
+  });
+
+  const deleteMutation = useDeleteMutation({
+    successMessage: 'Webhook eliminado',
+    confirmMessage: '¿Estás seguro de eliminar este webhook?',
+    onSuccess: () => {
+      loadWebhooks();
+    },
+  });
+
+  const toggleMutation = useUpdateMutation<Webhook>({
+    showSuccessToast: true,
+    onSuccess: (updatedWebhook) => {
+      setWebhooks(webhooks.map(w =>
+        w.id === updatedWebhook.id ? updatedWebhook : w
+      ));
+    },
+  });
+
   useEffect(() => {
     loadWebhooks();
     loadEventosDisponibles();
@@ -65,7 +94,7 @@ export default function WebhooksPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.nombre || !formData.url || formData.eventos.length === 0) {
@@ -73,49 +102,22 @@ export default function WebhooksPage() {
       return;
     }
 
-    try {
-      const response = await api.post('/webhooks', formData);
-      toast.success('Webhook creado exitosamente');
-
-      // Mostrar el secret
-      const newWebhook = response.data.data;
-      setShowSecret(newWebhook.id);
-
-      setWebhooks([newWebhook, ...webhooks]);
-      setShowModal(false);
-      setFormData({ nombre: '', url: '', eventos: [] });
-    } catch (error: any) {
-      console.error('Error creando webhook:', error);
-      toast.error(error.response?.data?.error || 'Error al crear webhook');
-    }
+    createMutation.mutate(() => api.post('/webhooks', formData));
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('¿Estás seguro de eliminar este webhook?')) return;
-
-    try {
-      await api.delete(`/webhooks/${id}`);
-      toast.success('Webhook eliminado');
-      setWebhooks(webhooks.filter(w => w.id !== id));
-    } catch (error: any) {
-      console.error('Error eliminando webhook:', error);
-      toast.error('Error al eliminar webhook');
-    }
+  const handleDelete = (id: string) => {
+    deleteMutation.mutate(() => api.delete(`/webhooks/${id}`));
   };
 
-  const handleToggleActivo = async (webhook: Webhook) => {
-    try {
-      await api.put(`/webhooks/${webhook.id}`, {
-        activo: !webhook.activo
-      });
-      toast.success(webhook.activo ? 'Webhook desactivado' : 'Webhook activado');
-      setWebhooks(webhooks.map(w =>
-        w.id === webhook.id ? { ...w, activo: !w.activo } : w
-      ));
-    } catch (error: any) {
-      console.error('Error actualizando webhook:', error);
-      toast.error('Error al actualizar webhook');
-    }
+  const handleToggleActivo = (webhook: Webhook) => {
+    const message = webhook.activo ? 'Webhook desactivado' : 'Webhook activado';
+    toggleMutation.mutate(() =>
+      api.put(`/webhooks/${webhook.id}`, { activo: !webhook.activo })
+        .then(res => {
+          toast.success(message);
+          return res;
+        })
+    );
   };
 
   const handleCopySecret = (secret: string, id: string) => {
@@ -138,14 +140,14 @@ export default function WebhooksPage() {
     return (
       <div className="p-6">
         <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-yellow-100 rounded-lg">
-            <Webhook className="w-6 h-6 text-purple-700" />
+          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+            <Webhook className="w-6 h-6 text-palette-dark" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Webhooks</h1>
+          <h1 className="text-2xl font-bold text-text-primary">Webhooks</h1>
         </div>
         <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-700 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando webhooks...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-text-secondary">Cargando webhooks...</p>
         </div>
       </div>
     );
@@ -156,18 +158,18 @@ export default function WebhooksPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-yellow-100 rounded-lg">
-            <Webhook className="w-6 h-6 text-purple-700" />
+          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+            <Webhook className="w-6 h-6 text-palette-dark" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Webhooks</h1>
-            <p className="text-sm text-gray-600">Notificaciones automáticas de eventos</p>
+            <h1 className="text-2xl font-bold text-text-primary">Webhooks</h1>
+            <p className="text-sm text-text-secondary">Notificaciones automáticas de eventos</p>
           </div>
         </div>
 
         <button
           onClick={() => setShowModal(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500 text-gray-900 font-medium rounded-lg hover:bg-yellow-600 transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-palette-dark text-palette-yellow font-medium rounded-lg hover:bg-palette-dark/90 transition-colors"
         >
           <Plus className="w-4 h-4" />
           Crear Webhook
@@ -185,7 +187,7 @@ export default function WebhooksPage() {
             </p>
             <button
               onClick={() => setShowModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500 text-gray-900 font-medium rounded-lg hover:bg-yellow-600 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-palette-dark text-palette-yellow font-medium rounded-lg hover:bg-palette-dark/90 transition-colors"
             >
               <Plus className="w-4 h-4" />
               Crear tu primer webhook
@@ -273,21 +275,22 @@ export default function WebhooksPage() {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => window.location.href = `/webhooks/${webhook.id}/stats`}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      className="p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                       title="Ver estadísticas"
                     >
-                      <Activity className="w-5 h-5" />
+                      <Activity className="w-4 h-4" />
                     </button>
 
                     <button
                       onClick={() => handleToggleActivo(webhook)}
-                      className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                        webhook.activo
-                          ? 'text-gray-700 bg-gray-100 hover:bg-gray-200'
-                          : 'text-green-700 bg-green-100 hover:bg-green-200'
-                      }`}
+                      className="p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                      title={webhook.activo ? 'Desactivar' : 'Activar'}
                     >
-                      {webhook.activo ? 'Desactivar' : 'Activar'}
+                      {webhook.activo ? (
+                        <Pause className="w-4 h-4" />
+                      ) : (
+                        <Play className="w-4 h-4" />
+                      )}
                     </button>
 
                     <button
@@ -295,7 +298,7 @@ export default function WebhooksPage() {
                       className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       title="Eliminar"
                     >
-                      <Trash2 className="w-5 h-5" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -372,7 +375,7 @@ export default function WebhooksPage() {
                 <div className="flex items-center gap-3 pt-4">
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-yellow-500 text-gray-900 font-medium rounded-lg hover:bg-yellow-600 transition-colors"
+                    className="flex-1 px-4 py-2 bg-palette-dark text-palette-yellow font-medium rounded-lg hover:bg-palette-dark/90 transition-colors"
                   >
                     Crear Webhook
                   </button>

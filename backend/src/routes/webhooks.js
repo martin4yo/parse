@@ -25,17 +25,11 @@ router.get('/', authMiddleware, async (req, res) => {
       orderBy: { createdAt: 'desc' }
     });
 
-    res.json({
-      success: true,
-      data: webhooks
-    });
+    return res.success(webhooks);
 
   } catch (error) {
     console.error('Error obteniendo webhooks:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Error al obtener webhooks'
-    });
+    return res.error('Error al obtener webhooks', 500);
   }
 });
 
@@ -53,23 +47,14 @@ router.get('/:id', authMiddleware, async (req, res) => {
     });
 
     if (!webhook) {
-      return res.status(404).json({
-        success: false,
-        error: 'Webhook no encontrado'
-      });
+      return res.error('Webhook no encontrado', 404);
     }
 
-    res.json({
-      success: true,
-      data: webhook
-    });
+    return res.success(webhook);
 
   } catch (error) {
     console.error('Error obteniendo webhook:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Error al obtener webhook'
-    });
+    return res.error('Error al obtener webhook', 500);
   }
 });
 

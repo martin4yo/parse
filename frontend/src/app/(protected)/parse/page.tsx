@@ -10,6 +10,7 @@ import { useDocumentViewer, formatComprobantesEfectivoData } from '@/hooks/useDo
 import { api, parametrosApi, ParametroMaestro } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { useConfirmDialog } from '@/hooks/useConfirm';
+import { useApiMutation, useDeleteMutation, useUpdateMutation } from '@/hooks/useApiMutation';
 import { SmartSelector } from '@/components/rendiciones/SmartSelector';
 import { DistribucionesModal } from '@/components/comprobantes/DistribucionesModal';
 import { useComprobanteEdit } from '@/hooks/useComprobanteEdit';
@@ -90,6 +91,75 @@ export default function ComprobantesPage() {
     position: { x: number; y: number };
   } | null>(null);
 
+  // ========== MUTATIONS ==========
+
+  const deleteDocumentMutation = useDeleteMutation({
+    skipConfirm: true, // Handler already has custom confirm dialog
+    successMessage: 'Documento eliminado correctamente',
+    onSuccess: () => loadDocumentos(),
+  });
+
+  const saveObservationMutation = useUpdateMutation({
+    successMessage: 'Observación guardada correctamente',
+    onSuccess: () => {
+      setShowObservationModal(false);
+      setSelectedDocumentForObservation(null);
+      setObservationText('');
+    },
+  });
+
+  const saveItemMutation = useApiMutation({
+    showSuccessToast: false, // Custom toast based on create/update
+    onSuccess: async () => {
+      if (comprobanteEdit.selectedDocument) {
+        await comprobanteEdit.loadDocumentoLineas(comprobanteEdit.selectedDocument.id);
+      }
+      comprobanteEdit.setShowItemModal(false);
+      comprobanteEdit.setSelectedItem(null);
+      comprobanteEdit.setItemFormData({});
+    },
+  });
+
+  const deleteItemMutation = useDeleteMutation({
+    skipConfirm: true, // Handler already has custom confirmDelete dialog
+    successMessage: 'Item eliminado correctamente',
+    onSuccess: async () => {
+      if (comprobanteEdit.selectedDocument) {
+        await comprobanteEdit.loadDocumentoLineas(comprobanteEdit.selectedDocument.id);
+      }
+    },
+  });
+
+  const saveImpuestoMutation = useApiMutation({
+    showSuccessToast: false, // Custom toast based on create/update
+    onSuccess: async () => {
+      if (comprobanteEdit.selectedDocument) {
+        await comprobanteEdit.loadDocumentoImpuestos(comprobanteEdit.selectedDocument.id);
+      }
+      comprobanteEdit.setShowImpuestoModal(false);
+      comprobanteEdit.setSelectedImpuesto(null);
+      comprobanteEdit.setImpuestoFormData({});
+    },
+  });
+
+  const disassociateDocumentMutation = useApiMutation({
+    successMessage: 'Comprobante desasociado correctamente',
+    showSuccessToast: true,
+  });
+
+  const smartSelectorUpdateMutation = useApiMutation({
+    showSuccessToast: false, // Custom message
+    onSuccess: async () => {
+      setShowSmartSelector(false);
+      setSmartSelectorConfig(null);
+    },
+  });
+
+  const desmarcarReglasMutation = useApiMutation({
+    successMessage: 'Documento desmarcado. Se reprocesará con las reglas.',
+    onSuccess: () => loadDocumentos(),
+  });
+
   // Función para abrir el archivo
   const handleViewDocument = (documentId: string) => {
     // Use the document viewer hook
@@ -100,16 +170,8 @@ export default function ComprobantesPage() {
   const handleDeleteDocument = async (documentId: string, nombreArchivo: string) => {
     const confirmed = await confirmDelete(nombreArchivo);
     if (!confirmed) return;
-    
-    try {
-      await api.delete(`/documentos/${documentId}`);
-      toast.success('Documento eliminado correctamente');
-      // Recargar documentos
-      loadDocumentos();
-    } catch (error) {
-      console.error('Error al eliminar documento:', error);
-      toast.error('Error al eliminar el documento');
-    }
+
+    deleteDocumentMutation.mutate(() => api.delete(`/documentos/${documentId}`));
   };
 
   // Función para abrir modal de observaciones
@@ -120,32 +182,26 @@ export default function ComprobantesPage() {
   };
 
   // Función para guardar observación
-  const handleSaveObservation = async () => {
+  const handleSaveObservation = () => {
     if (!selectedDocumentForObservation) return;
-    
-    try {
-      setSavingObservation(true);
-      await api.put(`/documentos/${selectedDocumentForObservation.id}/observaciones`, {
+
+    setSavingObservation(true);
+
+    saveObservationMutation.mutate(async () => {
+      const response = await api.put(`/documentos/${selectedDocumentForObservation.id}/observaciones`, {
         observaciones: observationText.trim() || null
       });
-      
+
       // Actualizar el documento local
-      setDocumentos(prev => prev.map(doc => 
-        doc.id === selectedDocumentForObservation.id 
+      setDocumentos(prev => prev.map(doc =>
+        doc.id === selectedDocumentForObservation.id
           ? { ...doc, observaciones: observationText.trim() || undefined }
           : doc
       ));
-      
-      toast.success('Observación guardada correctamente');
-      setShowObservationModal(false);
-      setSelectedDocumentForObservation(null);
-      setObservationText('');
-    } catch (error) {
-      console.error('Error saving observation:', error);
-      toast.error('Error al guardar la observación');
-    } finally {
+
       setSavingObservation(false);
-    }
+      return response;
+    });
   };
 
   // Función para abrir modal de edición (ahora usa el hook)
@@ -347,52 +403,45 @@ export default function ComprobantesPage() {
     }
   };
 
-  const handleSaveItem = async () => {
+  const handleSaveItem = () => {
     if (!comprobanteEdit.selectedDocument) return;
 
-    try {
-      comprobanteEdit.setSavingItem(true);
+    comprobanteEdit.setSavingItem(true);
 
-      const dataToSend = {
-        numero: parseInt(comprobanteEdit.itemFormData.numero),
-        descripcion: comprobanteEdit.itemFormData.descripcion,
-        codigoProducto: comprobanteEdit.itemFormData.codigoProducto || null,
-        cantidad: parseFloat(comprobanteEdit.itemFormData.cantidad) || 0,
-        unidad: comprobanteEdit.itemFormData.unidad || null,
-        precioUnitario: parseFloat(comprobanteEdit.itemFormData.precioUnitario) || 0,
-        subtotal: parseFloat(comprobanteEdit.itemFormData.subtotal) || 0,
-        alicuotaIva: comprobanteEdit.itemFormData.alicuotaIva ? parseFloat(comprobanteEdit.itemFormData.alicuotaIva) : null,
-        importeIva: comprobanteEdit.itemFormData.importeIva ? parseFloat(comprobanteEdit.itemFormData.importeIva) : null,
-        totalLinea: parseFloat(comprobanteEdit.itemFormData.totalLinea) || 0,
-        tipoProducto: comprobanteEdit.itemFormData.tipoProducto || null,
-        codigoDimension: comprobanteEdit.itemFormData.codigoDimension || null,
-        subcuenta: comprobanteEdit.itemFormData.subcuenta || null,
-        cuentaContable: comprobanteEdit.itemFormData.cuentaContable || null,
-        tipoOrdenCompra: comprobanteEdit.itemFormData.tipoOrdenCompra || null,
-        ordenCompra: comprobanteEdit.itemFormData.ordenCompra || null
-      };
+    const dataToSend = {
+      numero: parseInt(comprobanteEdit.itemFormData.numero),
+      descripcion: comprobanteEdit.itemFormData.descripcion,
+      codigoProducto: comprobanteEdit.itemFormData.codigoProducto || null,
+      cantidad: parseFloat(comprobanteEdit.itemFormData.cantidad) || 0,
+      unidad: comprobanteEdit.itemFormData.unidad || null,
+      precioUnitario: parseFloat(comprobanteEdit.itemFormData.precioUnitario) || 0,
+      subtotal: parseFloat(comprobanteEdit.itemFormData.subtotal) || 0,
+      alicuotaIva: comprobanteEdit.itemFormData.alicuotaIva ? parseFloat(comprobanteEdit.itemFormData.alicuotaIva) : null,
+      importeIva: comprobanteEdit.itemFormData.importeIva ? parseFloat(comprobanteEdit.itemFormData.importeIva) : null,
+      totalLinea: parseFloat(comprobanteEdit.itemFormData.totalLinea) || 0,
+      tipoProducto: comprobanteEdit.itemFormData.tipoProducto || null,
+      codigoDimension: comprobanteEdit.itemFormData.codigoDimension || null,
+      subcuenta: comprobanteEdit.itemFormData.subcuenta || null,
+      cuentaContable: comprobanteEdit.itemFormData.cuentaContable || null,
+      tipoOrdenCompra: comprobanteEdit.itemFormData.tipoOrdenCompra || null,
+      ordenCompra: comprobanteEdit.itemFormData.ordenCompra || null
+    };
 
+    saveItemMutation.mutate(async () => {
       if (comprobanteEdit.selectedItem) {
         // Actualizar
-        await api.put(`/documentos/lineas/${comprobanteEdit.selectedItem.id}`, dataToSend);
+        const response = await api.put(`/documentos/lineas/${comprobanteEdit.selectedItem.id}`, dataToSend);
         toast.success('Item actualizado correctamente');
+        comprobanteEdit.setSavingItem(false);
+        return response;
       } else {
         // Crear
-        await api.post(`/documentos/${comprobanteEdit.selectedDocument.id}/lineas`, dataToSend);
+        const response = await api.post(`/documentos/${comprobanteEdit.selectedDocument!.id}/lineas`, dataToSend);
         toast.success('Item agregado correctamente');
+        comprobanteEdit.setSavingItem(false);
+        return response;
       }
-
-      // Recargar líneas
-      await comprobanteEdit.loadDocumentoLineas(comprobanteEdit.selectedDocument.id);
-      comprobanteEdit.setShowItemModal(false);
-      comprobanteEdit.setSelectedItem(null);
-      comprobanteEdit.setItemFormData({});
-    } catch (error) {
-      console.error('Error saving item:', error);
-      toast.error('Error al guardar el item');
-    } finally {
-      comprobanteEdit.setSavingItem(false);
-    }
+    });
   };
 
   const handleDeleteItem = async (itemId: string) => {
@@ -401,14 +450,7 @@ export default function ComprobantesPage() {
     const confirmed = await confirmDelete('este item');
     if (!confirmed) return;
 
-    try {
-      await api.delete(`/documentos/lineas/${itemId}`);
-      toast.success('Item eliminado correctamente');
-      await comprobanteEdit.loadDocumentoLineas(comprobanteEdit.selectedDocument.id);
-    } catch (error) {
-      console.error('Error deleting item:', error);
-      toast.error('Error al eliminar el item');
-    }
+    deleteItemMutation.mutate(() => api.delete(`/documentos/lineas/${itemId}`));
   };
 
   // ========== FUNCIONES PARA IMPUESTOS ==========
@@ -491,44 +533,37 @@ export default function ComprobantesPage() {
     comprobanteEdit.setImpuestoFormData({ ...comprobanteEdit.impuestoFormData, subcuenta });
   };
 
-  const handleSaveImpuesto = async () => {
+  const handleSaveImpuesto = () => {
     if (!comprobanteEdit.selectedDocument) return;
 
-    try {
-      comprobanteEdit.setSavingImpuesto(true);
+    comprobanteEdit.setSavingImpuesto(true);
 
-      const dataToSend = {
-        tipo: comprobanteEdit.impuestoFormData.tipo,
-        descripcion: comprobanteEdit.impuestoFormData.descripcion,
-        alicuota: comprobanteEdit.impuestoFormData.alicuota ? parseFloat(comprobanteEdit.impuestoFormData.alicuota) : null,
-        baseImponible: comprobanteEdit.impuestoFormData.baseImponible ? parseFloat(comprobanteEdit.impuestoFormData.baseImponible) : null,
-        importe: parseFloat(comprobanteEdit.impuestoFormData.importe) || 0,
-        codigoDimension: comprobanteEdit.impuestoFormData.codigoDimension || null,
-        subcuenta: comprobanteEdit.impuestoFormData.subcuenta || null,
-        cuentaContable: comprobanteEdit.impuestoFormData.cuentaContable || null
-      };
+    const dataToSend = {
+      tipo: comprobanteEdit.impuestoFormData.tipo,
+      descripcion: comprobanteEdit.impuestoFormData.descripcion,
+      alicuota: comprobanteEdit.impuestoFormData.alicuota ? parseFloat(comprobanteEdit.impuestoFormData.alicuota) : null,
+      baseImponible: comprobanteEdit.impuestoFormData.baseImponible ? parseFloat(comprobanteEdit.impuestoFormData.baseImponible) : null,
+      importe: parseFloat(comprobanteEdit.impuestoFormData.importe) || 0,
+      codigoDimension: comprobanteEdit.impuestoFormData.codigoDimension || null,
+      subcuenta: comprobanteEdit.impuestoFormData.subcuenta || null,
+      cuentaContable: comprobanteEdit.impuestoFormData.cuentaContable || null
+    };
 
+    saveImpuestoMutation.mutate(async () => {
       if (comprobanteEdit.selectedImpuesto) {
         // Actualizar
-        await api.put(`/documentos/impuestos/${comprobanteEdit.selectedImpuesto.id}`, dataToSend);
+        const response = await api.put(`/documentos/impuestos/${comprobanteEdit.selectedImpuesto.id}`, dataToSend);
         toast.success('Impuesto actualizado correctamente');
+        comprobanteEdit.setSavingImpuesto(false);
+        return response;
       } else {
         // Crear
-        await api.post(`/documentos/${comprobanteEdit.selectedDocument.id}/impuestos`, dataToSend);
+        const response = await api.post(`/documentos/${comprobanteEdit.selectedDocument!.id}/impuestos`, dataToSend);
         toast.success('Impuesto agregado correctamente');
+        comprobanteEdit.setSavingImpuesto(false);
+        return response;
       }
-
-      // Recargar impuestos
-      await comprobanteEdit.loadDocumentoImpuestos(comprobanteEdit.selectedDocument.id);
-      comprobanteEdit.setShowImpuestoModal(false);
-      comprobanteEdit.setSelectedImpuesto(null);
-      comprobanteEdit.setImpuestoFormData({});
-    } catch (error) {
-      console.error('Error saving impuesto:', error);
-      toast.error('Error al guardar el impuesto');
-    } finally {
-      comprobanteEdit.setSavingImpuesto(false);
-    }
+    });
   };
 
   const handleDeleteImpuesto = async (impuestoId: string) => {
@@ -547,28 +582,25 @@ export default function ComprobantesPage() {
     );
     if (!confirmed) return;
 
-    try {
-      await api.post(`/documentos/${doc.id}/desasociar`);
-      
+    disassociateDocumentMutation.mutate(async () => {
+      const response = await api.post(`/documentos/${doc.id}/desasociar`);
+
       // Actualizar el documento local
-      setDocumentos(prev => prev.map(d => 
-        d.id === doc.id 
+      setDocumentos(prev => prev.map(d =>
+        d.id === doc.id
           ? { ...d, documentosAsociados: [] }
           : d
       ));
-      
+
       // Actualizar métricas
       setMetrics(prev => ({
         ...prev,
         asociados: Math.max(0, (prev.asociados || 0) - 1),
         pendientes: prev.pendientes + 1
       }));
-      
-      toast.success('Comprobante desasociado correctamente');
-    } catch (error) {
-      console.error('Error disassociating document:', error);
-      toast.error('Error al desasociar el comprobante');
-    }
+
+      return response;
+    });
   };
 
   // Funciones para SmartSelector
@@ -595,17 +627,17 @@ export default function ComprobantesPage() {
     setShowSmartSelector(true);
   };
 
-  const handleSmartSelectorSelect = async (codigo: string, nombre: string) => {
+  const handleSmartSelectorSelect = (codigo: string, nombre: string) => {
     if (!smartSelectorConfig) return;
 
     const { entityType, entityId, fieldName } = smartSelectorConfig;
 
-    try {
+    smartSelectorUpdateMutation.mutate(async () => {
       const endpoint = entityType === 'item'
         ? `/documentos/lineas/${entityId}`
         : `/documentos/impuestos/${entityId}`;
 
-      await api.put(endpoint, { [fieldName]: codigo });
+      const response = await api.put(endpoint, { [fieldName]: codigo });
 
       // Actualizar la lista local
       if (entityType === 'item') {
@@ -615,13 +647,8 @@ export default function ComprobantesPage() {
       }
 
       toast.success(`${fieldName} actualizado correctamente`);
-    } catch (error) {
-      console.error('Error updating field:', error);
-      toast.error(`Error al actualizar ${fieldName}`);
-    } finally {
-      setShowSmartSelector(false);
-      setSmartSelectorConfig(null);
-    }
+      return response;
+    });
   };
 
   const handleSmartSelectorClose = () => {
@@ -749,18 +776,8 @@ export default function ComprobantesPage() {
   };
 
   // Función para desmarcar que se aplicaron reglas a un documento
-  const handleDesmarcarReglas = async (documentoId: string) => {
-    try {
-      const response = await api.post(`/documentos/${documentoId}/desmarcar-reglas`);
-
-      if (response.data.success) {
-        toast.success('Documento desmarcado. Se reprocesará con las reglas.');
-        loadDocumentos(); // Recargar la lista
-      }
-    } catch (error: any) {
-      console.error('Error desmarcando documento:', error);
-      toast.error(error.response?.data?.error || 'Error al desmarcar documento');
-    }
+  const handleDesmarcarReglas = (documentoId: string) => {
+    desmarcarReglasMutation.mutate(() => api.post(`/documentos/${documentoId}/desmarcar-reglas`));
   };
 
   // Función para ejecutar asociación automática con SSE

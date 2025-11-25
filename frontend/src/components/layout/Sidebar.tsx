@@ -38,7 +38,8 @@ import {
   Sparkles,
   ScanText,
   Package,
-  Lightbulb
+  Lightbulb,
+  Webhook
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/contexts/AuthContext';
@@ -86,7 +87,8 @@ const IconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Sparkles,
   ScanText,
   Package,
-  Lightbulb
+  Lightbulb,
+  Webhook
 };
 
 // Helper para obtener el componente de ícono desde el nombre
