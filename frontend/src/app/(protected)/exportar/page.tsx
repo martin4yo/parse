@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FileDown, Search, Edit, CheckSquare, Square, FileText, X, Calendar, Receipt, Save, Plus, Pencil, Trash2, ExternalLink, Eye, AlertCircle, AlertTriangle, XCircle, Info, ShieldAlert, AlertOctagon } from 'lucide-react';
+import { FileDown, Search, Edit, CheckSquare, Square, FileText, X, Calendar, Receipt, Save, Plus, Pencil, Trash2, ExternalLink, Eye, AlertCircle, AlertTriangle, XCircle, Info, ShieldAlert, AlertOctagon, Download } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { api } from '@/lib/api';
@@ -55,10 +55,50 @@ export default function ExportarPage() {
   const [documentsWithErrors, setDocumentsWithErrors] = useState<Map<string, any>>(new Map());
     const [forceExportWarnings, setForceExportWarnings] = useState(false); // Nuevo: para exportar con warnings
 
+  // Función para descargar JSON
+  const downloadExportJson = (exportData: any) => {
+    try {
+      const jsonString = JSON.stringify(exportData, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+
+      // Generar nombre de archivo con fecha y hora
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
+      const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, ''); // HHmmss
+      const filename = `exportacion_${dateStr}_${timeStr}.json`;
+
+      // Crear link y disparar descarga
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      console.log(`📥 Descargado: ${filename}`);
+    } catch (error) {
+      console.error('Error descargando JSON:', error);
+      toast.error('Error al descargar el archivo JSON');
+    }
+  };
+
   // Mutations
   const exportMutation = useApiMutation({
     showSuccessToast: false,
     onSuccess: (response: any) => {
+      console.log('📥 [EXPORTAR] Respuesta recibida:', response);
+      console.log('📥 [EXPORTAR] exportData existe?:', !!response?.exportData);
+
+      // Descargar JSON automáticamente si hay datos de exportación
+      if (response.exportData) {
+        console.log('📥 [EXPORTAR] Descargando JSON...');
+        downloadExportJson(response.exportData);
+      } else {
+        console.warn('📥 [EXPORTAR] No hay exportData en la respuesta');
+      }
+
       // Verificar si hay validaciones
       if (response.validaciones && response.validaciones.documentosConErrores > 0) {
         const detalles = response.validaciones.detalles;
@@ -74,12 +114,12 @@ export default function ExportarPage() {
 
         // Toast con resumen
         const { totalWarnings, totalErrors } = response.validaciones;
-        toast(`Exportado con ${totalWarnings} warning(s) y ${totalErrors} error(es) de validación`, {
+        toast(`Exportado con ${totalWarnings} warning(s) y ${totalErrors} error(es) de validación. JSON descargado.`, {
           icon: '⚠️',
           duration: 5000,
         });
       } else {
-        toast.success(response.message || `${selectedDocuments.size} documento(s) exportado(s) correctamente`);
+        toast.success(response.message || `${selectedDocuments.size} documento(s) exportado(s) correctamente. JSON descargado.`);
       }
 
       setSelectedDocuments(new Set());
@@ -192,7 +232,7 @@ const handleSelectDocument = (documentId: string) => {
         documentoIds: Array.from(selectedDocuments)
       }).then(res => {
         setExporting(false);
-        return res.data;
+        return res; // Retornar respuesta completa, el hook extrae .data
       }).catch(err => {
         setExporting(false);
         throw err;
@@ -314,8 +354,8 @@ const handleSelectDocument = (documentId: string) => {
                 </>
               ) : (
                 <>
-                  <FileDown className="w-4 h-4 mr-2" />
-                  Exportar Datos ({selectedDocuments.size})
+                  <Download className="w-4 h-4 mr-2" />
+                  Exportar y Descargar JSON ({selectedDocuments.size})
                 </>
               )}
             </Button>

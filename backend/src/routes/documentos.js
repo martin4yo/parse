@@ -3608,9 +3608,12 @@ router.post('/:id/validate', authWithTenant, async (req, res) => {
 
 // POST /api/documentos/exportar - Marcar documentos como exportados
 router.post('/exportar', authWithTenant, async (req, res) => {
+  console.log('📤 [EXPORTAR] Iniciando exportación...');
+  console.log('📤 [EXPORTAR] Body:', JSON.stringify(req.body));
   try {
     const { documentoIds } = req.body;
     const tenantId = req.tenantId;
+    console.log('📤 [EXPORTAR] TenantId:', tenantId, 'DocumentoIds:', documentoIds?.length || 0);
 
     if (!documentoIds || !Array.isArray(documentoIds) || documentoIds.length === 0) {
       return res.status(400).json({
@@ -3620,7 +3623,7 @@ router.post('/exportar', authWithTenant, async (req, res) => {
     }
 
     // Verificar que todos los documentos pertenecen al tenant y NO están exportados
-    // Cargar documentos con líneas e impuestos para aplicar reglas completas
+    // Cargar documentos con líneas, impuestos para aplicar reglas
     const documentos = await prisma.documentos_procesados.findMany({
       where: {
         id: { in: documentoIds },
@@ -3769,6 +3772,7 @@ router.post('/exportar', authWithTenant, async (req, res) => {
     }
 
     // Marcar como exportados
+    const fechaExportacion = new Date();
     const resultado = await prisma.documentos_procesados.updateMany({
       where: {
         id: { in: documentoIds },
@@ -3776,9 +3780,137 @@ router.post('/exportar', authWithTenant, async (req, res) => {
       },
       data: {
         exportado: true,
-        fechaExportacion: new Date()
+        fechaExportacion: fechaExportacion
       }
     });
+
+    // Recargar documentos con todos los datos actualizados para generar JSON de exportación
+    const documentosExportados = await prisma.documentos_procesados.findMany({
+      where: {
+        id: { in: documentos.map(d => d.id) },
+        tenantId: tenantId
+      },
+      include: {
+        documento_lineas: {
+          orderBy: { numero: 'asc' },
+          include: {
+            documento_distribuciones: {
+              include: {
+                documento_subcuentas: true
+              }
+            }
+          }
+        },
+        documento_impuestos: {
+          include: {
+            documento_distribuciones: {
+              include: {
+                documento_subcuentas: true
+              }
+            }
+          }
+        },
+        documento_distribuciones: {
+          include: {
+            documento_subcuentas: true
+          }
+        }
+      }
+    });
+
+    // Generar estructura JSON para exportación
+    const exportData = {
+      exportacion: {
+        fecha: fechaExportacion.toISOString(),
+        tenantId: tenantId,
+        totalDocumentos: documentosExportados.length,
+        version: '1.0'
+      },
+      documentos: documentosExportados.map(doc => ({
+        id: doc.id,
+        cabecera: {
+          tipoComprobante: doc.tipoComprobanteExtraido,
+          numeroComprobante: doc.numeroComprobanteExtraido,
+          fecha: doc.fechaExtraida,
+          cuitEmisor: doc.cuitExtraido,
+          razonSocialEmisor: doc.razonSocialExtraida,
+          codigoProveedor: doc.codigoProveedor,
+          netoGravado: doc.netoGravadoExtraido ? parseFloat(doc.netoGravadoExtraido) : null,
+          exento: doc.exentoExtraido ? parseFloat(doc.exentoExtraido) : null,
+          totalImpuestos: doc.impuestosExtraido ? parseFloat(doc.impuestosExtraido) : null,
+          total: doc.importeExtraido ? parseFloat(doc.importeExtraido) : null,
+          cae: doc.caeExtraido,
+          moneda: doc.monedaExtraida || 'ARS',
+          observaciones: doc.observaciones,
+          nombreArchivo: doc.nombreArchivo,
+          fechaProcesamiento: doc.fechaProcesamiento,
+          fechaExportacion: fechaExportacion.toISOString()
+        },
+        lineas: doc.documento_lineas.map(linea => ({
+          numero: linea.numero,
+          descripcion: linea.descripcion,
+          codigoProducto: linea.codigoProducto,
+          tipoProducto: linea.tipoProducto,
+          cantidad: linea.cantidad ? parseFloat(linea.cantidad) : null,
+          unidad: linea.unidad,
+          precioUnitario: linea.precioUnitario ? parseFloat(linea.precioUnitario) : null,
+          subtotal: linea.subtotal ? parseFloat(linea.subtotal) : null,
+          alicuotaIva: linea.alicuotaIva ? parseFloat(linea.alicuotaIva) : null,
+          importeIva: linea.importeIva ? parseFloat(linea.importeIva) : null,
+          cuentaContable: linea.cuentaContable,
+          codigoDimension: linea.codigoDimension,
+          subcuenta: linea.subcuenta,
+          distribuciones: linea.documento_distribuciones.map(dist => ({
+            tipoDimension: dist.tipoDimension,
+            tipoDimensionNombre: dist.tipoDimensionNombre,
+            importe: dist.importeDimension ? parseFloat(dist.importeDimension) : null,
+            subcuentas: dist.documento_subcuentas.map(sub => ({
+              codigo: sub.codigoSubcuenta,
+              nombre: sub.subcuentaNombre,
+              cuentaContable: sub.cuentaContable,
+              porcentaje: sub.porcentaje ? parseFloat(sub.porcentaje) : null,
+              importe: sub.importe ? parseFloat(sub.importe) : null
+            }))
+          }))
+        })),
+        impuestos: doc.documento_impuestos.map(imp => ({
+          tipo: imp.tipo,
+          descripcion: imp.descripcion,
+          baseImponible: imp.baseImponible ? parseFloat(imp.baseImponible) : null,
+          alicuota: imp.alicuota ? parseFloat(imp.alicuota) : null,
+          importe: imp.importe ? parseFloat(imp.importe) : null,
+          cuentaContable: imp.cuentaContable,
+          codigoDimension: imp.codigoDimension,
+          subcuenta: imp.subcuenta,
+          distribuciones: imp.documento_distribuciones.map(dist => ({
+            tipoDimension: dist.tipoDimension,
+            tipoDimensionNombre: dist.tipoDimensionNombre,
+            importe: dist.importeDimension ? parseFloat(dist.importeDimension) : null,
+            subcuentas: dist.documento_subcuentas.map(sub => ({
+              codigo: sub.codigoSubcuenta,
+              nombre: sub.subcuentaNombre,
+              cuentaContable: sub.cuentaContable,
+              porcentaje: sub.porcentaje ? parseFloat(sub.porcentaje) : null,
+              importe: sub.importe ? parseFloat(sub.importe) : null
+            }))
+          }))
+        })),
+        distribucionesDocumento: doc.documento_distribuciones
+          .filter(dist => !dist.documentoLineaId && !dist.documentoImpuestoId)
+          .map(dist => ({
+            tipoDimension: dist.tipoDimension,
+            tipoDimensionNombre: dist.tipoDimensionNombre,
+            importe: dist.importeDimension ? parseFloat(dist.importeDimension) : null,
+            subcuentas: dist.documento_subcuentas.map(sub => ({
+              codigo: sub.codigoSubcuenta,
+              nombre: sub.subcuentaNombre,
+              cuentaContable: sub.cuentaContable,
+              porcentaje: sub.porcentaje ? parseFloat(sub.porcentaje) : null,
+              importe: sub.importe ? parseFloat(sub.importe) : null
+            }))
+          }))
+      }))
+    };
 
     // Preparar mensaje de respuesta
     let message = `${resultado.count} documento(s) marcado(s) como exportado(s)`;
@@ -3812,13 +3944,16 @@ router.post('/exportar', authWithTenant, async (req, res) => {
         totalWarnings,
         totalErrors,
         detalles: allValidationErrors
-      }
+      },
+      exportData: exportData  // Incluir datos para descarga JSON
     };
 
     // Si hay validaciones, agregar al response
     if (allValidationErrors.length > 0) {
       console.log(`⚠️ Se encontraron ${allValidationErrors.length} documento(s) con validaciones`);
     }
+
+    console.log(`📦 Exportación generada: ${documentosExportados.length} documento(s)`);
 
     res.json(response);
 
