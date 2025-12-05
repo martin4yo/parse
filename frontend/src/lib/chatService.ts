@@ -17,6 +17,7 @@ export interface ChatMessage {
 }
 
 export interface PendingAction {
+  id: string;
   type: string;
   payload: any;
   description: string;
