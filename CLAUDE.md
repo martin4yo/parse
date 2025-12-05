@@ -20,7 +20,159 @@
 
 ---
 
-## ⚡ ÚLTIMAS ACTUALIZACIONES - Enero 2025
+## ⚡ ÚLTIMAS ACTUALIZACIONES - Diciembre 2025
+
+### ✅ Agente Axio - Asistente de IA para Parse
+
+**Implementado:** 4 de Diciembre 2025
+
+Se implementó **Axio**, un asistente de IA conversacional integrado en Parse que ayuda a:
+- Crear y modificar **reglas de negocio** (tradicionales y con IA)
+- **Afinar prompts** de extracción de documentos
+- Consultar configuraciones existentes
+
+#### Características
+
+- **Widget flotante** estilo chat disponible en todas las pantallas
+- **Motor IA**: Claude Sonnet 4 (Anthropic)
+- **Confirmación de acciones**: Las acciones que modifican datos requieren confirmación
+- **Sugerencias contextuales**: Propone comandos útiles
+
+#### Acciones Disponibles
+
+| Acción | Descripción |
+|--------|-------------|
+| `crear_regla_tradicional` | Crear regla con condiciones y acciones SET/LOOKUP |
+| `crear_regla_ia` | Crear regla con AI_LOOKUP para clasificación inteligente |
+| `modificar_regla` | Modificar una regla existente |
+| `afinar_prompt` | Mejorar un prompt de extracción |
+| `analizar_prompt` | Analizar y sugerir mejoras a un prompt |
+| `consultar_reglas` | Listar reglas existentes |
+| `consultar_prompts` | Listar prompts disponibles |
+| `probar_regla` | Testear una regla con datos de ejemplo |
+
+#### Ejemplos de Uso
+
+```
+"Crea una regla para que cuando la descripción contenga 'hosting'
+ se asigne la cuenta 5101020301"
+
+"Crea una regla con IA para clasificar el tipo de producto
+ según la descripción"
+
+"El prompt de facturas A no extrae bien el CAE, mejóralo para
+ que busque también 'Código de Autorización'"
+
+"Muéstrame las reglas activas de transformación"
+
+"Analiza el prompt EXTRACCION_FACTURA_B"
+```
+
+#### Archivos Creados
+
+**Frontend:**
+- `frontend/src/components/chat/ChatWidget.tsx` - Widget principal
+- `frontend/src/components/chat/ChatMessage.tsx` - Componente de mensaje
+- `frontend/src/components/chat/ChatWidgetWrapper.tsx` - Wrapper con auth
+- `frontend/src/lib/chatService.ts` - Servicio HTTP
+
+**Backend:**
+- `backend/src/routes/chat.js` - Endpoints REST
+- `backend/src/services/aiAssistantService.js` - Procesamiento con Claude
+- `backend/src/services/actionExecutorService.js` - Ejecución de acciones
+
+#### Configuración
+
+Variable de entorno requerida en `backend/.env`:
+```env
+ANTHROPIC_API_KEY=sk-ant-...
+AXIO_MODEL=claude-sonnet-4-20250514  # Opcional, usa este por defecto
+```
+
+#### Endpoints API
+
+```
+POST /api/chat              - Procesar mensaje
+POST /api/chat/confirm-action - Confirmar/cancelar acción
+GET  /api/chat/health       - Estado del servicio
+GET  /api/chat/suggestions  - Obtener sugerencias
+GET  /api/chat/context      - Información de contexto
+```
+
+---
+
+## ⚡ ACTUALIZACIONES ANTERIORES - Enero 2025
+
+### ✅ Exportación con Descarga Automática de JSON
+
+**Implementado:** 28 de Enero 2025
+
+El botón "Exportar" en la página `/exportar` ahora descarga automáticamente un archivo JSON con todos los datos estructurados de los documentos exportados.
+
+#### Funcionamiento
+
+1. Usuario selecciona documentos pendientes de exportar
+2. Hace clic en "Exportar"
+3. Los documentos se marcan como exportados en la BD
+4. **Automáticamente** se descarga un archivo JSON con toda la información
+
+#### Estructura del JSON Exportado
+
+```json
+{
+  "exportacion": {
+    "fecha": "2025-01-28T14:30:00.000Z",
+    "tenantId": "uuid",
+    "totalDocumentos": 5,
+    "version": "1.0"
+  },
+  "documentos": [
+    {
+      "id": "uuid",
+      "cabecera": {
+        "tipoComprobante", "puntoVenta", "numeroComprobante",
+        "fecha", "cuitProveedor", "razonSocial", "total", ...
+      },
+      "lineas": [
+        {
+          "numero", "descripcion", "cantidad", "precioUnitario", "subtotal",
+          "cuentaContable", "tipoProducto", ...
+          "distribuciones": [{ "dimension", "porcentaje", "subcuentas": [...] }]
+        }
+      ],
+      "impuestos": [
+        {
+          "tipoImpuesto", "baseImponible", "alicuota", "importe",
+          "cuentaContable", ...
+          "distribuciones": [{ "dimension", "porcentaje", "subcuentas": [...] }]
+        }
+      ],
+      "distribucionesDocumento": [
+        { "dimension", "porcentaje", "subcuentas": [...] }
+      ]
+    }
+  ]
+}
+```
+
+#### Nombre del Archivo
+
+`exportacion_YYYY-MM-DD_HHmmss.json`
+
+Ejemplo: `exportacion_2025-01-28_143052.json`
+
+#### Archivos Modificados
+
+- `backend/src/routes/documentos.js` - Endpoint `/exportar` genera `exportData` con relaciones anidadas
+- `frontend/src/app/(protected)/exportar/page.tsx` - Función `downloadExportJson()` y manejo en `onSuccess`
+
+#### Notas Técnicas
+
+- El JSON incluye SOLO datos extraídos, NO el archivo original (PDF/imagen)
+- Incluye distribuciones y subcuentas a nivel de línea, impuesto y documento
+- Compatible con el sistema de validaciones existente (warnings/errors)
+
+---
 
 ### ✅ Sistema de Aprendizaje de Patrones (Pattern Learning)
 

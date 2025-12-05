@@ -54,6 +54,7 @@ const metricsRoutes = require('./routes/metrics');
 const jobsRoutes = require('./routes/jobs');
 const planesRoutes = require('./routes/planes');
 const menuRoutes = require('./routes/menu');
+const chatRoutes = require('./routes/chat');
 
 // Parse API - Endpoints públicos para aplicaciones externas
 const parseApiRoutes = require('./routes/parseApi');
@@ -188,6 +189,9 @@ app.use('/api/v1/parse', parseApiRoutes);
 app.use('/api/jobs', jobsRoutes);
 app.use('/api/planes', planesRoutes);
 app.use('/api/menu', menuRoutes);
+
+// Chat - Asistente Axio
+app.use('/api/chat', chatRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
