@@ -754,7 +754,8 @@ class BusinessRulesEngine {
       const parametros = await prisma.parametros_maestros.findMany({
         where: {
           tipo_campo: tipoCampo,
-          activo: true
+          activo: true,
+          ...(this.tenantId ? { tenantId: this.tenantId } : {})
         }
       });
 

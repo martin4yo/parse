@@ -82,11 +82,25 @@ Para combinar múltiples condiciones usa "logicOperator": "AND" o "OR" a nivel d
 
 ACCIONES DISPONIBLES PARA REGLAS:
 - SET: Asignar valor fijo (campo, valor)
-- LOOKUP: Buscar en tabla (tabla, campoConsulta, valorConsulta, campoResultado)
+- LOOKUP: Buscar en tabla por columna directa (tabla, campoConsulta, valorConsulta, campoResultado, campoJSON, filtroAdicional)
+  - campoConsulta: columna de la tabla (ej: "codigo", "nombre")
+  - campoJSON: si campoResultado es un campo JSON, especifica qué propiedad extraer (ej: "cuentacontable")
+  - filtroAdicional: objeto con filtros adicionales (ej: {"tipo_campo": "producto"})
+- LOOKUP_JSON: Buscar en tabla donde el valor está DENTRO de un campo JSON (tipoCampo, campoJSON, valorConsulta, campoResultado)
+  - Usar cuando necesitas buscar por un valor que está DENTRO de parametros_json
+  - Ejemplo: buscar proveedor por CUIT donde el CUIT está en parametros_json.cuit
+  - tipoCampo: tipo de parámetro (ej: "proveedor")
+  - campoJSON: campo dentro del JSON donde buscar (ej: "cuit")
+  - valorConsulta: valor a buscar (ej: "{cuitProveedor}")
+  - campoResultado: columna a retornar (ej: "codigo")
 - AI_LOOKUP: Clasificación con IA (campoTexto, tabla, filtro, umbralConfianza)
 - EXTRACT_REGEX: Extraer con regex (campoOrigen, patron, grupoCaptura)
 - CALCULATE: Cálculo matemático (formula)
-- CREATE_DISTRIBUTION: Crear distribución contable
+- CREATE_DISTRIBUTION: Crear distribución contable (dimensionTipo, subcuentas)
+
+CUÁNDO USAR LOOKUP vs LOOKUP_JSON:
+- LOOKUP: Cuando buscas por una COLUMNA directa de la tabla (ej: codigo, nombre)
+- LOOKUP_JSON: Cuando buscas por un valor que está DENTRO del campo parametros_json (ej: cuit, email dentro del JSON)
 
 CONTEXTOS DISPONIBLES:
 - DOCUMENTO: Aplica al documento completo
