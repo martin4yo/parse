@@ -206,10 +206,29 @@ class BusinessRulesEngine {
    */
   getNestedValue(obj, path) {
     if (!path) return undefined;
-    
+
     return path.split('.').reduce((current, prop) => {
       return current ? current[prop] : undefined;
     }, obj);
+  }
+
+  /**
+   * Resolver un campo con formato de plantilla {campo} o {campo.subcampo}
+   * @param {string} template - El template a resolver, ej: "{codigoProducto}" o "{datos.valor}"
+   * @param {object} data - El objeto con los datos
+   * @returns {*} El valor resuelto o undefined
+   */
+  resolveTemplateField(template, data) {
+    if (!template) return undefined;
+
+    // Si tiene formato {campo}, extraer el path y obtener el valor
+    if (template.startsWith('{') && template.endsWith('}')) {
+      const fieldPath = template.slice(1, -1);
+      return this.getNestedValue(data, fieldPath);
+    }
+
+    // Si no tiene formato de template, devolver el valor tal cual
+    return template;
   }
 
   /**
@@ -966,6 +985,11 @@ class BusinessRulesEngine {
     where[campoConsulta] = valorBusqueda;
     where.activo = true;
 
+    // Agregar tenantId si está configurado
+    if (this.tenantId) {
+      where.tenantId = this.tenantId;
+    }
+
     // Agregar filtros adicionales si existen
     if (filtroAdicional && typeof filtroAdicional === 'object') {
       Object.assign(where, filtroAdicional);
@@ -984,8 +1008,23 @@ class BusinessRulesEngine {
 
     // Si se especifica campoJSON y el resultado es un objeto, extraer el campo del JSON
     if (campoJSON && resultado && typeof resultado === 'object') {
+      // Soportar múltiples campos separados por coma: "cuentacontable,cuenta_contable"
+      // Busca el primer campo que exista y tenga valor
+      if (campoJSON.includes(',')) {
+        const campos = campoJSON.split(',').map(c => c.trim());
+        for (const campo of campos) {
+          if (resultado[campo] !== undefined && resultado[campo] !== null) {
+            resultado = resultado[campo];
+            break;
+          }
+        }
+        // Si ninguno de los campos tiene valor, retornar null
+        if (typeof resultado === 'object') {
+          resultado = null;
+        }
+      }
       // Soportar notación de punto para JSON anidado: "cuentas.compra"
-      if (campoJSON.includes('.')) {
+      else if (campoJSON.includes('.')) {
         const parts = campoJSON.split('.');
         for (const part of parts) {
           resultado = resultado?.[part];
@@ -1938,8 +1977,8 @@ class BusinessRulesEngine {
       const distribucion = await prisma.documento_distribuciones.create({
         data: {
           id: uuidv4(),
-          lineaId: esLinea ? result.id : null,
-          impuestoId: esImpuesto ? result.id : null,
+          documentoLineaId: esLinea ? result.id : null,
+          documentoImpuestoId: esImpuesto ? result.id : null,
           tipoDimension: tipoDimension,
           tipoDimensionNombre: tipoDimensionNombre,
           importeDimension: importeTotal,
@@ -1989,16 +2028,23 @@ class BusinessRulesEngine {
         let codigo = codigoSubcuenta || codigoAlt;
         if (codigoSubcuentaCampo) {
           codigo = this.resolveTemplateField(codigoSubcuentaCampo, dataToUse);
+        } else if (codigo && codigo.startsWith('{') && codigo.endsWith('}')) {
+          // Interpolar si el valor tiene formato {campo}
+          codigo = this.resolveTemplateField(codigo, dataToUse);
         }
 
         let nombre = subcuentaNombre || nombreAlt;
         if (subcuentaNombreCampo) {
           nombre = this.resolveTemplateField(subcuentaNombreCampo, dataToUse);
+        } else if (nombre && nombre.startsWith('{') && nombre.endsWith('}')) {
+          nombre = this.resolveTemplateField(nombre, dataToUse);
         }
 
         let cuenta = cuentaContable || cuentaAlt || '';
         if (cuentaContableCampo) {
           cuenta = this.resolveTemplateField(cuentaContableCampo, dataToUse);
+        } else if (cuenta && cuenta.startsWith('{') && cuenta.endsWith('}')) {
+          cuenta = this.resolveTemplateField(cuenta, dataToUse);
         }
 
         let porcentajeValue = porcentaje;
@@ -2029,8 +2075,7 @@ class BusinessRulesEngine {
             cuentaContable: cuenta,
             porcentaje: porcentajeValue,
             importe: importeSubcuenta,
-            orden: index + 1,
-            tenantId: this.tenantId
+            orden: index + 1
           }
         });
 
