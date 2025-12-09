@@ -437,8 +437,13 @@ export default function ReglaModal({
         errores.push('Debe agregar al menos una acción');
       } else {
         formData.configuracion.acciones.forEach((acc, i) => {
-          if (!acc.campo.trim()) errores.push(`Acción ${i + 1}: Campo es obligatorio`);
           if (!acc.operacion) errores.push(`Acción ${i + 1}: Operación es obligatoria`);
+
+          // Campo es obligatorio solo para ciertas operaciones (no para CREATE_DISTRIBUTION)
+          const operacionesSinCampo = ['CREATE_DISTRIBUTION'];
+          if (!operacionesSinCampo.includes(acc.operacion) && (!acc.campo || !acc.campo.trim())) {
+            errores.push(`Acción ${i + 1}: Campo es obligatorio`);
+          }
 
           if (acc.operacion === 'LOOKUP') {
             if (!acc.tabla) errores.push(`Acción ${i + 1}: Tabla es obligatoria para LOOKUP`);
