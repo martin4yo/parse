@@ -228,6 +228,35 @@ export const useComprobanteEdit = (options: UseComprobanteEditOptions = {}) => {
   const loadDistribucionesStatus = async (lineas: any[], impuestos: any[]) => {
     const newStatus: { [key: string]: 'none' | 'valid' | 'invalid' } = {};
 
+    // Función para validar si las distribuciones son válidas
+    // Cada distribución debe tener subcuentas que sumen 100%
+    const validarDistribuciones = (distribuciones: any[]): 'none' | 'valid' | 'invalid' => {
+      if (distribuciones.length === 0) {
+        return 'none';
+      }
+
+      // Verificar que cada distribución tenga subcuentas que sumen 100%
+      for (const dist of distribuciones) {
+        const subcuentas = dist.documento_subcuentas || [];
+        if (subcuentas.length === 0) {
+          // Distribución sin subcuentas - puede ser válida si es solo dimensión
+          continue;
+        }
+
+        const totalSubcuentas = subcuentas.reduce(
+          (sum: number, sub: any) => sum + parseFloat(sub.porcentaje || 0),
+          0
+        );
+
+        // Si tiene subcuentas, deben sumar 100%
+        if (Math.abs(totalSubcuentas - 100) > 0.01) {
+          return 'invalid';
+        }
+      }
+
+      return 'valid';
+    };
+
     // Validar líneas
     for (const linea of lineas) {
       const distribuciones = await api
@@ -236,15 +265,7 @@ export const useComprobanteEdit = (options: UseComprobanteEditOptions = {}) => {
         .catch(() => []);
 
       const key = `linea-${linea.id}`;
-      if (distribuciones.length === 0) {
-        newStatus[key] = 'none';
-      } else {
-        const totalDistribucion = distribuciones.reduce(
-          (sum: number, d: any) => sum + parseFloat(d.porcentajeDistribucion || 0),
-          0
-        );
-        newStatus[key] = Math.abs(totalDistribucion - 100) < 0.01 ? 'valid' : 'invalid';
-      }
+      newStatus[key] = validarDistribuciones(distribuciones);
     }
 
     // Validar impuestos
@@ -255,15 +276,7 @@ export const useComprobanteEdit = (options: UseComprobanteEditOptions = {}) => {
         .catch(() => []);
 
       const key = `impuesto-${impuesto.id}`;
-      if (distribuciones.length === 0) {
-        newStatus[key] = 'none';
-      } else {
-        const totalDistribucion = distribuciones.reduce(
-          (sum: number, d: any) => sum + parseFloat(d.porcentajeDistribucion || 0),
-          0
-        );
-        newStatus[key] = Math.abs(totalDistribucion - 100) < 0.01 ? 'valid' : 'invalid';
-      }
+      newStatus[key] = validarDistribuciones(distribuciones);
     }
 
     setDistribucionesStatus(newStatus);

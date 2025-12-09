@@ -854,7 +854,11 @@ export const ComprobanteEditModal: React.FC<ComprobanteEditModalProps> = ({
                                   {linea.tipoOrdenCompra ? `${linea.tipoOrdenCompra}${linea.tipoOrdenCompraNombre ? ` - ${linea.tipoOrdenCompraNombre}` : ''}` : '-'}
                                 </span>
                               </div>
-                              <div className="bg-blue-50 p-2 rounded">
+                              <div
+                                className="bg-blue-50 p-2 rounded cursor-pointer hover:bg-blue-100 transition-colors"
+                                onClick={(e) => handleFieldClick(e, 'texto_libre', linea.ordenCompra || '', 'item', linea.id, 'ordenCompra')}
+                                title="Click para editar"
+                              >
                                 <span className="font-medium text-gray-600 block mb-1 flex items-center">
                                   Orden Compra
                                   <ValidationErrorIcon fieldName="ordenCompra" entityId={linea.id}  errors={comprobanteEdit.selectedDocument?.validationErrors?.errors} />
