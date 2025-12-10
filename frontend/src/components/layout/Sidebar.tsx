@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import Link from 'next/link';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Menu,
@@ -40,9 +39,7 @@ import {
   Webhook
 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
-import { useConfirmDialog } from '@/hooks/useConfirm';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { TenantSelector } from '@/components/TenantSelector';
 import { useMenu } from '@/hooks/useMenu';
@@ -57,7 +54,6 @@ const IconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Upload,
   CreditCard,
   Settings,
-  LogOut,
   User,
   Users,
   FileText,
@@ -212,20 +208,6 @@ export function Sidebar({ children }: SidebarProps) {
 
     return false;
   }, []);
-
-  const handleLogout = async () => {
-    const confirmed = await confirm(
-      '¿Estás seguro de que quieres cerrar sesión?',
-      'Confirmar cierre de sesión',
-      'warning'
-    );
-    
-    if (confirmed) {
-      logout();
-      window.location.href = '/auth/login';
-    }
-  };
-
 
   const SidebarContent = () => (
     <div className="flex h-full flex-col bg-sidebar overflow-hidden">
