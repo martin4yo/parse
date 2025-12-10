@@ -1037,6 +1037,9 @@ export default function ReglaModal({
                             onChange={(e) => actualizarTransformacionCampo(index, 'transformacion', e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                           >
+                            <option value="NORMALIZE_CUIT">Normalizar CUIT (quitar guiones)</option>
+                            <option value="REMOVE_DASHES">Remover guiones</option>
+                            <option value="REMOVE_SPECIAL_CHARS">Remover caracteres especiales</option>
                             <option value="REMOVE_LEADING_ZEROS">Remover ceros del inicio</option>
                             <option value="REMOVE_TRAILING_ZEROS">Remover ceros del final</option>
                             <option value="TRIM_SPACES">Quitar espacios</option>

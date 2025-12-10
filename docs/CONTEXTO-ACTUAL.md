@@ -1,6 +1,6 @@
 # Contexto Actual del Proyecto - Parse/Rendiciones App
 
-**Última actualización:** 13 de Enero 2025
+**Última actualización:** 9 de Diciembre 2025
 
 ---
 
@@ -11,14 +11,20 @@
 - ✅ **Gestión de prompts GLOBAL** para superadmins
 - ✅ **Manejo robusto de errores** - Backend no crashea, mensajes claros al usuario
 - ✅ **Optimización de imágenes** con Sharp (reducción 70-90% tamaño)
-- ✅ **Reglas de negocio** con múltiples operaciones (LOOKUP, AI_LOOKUP, SET_VALUE, etc.)
+- ✅ **Reglas de negocio** con múltiples operaciones (LOOKUP, LOOKUP_JSON, AI_LOOKUP, CREATE_DISTRIBUTION, etc.)
+- ✅ **Transformaciones de campo** (NORMALIZE_CUIT, REMOVE_DASHES, etc.)
 - ✅ **Multi-tenancy** completo con aislamiento de datos
 - ✅ **Sistema de permisos** por rol (superuser, admin, usuario)
+- ✅ **Axio** - Asistente de IA para crear/modificar reglas
 
-### Últimos Cambios (13 Enero 2025)
-1. **Prompts GLOBAL:** Superadmins pueden crear/editar prompts sin tenant (fallback universal)
-2. **errorMessage:** Nuevo campo en BD para guardar errores específicos sin eliminar documentos
-3. **No más crashes:** Backend maneja errores de procesamiento sin crashear Node.js
+### Últimos Cambios (9 Diciembre 2025)
+1. **Nuevas transformaciones:** NORMALIZE_CUIT, REMOVE_DASHES, REMOVE_SPECIAL_CHARS
+2. **Corrección regla CUIT:** Usaba campo inexistente `cuitProveedor`, corregido a `cuitExtraido`
+3. **LOOKUP_JSON:** Agregado al prompt de Axio para correcta generación de reglas
+4. **Frontend:** Combo de transformaciones actualizado con nuevos tipos
+5. **Persistencia codigoProveedor:** Corregido en endpoint PUT /datos-extraidos
+
+**Documentación detallada:** Ver `docs/SESION-2025-12-09.md`
 
 ---
 
@@ -202,9 +208,15 @@ npx prisma generate
 - **GLOBAL:** `tenantId = null`
 
 ### Reglas de Negocio
-- **Código:** `ASIGNAR_CUENTA_DESDE_PRODUCTO`, `REGLA_CC_FULL`
-- **Tipos:** `LOOKUP`, `AI_LOOKUP`, `LOOKUP_JSON`, `LOOKUP_CHAIN`, `SET_VALUE`
+- **Código:** `ASIGNAR_CUENTA_DESDE_PRODUCTO`, `REGLA_CC_FULL`, `COMPLETAR_PROVEEDOR_POR_CUIT`
+- **Operaciones:** `SET`, `LOOKUP`, `LOOKUP_JSON`, `AI_LOOKUP`, `CREATE_DISTRIBUTION`, `EXTRACT_REGEX`, `CALCULATE`
+- **Transformaciones:** `NORMALIZE_CUIT`, `REMOVE_DASHES`, `REMOVE_SPECIAL_CHARS`, `TRIM_SPACES`, `UPPER_CASE`, `LOWER_CASE`, `CUSTOM_FUNCTION`
 - **Unique:** `[codigo, tenantId]`
+
+### Campos Importantes del Documento
+- `cuitExtraido` - CUIT del proveedor (⚠️ NO existe "cuitProveedor")
+- `codigoProveedor` - Código interno asignado por regla
+- `razonSocialExtraida`, `fechaExtraida`, `importeExtraido`
 
 ### Estados de Documentos
 - `procesando` → Documento siendo procesado
@@ -259,4 +271,23 @@ psql -h 149.50.148.198 -U parse_user -d parse_db
 **Para recuperar contexto completo, leer:**
 1. Este archivo (`CONTEXTO-ACTUAL.md`)
 2. `CLAUDE.md` (configuración general)
-3. `SESION-2025-01-13.md` (última sesión detallada)
+3. `docs/SESION-2025-12-09.md` (última sesión - correcciones motor reglas)
+
+---
+
+## 🔗 Conexión a Base de Datos
+
+```
+Host: 149.50.148.198
+Usuario: postgres
+Password: Q27G4B98
+Puerto: 5432
+Base de datos: rendiciones_parse
+```
+
+## 🏢 Tenant de Pruebas
+
+```
+TenantId: 4b458e4f-f35d-47c4-a9d5-0960c1858939
+Nombre: Timbo
+```

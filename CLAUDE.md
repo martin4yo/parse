@@ -22,6 +22,34 @@
 
 ## ⚡ ÚLTIMAS ACTUALIZACIONES - Diciembre 2025
 
+### ✅ Correcciones Motor de Reglas y Axio (9 Diciembre 2025)
+
+**Documentación completa:** Ver `docs/SESION-2025-12-09.md`
+
+**Problemas resueltos:**
+1. Regla `COMPLETAR_PROVEEDOR_POR_CUIT` no funcionaba desde frontend (usaba campo inexistente `cuitProveedor`)
+2. Regla `REGLA_CUENTA_CONTABLE_ITEMS` no extraía `cuentaContable` ni `subcuenta` correctamente
+3. CREATE_DISTRIBUTION no interpolaba valores de campos en subcuentas
+4. Distribuciones válidas (100%) mostraban "Error en suma"
+5. Campo "Orden Compra" no era editable
+6. Axio generaba LOOKUP en lugar de LOOKUP_JSON
+7. `codigoProveedor` no persistía en la BD
+
+**Nuevas transformaciones de campo:**
+- `NORMALIZE_CUIT` - Normaliza CUIT quitando guiones (30-70717404-4 → 30707174044)
+- `REMOVE_DASHES` - Remueve guiones
+- `REMOVE_SPECIAL_CHARS` - Remueve caracteres especiales
+
+**Archivos modificados:**
+- `backend/src/services/businessRulesEngine.js` - Nuevas transformaciones, resolveTemplateField, tenantId en lookups
+- `backend/src/services/aiAssistantService.js` - Prompt actualizado con campos correctos
+- `backend/src/routes/documentos.js` - codigoProveedor en PUT /datos-extraidos
+- `frontend/src/components/parametros/ReglaModal.tsx` - Validación CREATE_DISTRIBUTION
+- `frontend/src/hooks/useComprobanteEdit.ts` - Validación distribuciones
+- `frontend/src/components/comprobantes/ComprobanteEditModal.tsx` - ordenCompra editable
+
+---
+
 ### ✅ Agente Axio - Asistente de IA para Parse
 
 **Implementado:** 5 de Diciembre 2025
@@ -141,12 +169,51 @@ GREATER_OR_EQUAL, LESS_OR_EQUAL
 
 ```
 SET                 - Asignar valor fijo
-LOOKUP              - Buscar en tabla
+LOOKUP              - Buscar en tabla por columna directa
+LOOKUP_JSON         - Buscar en tabla donde el valor está DENTRO de un campo JSON
 AI_LOOKUP           - Clasificación con IA
 EXTRACT_REGEX       - Extraer con expresión regular
 CALCULATE           - Cálculo matemático
 CREATE_DISTRIBUTION - Crear distribución contable
 ```
+
+#### Transformaciones de Campo (transformacionesCampo)
+
+Las reglas pueden incluir transformaciones que se aplican ANTES de evaluar condiciones:
+
+```
+NORMALIZE_CUIT        - Remueve guiones y espacios del CUIT (30-70717404-4 → 30707174044)
+REMOVE_DASHES         - Remueve guiones
+REMOVE_SPECIAL_CHARS  - Remueve todos los caracteres especiales
+TRIM_SPACES           - Elimina espacios al inicio y final
+UPPER_CASE            - Convierte a mayúsculas
+LOWER_CASE            - Convierte a minúsculas
+REMOVE_LEADING_ZEROS  - Remueve ceros a la izquierda
+REMOVE_TRAILING_ZEROS - Remueve ceros a la derecha
+CUSTOM_FUNCTION       - Función JavaScript personalizada
+```
+
+**Ejemplo de uso:**
+```json
+{
+  "transformacionesCampo": [
+    { "campo": "cuitExtraido", "transformacion": "NORMALIZE_CUIT" }
+  ],
+  "condiciones": [...],
+  "acciones": [...]
+}
+```
+
+#### Campos Importantes del Documento
+
+| Campo | Descripción | Nota |
+|-------|-------------|------|
+| `cuitExtraido` | CUIT del proveedor | ⚠️ NO usar "cuitProveedor" (no existe) |
+| `codigoProveedor` | Código interno del proveedor | |
+| `razonSocialExtraida` | Razón social | |
+| `fechaExtraida` | Fecha del documento | |
+| `importeExtraido` | Importe total | |
+| `tipoComprobanteExtraido` | Tipo (FACTURA_A, etc.) | |
 
 #### Notas Técnicas
 
