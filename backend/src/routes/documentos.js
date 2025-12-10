@@ -2173,10 +2173,10 @@ router.post('/:id/desasociar', authWithTenant, async (req, res) => {
 router.put('/:id/datos-extraidos', authWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
-    const { 
-      fechaExtraida, 
-      importeExtraido, 
-      cuitExtraido, 
+    const {
+      fechaExtraida,
+      importeExtraido,
+      cuitExtraido,
       numeroComprobanteExtraido,
       razonSocialExtraida,
       caeExtraido,
@@ -2186,7 +2186,8 @@ router.put('/:id/datos-extraidos', authWithTenant, async (req, res) => {
       impuestosExtraido,
       descuentoGlobalExtraido,
       descuentoGlobalTipo,
-      monedaExtraida
+      monedaExtraida,
+      codigoProveedor
     } = req.body;
     const userId = req.user.id;
 
@@ -2263,6 +2264,10 @@ router.put('/:id/datos-extraidos', authWithTenant, async (req, res) => {
 
     if (monedaExtraida !== undefined) {
       updateData.monedaExtraida = monedaExtraida || 'ARS'; // Default to ARS for Argentina
+    }
+
+    if (codigoProveedor !== undefined) {
+      updateData.codigoProveedor = codigoProveedor || null;
     }
 
     // Actualizar el documento

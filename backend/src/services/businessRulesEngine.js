@@ -280,7 +280,17 @@ class BusinessRulesEngine {
           
         case 'LOWER_CASE':
           return String(value).toLowerCase();
-          
+
+        case 'REMOVE_DASHES':
+          return String(value).replace(/-/g, '');
+
+        case 'REMOVE_SPECIAL_CHARS':
+          return String(value).replace(/[^a-zA-Z0-9]/g, '');
+
+        case 'NORMALIZE_CUIT':
+          // Remueve guiones y espacios del CUIT argentino
+          return String(value).replace(/[-\s]/g, '');
+
         case 'CUSTOM_FUNCTION':
           if (funcionPersonalizada) {
             // Crear función segura limitando el contexto
@@ -1277,16 +1287,25 @@ class BusinessRulesEngine {
     };
 
     try {
-      // 1. Aplicar reglas al documento principal (TRANSFORMACION_DOCUMENTO)
+      // 1. Aplicar reglas al documento principal
+      // Primero intentar con TRANSFORMACION_DOCUMENTO, luego con TRANSFORMACION + aplicaA: DOCUMENTO
       await this.loadRules('TRANSFORMACION_DOCUMENTO', false);
+      let reglasDocumento = this.rules.length;
+
+      if (reglasDocumento === 0) {
+        // No hay reglas TRANSFORMACION_DOCUMENTO, cargar TRANSFORMACION y filtrar por aplicaA: DOCUMENTO
+        await this.loadRules('TRANSFORMACION', false);
+        // El filtrado por aplicaA se hace automáticamente en applyRules con contexto 'DOCUMENTO'
+      }
+
       if (this.rules.length > 0) {
         console.log(`  📄 Aplicando ${this.rules.length} reglas de transformación al documento...`);
         const docResult = await this.applyRules(
           documento,
           {},
           {
-            tipo: 'TRANSFORMACION_DOCUMENTO',
-            contexto,
+            tipo: reglasDocumento > 0 ? 'TRANSFORMACION_DOCUMENTO' : 'TRANSFORMACION',
+            contexto: 'DOCUMENTO',
             logExecution
           }
         );
@@ -1295,7 +1314,7 @@ class BusinessRulesEngine {
         console.log(`  ✅ Documento: ${docResult.rulesApplied} reglas aplicadas`);
       } else {
         resultado.documentoTransformado = documento;
-        console.log(`  ℹ️ No hay reglas TRANSFORMACION_DOCUMENTO activas`);
+        console.log(`  ℹ️ No hay reglas de transformación para documento activas`);
       }
 
       // 1.5. Aplicar reglas de VALIDACION al documento

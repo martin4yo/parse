@@ -91,8 +91,9 @@ ACCIONES DISPONIBLES PARA REGLAS:
   - Ejemplo: buscar proveedor por CUIT donde el CUIT está en parametros_json.cuit
   - tipoCampo: tipo de parámetro (ej: "proveedor")
   - campoJSON: campo dentro del JSON donde buscar (ej: "cuit")
-  - valorConsulta: valor a buscar (ej: "{cuitProveedor}")
+  - valorConsulta: valor a buscar (ej: "{cuitExtraido}") - IMPORTANTE: usar cuitExtraido, NO cuitProveedor
   - campoResultado: columna a retornar (ej: "codigo")
+  - RECOMENDACIÓN: Al buscar por CUIT, usar transformación NORMALIZE_CUIT para quitar guiones
 - AI_LOOKUP: Clasificación con IA (campoTexto, tabla, filtro, umbralConfianza)
 - EXTRACT_REGEX: Extraer con regex (campoOrigen, patron, grupoCaptura)
 - CALCULATE: Cálculo matemático (formula)
@@ -101,6 +102,34 @@ ACCIONES DISPONIBLES PARA REGLAS:
 CUÁNDO USAR LOOKUP vs LOOKUP_JSON:
 - LOOKUP: Cuando buscas por una COLUMNA directa de la tabla (ej: codigo, nombre)
 - LOOKUP_JSON: Cuando buscas por un valor que está DENTRO del campo parametros_json (ej: cuit, email dentro del JSON)
+
+CAMPOS PRINCIPALES DEL DOCUMENTO (documentos_procesados):
+- cuitExtraido: CUIT del proveedor extraído del documento (NOTA: el campo es cuitExtraido, NO cuitProveedor)
+- codigoProveedor: Código interno del proveedor
+- razonSocialExtraida: Razón social del proveedor
+- fechaExtraida: Fecha del documento
+- importeExtraido: Importe total
+- numeroComprobanteExtraido: Número de comprobante
+- tipoComprobanteExtraido: Tipo (FACTURA_A, FACTURA_B, etc.)
+- netoGravadoExtraido, exentoExtraido, impuestosExtraido: Importes desglosados
+
+TRANSFORMACIONES DE CAMPO DISPONIBLES (usar en transformacionesCampo):
+- NORMALIZE_CUIT: Remueve guiones y espacios del CUIT (ej: "30-70717404-4" -> "30707174044")
+- REMOVE_DASHES: Remueve guiones
+- REMOVE_SPECIAL_CHARS: Remueve todos los caracteres especiales
+- TRIM_SPACES: Elimina espacios al inicio y final
+- UPPER_CASE, LOWER_CASE: Convierte a mayúsculas/minúsculas
+- REMOVE_LEADING_ZEROS, REMOVE_TRAILING_ZEROS: Remueve ceros
+- CUSTOM_FUNCTION: Función personalizada JavaScript (usar funcionPersonalizada)
+
+Ejemplo de regla con transformación:
+{
+  "transformacionesCampo": [
+    { "campo": "cuitExtraido", "transformacion": "NORMALIZE_CUIT" }
+  ],
+  "condiciones": [...],
+  "acciones": [...]
+}
 
 CONTEXTOS DISPONIBLES:
 - DOCUMENTO: Aplica al documento completo
