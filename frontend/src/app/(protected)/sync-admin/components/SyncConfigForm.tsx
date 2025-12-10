@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Textarea } from '@/components/ui/Textarea';
 import { Badge } from '@/components/ui/Badge';
-import { Save, TestTube, Plus, Trash2, ArrowLeft, Sparkles, Lightbulb, Zap, Package } from 'lucide-react';
+import { Save, TestTube, Plus, Trash2, ArrowLeft, Sparkles, Lightbulb, Zap, Package, Download, FolderDown } from 'lucide-react';
 import { SyncConfigFormData, TablaSubida, TablaBajada, Tenant } from '@/types/sync';
 import { toast } from 'sonner';
 import PhaseEditor from './PhaseEditor';
@@ -636,6 +636,63 @@ FROM ${vistaOrigen}`;
                             <p className="text-blue-700">
                               El sistema descargará solo registros modificados después de la última sincronización exitosa.
                               Asegurate que el campo configurado se actualice automáticamente cuando el registro cambia.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Descarga de Archivos */}
+                    <div className="border-t pt-4 space-y-4">
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          checked={tabla.descargarArchivos || false}
+                          onCheckedChange={(checked) =>
+                            updateTablaBajada(index, { descargarArchivos: checked })
+                          }
+                        />
+                        <Label className="flex items-center gap-2">
+                          <Download className="h-4 w-4" />
+                          Descargar Archivos Adjuntos
+                        </Label>
+                      </div>
+
+                      {tabla.descargarArchivos && (
+                        <div className="ml-6 p-4 bg-green-50 border border-green-200 rounded-md space-y-3">
+                          <div>
+                            <Label>Campo con Ruta del Archivo</Label>
+                            <Input
+                              value={tabla.campoRutaArchivo || ''}
+                              onChange={(e) =>
+                                updateTablaBajada(index, { campoRutaArchivo: e.target.value })
+                              }
+                              placeholder="rutaArchivo"
+                            />
+                            <p className="text-xs text-gray-600 mt-1">
+                              Campo que contiene la URL o ruta del archivo (ej: rutaArchivo, fileUrl)
+                            </p>
+                          </div>
+                          <div>
+                            <Label>Carpeta de Destino</Label>
+                            <Input
+                              value={tabla.carpetaArchivos || ''}
+                              onChange={(e) =>
+                                updateTablaBajada(index, { carpetaArchivos: e.target.value })
+                              }
+                              placeholder="C:\MisDocumentos\Sync"
+                            />
+                            <p className="text-xs text-gray-600 mt-1">
+                              Carpeta local donde se guardarán los archivos descargados (default: ./archivos_sync)
+                            </p>
+                          </div>
+                          <div className="bg-green-100 border-l-4 border-green-500 p-3 text-sm">
+                            <p className="font-semibold text-green-800 mb-1 flex items-center gap-2">
+                              <FolderDown className="h-4 w-4" />
+                              Descarga automática:
+                            </p>
+                            <p className="text-green-700">
+                              Los archivos se descargarán automáticamente después de sincronizar los datos.
+                              Se mantiene la estructura de carpetas original.
                             </p>
                           </div>
                         </div>

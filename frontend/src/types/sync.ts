@@ -42,6 +42,10 @@ export interface TablaBajada {
   process: ProcessConfig;
   post_process?: PhaseConfig;
   tipoCampo?: string;
+  // Configuración de descarga de archivos
+  descargarArchivos?: boolean;
+  campoRutaArchivo?: string;
+  carpetaArchivos?: string;
 }
 
 export interface ConfiguracionTablas {
