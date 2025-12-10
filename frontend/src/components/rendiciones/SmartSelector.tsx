@@ -30,11 +30,14 @@ export const SmartSelector: React.FC<SmartSelectorProps> = ({
   position,
   className = ''
 }) => {
+  // Si es texto libre, mostrar input simple
+  const isTextoLibre = fieldType === 'texto_libre';
+
   const [searchTerm, setSearchTerm] = useState(value || '');
   const [options, setOptions] = useState<ParameterOption[]>([]);
   const [filteredOptions, setFilteredOptions] = useState<ParameterOption[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!isTextoLibre); // No loading para texto libre
   const [error, setError] = useState<string | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true); // Flag para carga inicial
 
@@ -148,15 +151,18 @@ export const SmartSelector: React.FC<SmartSelectorProps> = ({
     setSearchTimeout(timeout);
   };
 
-  // Efectos - cargar con el valor inicial si existe
+  // Efectos - cargar con el valor inicial si existe (solo para tipos con lista)
   useEffect(() => {
+    // No cargar opciones si es texto libre
+    if (isTextoLibre) return;
+
     // Si hay un valor inicial (character tipeado), buscar con ese valor
     if (value && value.trim()) {
       loadOptionsWithSearch(value);
     } else {
       loadOptionsWithSearch();
     }
-  }, [loadOptionsWithSearch]);
+  }, [loadOptionsWithSearch, isTextoLibre]);
 
   // Cleanup timeout al desmontar
   useEffect(() => {
@@ -297,6 +303,83 @@ export const SmartSelector: React.FC<SmartSelectorProps> = ({
     return style;
   }, []); // Calcular solo una vez, no recalcular nunca
 
+  // Estilo más compacto para texto libre
+  const textoLibreStyle = React.useMemo(() => {
+    const style: React.CSSProperties = {
+      position: 'fixed',
+      zIndex: 9999,
+      width: '300px',
+    };
+
+    if (position.x + 300 > window.innerWidth) {
+      (style as any).right = Math.max(10, window.innerWidth - position.x - 100);
+    } else {
+      (style as any).left = position.x;
+    }
+
+    (style as any).top = position.y;
+
+    return style;
+  }, []);
+
+  // Renderizado especial para texto libre
+  if (isTextoLibre) {
+    return (
+      <>
+        <div
+          className="fixed inset-0 z-[9998]"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+        />
+        <div
+          ref={containerRef}
+          className={`bg-white border border-gray-300 rounded-lg shadow-xl p-3 ${className}`}
+          data-smart-selector
+          style={textoLibreStyle}
+        >
+          <div className="relative">
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  onSelect(searchTerm, searchTerm);
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  onClose();
+                }
+              }}
+              placeholder="Ingrese el valor..."
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              autoFocus
+            />
+          </div>
+          <div className="mt-2 flex justify-end gap-2">
+            <button
+              onClick={onClose}
+              className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => onSelect(searchTerm, searchTerm)}
+              className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Guardar
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       {/* Backdrop transparente para capturar eventos */}
@@ -308,7 +391,7 @@ export const SmartSelector: React.FC<SmartSelectorProps> = ({
         }}
         onMouseDown={(e) => e.stopPropagation()}
       />
-      
+
       {/* Modal content */}
       <div
         ref={containerRef}
