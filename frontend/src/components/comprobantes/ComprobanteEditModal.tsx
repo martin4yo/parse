@@ -800,7 +800,7 @@ export const ComprobanteEditModal: React.FC<ComprobanteEditModalProps> = ({
                                   comprobanteEdit.setDistribucionesEntidad({
                                     tipo: 'linea',
                                     id: linea.id,
-                                    total: parseFloat(linea.totalLinea || 0),
+                                    total: parseFloat(linea.subtotal || 0),
                                     codigo: linea.codigoProducto || '',
                                     nombre: linea.descripcion || ''
                                   });

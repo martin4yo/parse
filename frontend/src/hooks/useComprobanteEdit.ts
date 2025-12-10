@@ -85,7 +85,8 @@ export const useComprobanteEdit = (options: UseComprobanteEditOptions = {}) => {
       impuestosExtraido: doc.impuestosExtraido ? Number(doc.impuestosExtraido).toFixed(2) : '',
       descuentoGlobalExtraido: doc.descuentoGlobalExtraido ? Number(doc.descuentoGlobalExtraido).toFixed(2) : '',
       descuentoGlobalTipo: doc.descuentoGlobalTipo || '',
-      codigoProveedor: doc.codigoProveedor || ''
+      codigoProveedor: doc.codigoProveedor || '',
+      monedaExtraida: doc.monedaExtraida || 'ARS'
     });
 
     setActiveTab('encabezado');
