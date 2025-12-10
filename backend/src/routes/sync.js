@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { v4: uuidv4 } = require('uuid');
@@ -426,6 +428,156 @@ router.post('/logs/:tenantId', requireSyncPermission('sync'), async (req, res) =
     });
   } catch (error) {
     console.error('Error al guardar logs:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/sync/file/:tenantId
+ * Descarga un archivo asociado a un documento
+ * @param tenantId - Puede ser el ID (UUID) o el slug del tenant
+ * @query path - Ruta del archivo (puede ser ruta local o URL de Parse)
+ */
+router.get('/file/:tenantId', requireSyncPermission('sync'), async (req, res) => {
+  try {
+    const { tenantId: tenantParam } = req.params;
+    const { path: filePath } = req.query;
+
+    if (!filePath) {
+      return res.status(400).json({
+        success: false,
+        error: 'Parámetro path requerido'
+      });
+    }
+
+    // Buscar el tenant por ID o slug
+    const tenant = await prisma.tenants.findFirst({
+      where: {
+        OR: [
+          { id: tenantParam },
+          { slug: tenantParam }
+        ]
+      }
+    });
+
+    if (!tenant) {
+      return res.status(404).json({
+        success: false,
+        error: 'Tenant no encontrado'
+      });
+    }
+
+    // Validar que el tenant del API key coincide con el solicitado
+    if (req.syncClient.tenantId !== tenant.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tienes permiso para acceder a este tenant'
+      });
+    }
+
+    console.log(`[SYNC FILE] ${tenant.slug} - Solicitando archivo: ${filePath}`);
+
+    // Determinar si es una URL externa (Parse Files) o ruta local
+    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+      // Es una URL externa (Parse Files o S3)
+      // Hacer proxy del archivo
+      const fetch = require('node-fetch');
+
+      try {
+        const response = await fetch(filePath);
+
+        if (!response.ok) {
+          return res.status(response.status).json({
+            success: false,
+            error: `Error al obtener archivo: HTTP ${response.status}`
+          });
+        }
+
+        // Obtener el content-type del archivo original
+        const contentType = response.headers.get('content-type') || 'application/octet-stream';
+
+        // Extraer nombre del archivo de la URL
+        const fileName = path.basename(new URL(filePath).pathname);
+
+        // Configurar headers de respuesta
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+        // Hacer pipe del stream al response
+        response.body.pipe(res);
+
+        console.log(`[SYNC FILE] ${tenant.slug} - Archivo enviado (URL externa): ${fileName}`);
+      } catch (fetchError) {
+        console.error(`[SYNC FILE] Error fetching URL:`, fetchError);
+        return res.status(500).json({
+          success: false,
+          error: `Error al descargar archivo: ${fetchError.message}`
+        });
+      }
+    } else {
+      // Es una ruta local en el servidor
+      // Construir ruta absoluta (asumiendo que las rutas son relativas al directorio de uploads)
+      const uploadsDir = process.env.UPLOADS_DIR || path.join(process.cwd(), 'uploads');
+      const absolutePath = path.isAbsolute(filePath)
+        ? filePath
+        : path.join(uploadsDir, filePath);
+
+      // Validar que el archivo existe
+      if (!fs.existsSync(absolutePath)) {
+        console.error(`[SYNC FILE] Archivo no encontrado: ${absolutePath}`);
+        return res.status(404).json({
+          success: false,
+          error: 'Archivo no encontrado'
+        });
+      }
+
+      // Validar que la ruta no intente acceder fuera del directorio permitido
+      const resolvedPath = path.resolve(absolutePath);
+      const resolvedUploadsDir = path.resolve(uploadsDir);
+
+      if (!resolvedPath.startsWith(resolvedUploadsDir)) {
+        console.error(`[SYNC FILE] Intento de acceso fuera del directorio permitido: ${resolvedPath}`);
+        return res.status(403).json({
+          success: false,
+          error: 'Acceso denegado'
+        });
+      }
+
+      // Obtener nombre y extensión del archivo
+      const fileName = path.basename(absolutePath);
+      const ext = path.extname(fileName).toLowerCase();
+
+      // Determinar content-type
+      const mimeTypes = {
+        '.pdf': 'application/pdf',
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp',
+        '.doc': 'application/msword',
+        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.xls': 'application/vnd.ms-excel',
+        '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      };
+
+      const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+      // Configurar headers
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+      // Enviar archivo
+      const fileStream = fs.createReadStream(absolutePath);
+      fileStream.pipe(res);
+
+      console.log(`[SYNC FILE] ${tenant.slug} - Archivo enviado (local): ${fileName}`);
+    }
+  } catch (error) {
+    console.error('[SYNC FILE] Error:', error);
     res.status(500).json({
       success: false,
       error: error.message
