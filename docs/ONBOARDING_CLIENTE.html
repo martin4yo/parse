@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plan de Onboarding - Parse</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @page {
+            size: A4;
+            margin: 15mm 12mm;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: 9pt;
+            line-height: 1.4;
+            color: #333;
+            background: #fff;
+        }
+
+        .container {
+            max-width: 210mm;
+            margin: 0 auto;
+            padding: 0;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #10b981;
+        }
+
+        .header h1 {
+            font-size: 18pt;
+            color: #059669;
+            margin-bottom: 5px;
+        }
+
+        .header .meta {
+            font-size: 8pt;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        /* Sections */
+        h2 {
+            font-size: 13pt;
+            color: #059669;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #10b981;
+            page-break-after: avoid;
+        }
+
+        h3 {
+            font-size: 11pt;
+            color: #10b981;
+            margin-top: 15px;
+            margin-bottom: 8px;
+            page-break-after: avoid;
+        }
+
+        h4 {
+            font-size: 10pt;
+            color: #059669;
+            margin-top: 10px;
+            margin-bottom: 5px;
+        }
+
+        p {
+            margin-bottom: 8px;
+            text-align: justify;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 8pt;
+            page-break-inside: avoid;
+        }
+
+        th {
+            background-color: #10b981;
+            color: white;
+            padding: 6px 8px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 8.5pt;
+        }
+
+        td {
+            padding: 5px 8px;
+            border: 1px solid #ddd;
+            vertical-align: top;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+
+        tr:hover {
+            background-color: #d1fae5;
+        }
+
+        /* Subtotals */
+        .subtotal {
+            font-weight: bold;
+            background-color: #d1fae5 !important;
+            color: #059669;
+            text-align: right;
+            padding: 8px !important;
+        }
+
+        /* Special column colors */
+        .hours-included {
+            background-color: #d1fae5 !important;
+            font-weight: bold;
+        }
+
+        .hours-optional {
+            background-color: #fef3c7 !important;
+        }
+
+        .hours-client {
+            background-color: #fee2e2 !important;
+            font-style: italic;
+        }
+
+        /* Boxes */
+        .info-box {
+            background-color: #d1fae5;
+            border-left: 4px solid #10b981;
+            padding: 10px 12px;
+            margin: 10px 0;
+            font-size: 8.5pt;
+        }
+
+        .warning-box {
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 10px 12px;
+            margin: 10px 0;
+            font-size: 8.5pt;
+        }
+
+        .success-box {
+            background-color: #d1fae5;
+            border-left: 4px solid #10b981;
+            padding: 10px 12px;
+            margin: 10px 0;
+            font-size: 8.5pt;
+        }
+
+        /* Lists */
+        ul, ol {
+            margin-left: 20px;
+            margin-bottom: 10px;
+        }
+
+        li {
+            margin-bottom: 4px;
+        }
+
+        /* Summary table */
+        .summary-table {
+            font-size: 10pt;
+            margin: 15px 0;
+        }
+
+        .summary-table th {
+            background-color: #059669;
+        }
+
+        .summary-table .total-row {
+            background-color: #059669;
+            color: white;
+            font-weight: bold;
+            font-size: 10pt;
+        }
+
+        /* Optional items */
+        .optional-section {
+            background-color: #fef3c7;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            page-break-inside: avoid;
+        }
+
+        .optional-section h4 {
+            color: #92400e;
+            margin-top: 0;
+        }
+
+        /* Page breaks */
+        .page-break {
+            page-break-after: always;
+        }
+
+        .no-break {
+            page-break-inside: avoid;
+        }
+
+        /* Checklist */
+        .checklist {
+            list-style: none;
+            margin-left: 0;
+        }
+
+        .checklist li:before {
+            content: "☐ ";
+            font-size: 12pt;
+            margin-right: 5px;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 2px solid #e5e7eb;
+            text-align: center;
+            font-size: 7pt;
+            color: #666;
+        }
+
+        /* Legend */
+        .legend {
+            font-size: 7.5pt;
+            margin-top: 8px;
+            padding: 8px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .legend-item {
+            display: inline-block;
+            margin-right: 15px;
+        }
+
+        .legend-box {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin-right: 4px;
+            vertical-align: middle;
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                font-size: 8pt;
+            }
+
+            .page-break {
+                page-break-after: always;
+            }
+
+            .no-break {
+                page-break-inside: avoid;
+            }
+
+            a {
+                color: #000;
+                text-decoration: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>Plan de Onboarding - Implementación en Cliente</h1>
+            <div class="meta">
+                <strong>Proyecto:</strong> Parse - Sistema de Procesamiento de Documentos con IA |
+                <strong>Cliente:</strong> [NOMBRE CLIENTE] |
+                <strong>Fecha:</strong> 2025-12-18 |
+                <strong>Versión:</strong> 3.1
+            </div>
+        </div>
+
+        <!-- Resumen Ejecutivo -->
+        <section class="no-break">
+            <h2>Resumen Ejecutivo</h2>
+            <p>Este documento detalla el proceso de implementación de Parse en el cliente, incluyendo configuración de motores de IA, entrenamiento de modelos, capacitación de usuarios y puesta en producción.</p>
+            <div class="info-box">
+                <strong>Duración estimada:</strong> 3-4 semanas |
+                <strong>Modalidad:</strong> Remota con sesiones presenciales opcionales |
+                <strong>Tecnologías:</strong> Next.js, Node.js, PostgreSQL, Procesamiento con IA
+            </div>
+        </section>
+
+        <!-- Estructura de Costos -->
+        <section class="no-break">
+            <h2>Estructura de Costos</h2>
+            <table class="summary-table">
+                <thead>
+                    <tr>
+                        <th>Concepto</th>
+                        <th style="text-align: center; width: 100px;">Horas Incluidas</th>
+                        <th style="text-align: center; width: 100px;">Horas Opcionales</th>
+                        <th>Descripción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Paquete Base</strong></td>
+                        <td style="text-align: center;">67h</td>
+                        <td style="text-align: center;">40h</td>
+                        <td>Implementación completa funcional con IA</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Adicionales Opcionales</strong></td>
+                        <td style="text-align: center;">-</td>
+                        <td style="text-align: center;">78h</td>
+                        <td>Funcionalidades extra según necesidad (API, Conector, LEGACY, Emails)</td>
+                    </tr>
+                    <tr class="total-row">
+                        <td><strong>TOTAL CON TODOS LOS OPCIONALES</strong></td>
+                        <td style="text-align: center;"><strong>67h</strong></td>
+                        <td style="text-align: center;"><strong>118h</strong></td>
+                        <td><strong>185 horas totales</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="legend">
+                <div class="legend-item">
+                    <span class="legend-box" style="background-color: #d1fae5;"></span>
+                    <strong>Verde:</strong> Horas incluidas en paquete base
+                </div>
+                <div class="legend-item">
+                    <span class="legend-box" style="background-color: #fef3c7;"></span>
+                    <strong>Amarillo:</strong> Horas opcionales (adicionales)
+                </div>
+                <div class="legend-item">
+                    <span class="legend-box" style="background-color: #fee2e2;"></span>
+                    <strong>Rojo:</strong> A costo del cliente (reuniones)
+                </div>
+            </div>
+        </section>
+
+        <div class="page-break"></div>
+
+        <!-- PAQUETE BASE -->
+        <h2>PAQUETE BASE - ONBOARDING COMPLETO</h2>
+
+        <!-- FASE 1 -->
+        <section class="no-break">
+            <h3>FASE 1: PREPARACIÓN Y ANÁLISIS (Semana 1)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">#</th>
+                        <th>Tarea</th>
+                        <th style="width: 100px;">Responsable</th>
+                        <th style="width: 60px;">Horas Incluidas</th>
+                        <th style="width: 60px;">Horas Opcionales</th>
+                        <th style="width: 120px;">Entregable</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1.1</td>
+                        <td>Kickoff meeting con stakeholders</td>
+                        <td>Axioma + Cliente</td>
+                        <td class="hours-included">1h</td>
+                        <td>-</td>
+                        <td>Acta de reunión</td>
+                    </tr>
+                    <tr>
+                        <td>1.2</td>
+                        <td>Crear tenant en Parse (configuración inicial)</td>
+                        <td>Axioma</td>
+                        <td class="hours-included">1h</td>
+                        <td>-</td>
+                        <td>Tenant configurado</td>
+                    </tr>
+                    <tr>
+                        <td>1.3</td>
+                        <td>Validación de maestros a sincronizar</td>
+                        <td>Axioma + Cliente</td>
+                        <td class="hours-included">3h</td>
+                        <td>-</td>
+                        <td>Maestros validados</td>
+                    </tr>
+                    <tr>
+                        <td colspan="3" class="subtotal">Subtotal Fase 1:</td>
+                        <td class="subtotal">5h</td>
+                        <td class="subtotal">-</td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- FASE 2 -->
+        <section class="no-break">
+            <h3>FASE 2: INFRAESTRUCTURA</h3>
+            <p style="font-size: 8.5pt; font-style: italic; color: #666;">Parse es una aplicación web completamente gestionada por Axioma. No requiere configuración de infraestructura por parte del cliente.</p>
+        </section>
+
+        <!-- FASE 3 -->
+        <section class="no-break">
+            <h3>FASE 3: CONFIGURACIÓN DE IA (Semana 2)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">#</th>
+                        <th>Tarea</th>
+                        <th style="width: 100px;">Responsable</th>
+                        <th style="width: 60px;">Horas Incluidas</th>
+                        <th style="width: 60px;">Horas Opcionales</th>
+                        <th style="width: 120px;">Entregable</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>3.1</td>
+                        <td>Configurar múltiples motores de IA para procesamiento de documentos</td>
+                        <td>Axioma</td>
+                        <td class="hours-included">3h</td>
+                        <td>-</td>
+                        <td>IAs configuradas</td>
+                    </tr>
+                    <tr>
+                        <td>3.2</td>
+                        <td>Configurar sistema de aprendizaje de patrones (pattern learning)</td>
+                        <td>Axioma</td>
+                        <td class="hours-included">2h</td>
+                        <td>-</td>
+                        <td>Aprendizaje activo</td>
+                    </tr>
+                    <tr>
+                        <td>3.3</td>
+                        <td>Test de extracción con 50-100 documentos de muestra</td>
+                        <td>Axioma</td>
+                        <td class="hours-included">10h</td>
+                        <td>-</td>
+                        <td>Reporte de precisión</td>
+                    </tr>
+                    <tr>
+                        <td>3.4</td>
+                        <td>Ajuste fino de prompts según resultados</td>
+                        <td>Axioma</td>
+                        <td class="hours-included">4h</td>
+                        <td>-</td>
+                        <td>Prompts optimizados</td>
+                    </tr>
+                    <tr>
+                        <td colspan="3" class="subtotal">Subtotal Fase 3:</td>
+                        <td class="subtotal">19h</td>
+                        <td class="subtotal">-</td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="info-box">
+                <strong>Recomendación:</strong> Parse utiliza múltiples motores de IA optimizados según el tipo y complejidad del documento, asegurando la mejor precisión y eficiencia en el procesamiento.
+            </div>
+        </section>
+
+        <div class="page-break"></div>
+
+        <!-- FASE 4 -->
+        <section class="no-break">
+            <h3>FASE 4: REGLAS DE NEGOCIO Y VALIDACIONES (Semana 3)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">#</th>
+                        <th>Tarea</th>
+                        <th style="width: 100px;">Responsable</th>
+                        <th style="width: 60px;">Horas Incluidas</th>
+                        <th style="width: 60px;">Horas Opcionales</th>
+                        <th style="width: 120px;">Entregable</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>4.1</td>
+                        <td>Crear reglas con IA (AI_LOOKUP para clasificación inteligente)</td>
+                        <td>Axioma</td>
+                        <td class="hours-included">11h</td>
+                        <td>-</td>
+                        <td>Reglas IA configuradas</td>
+                    </tr>
+                    <tr>
+                        <td>4.2</td>
+                        <td>Configurar lookups en tablas maestras (proveedores, cuentas contables)</td>
+                        <td>Axioma</td>
+                        <td class="hours-included">3h</td>
+                        <td>-</td>
+                        <td>Lookups configurados</td>
+                    </tr>
+                    <tr>
+                        <td>4.3</td>
+                        <td>Importar parámetros maestros (proveedores, cuentas, dimensiones)</td>
+                        <td>Axioma</td>
+                        <td class="hours-included">3h</td>
+                        <td>-</td>
+                        <td>Maestros importados</td>
+                    </tr>
+                    <tr>
+                        <td>4.4</td>
+                        <td>Configurar dimensiones contables y subcuentas</td>
+                        <td>Axioma + Cliente</td>
+                        <td class="hours-included">3h</td>
+                        <td>-</td>
+                        <td>Dimensiones activas</td>
+                    </tr>
+                    <tr>
+                        <td>4.5</td>
+                        <td>Activar chatbot Axio (asistente IA para creación de reglas) - OPCIONAL</td>
+                        <td>Axioma</td>
+                        <td>-</td>
+                        <td class="hours-optional">2h</td>
+                        <td>Axio funcionando</td>
+                    </tr>
+                    <tr>
+                        <td colspan="3" class="subtotal">Subtotal Fase 4:</td>
+                        <td class="subtotal">20h</td>
+                        <td class="subtotal">2h</td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- FASE 5 -->
+        <section class="no-break">
+            <h3>FASE 5: TESTING Y CAPACITACIÓN (Semana 4)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">#</th>
+                        <th>Tarea</th>
+                        <th style="width: 100px;">Responsable</th>
+                        <th style="width: 60px;">Horas Incluidas</th>
+                        <th style="width: 60px;">Horas Opcionales</th>
+                        <th style="width: 120px;">Entregable</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>5.1</td>
+                        <td>Test workflow completo: Upload → Extracción → Validación → Exportación</td>
+                        <td>Axioma + Cliente</td>
+                        <td class="hours-included">4h</td>
+                        <td>-</td>
+                        <td>Checklist aprobado</td>
+                    </tr>
+                    <tr>
+                        <td>5.2</td>
+                        <td>Sesión de testing con usuarios reales (UAT - 50 documentos)</td>
+                        <td>Cliente + Axioma</td>
+                        <td class="hours-included">4h</td>
+                        <td>-</td>
+                        <td>UAT aprobado</td>
+                    </tr>
+                    <tr>
+                        <td>5.3</td>
+                        <td>Capacitación usuarios administradores</td>
+                        <td>Axioma</td>
+                        <td class="hours-included">2h</td>
+                        <td>-</td>
+                        <td>Grabación sesión</td>
+                    </tr>
+                    <tr>
+                        <td>5.4</td>
+                        <td>Entregar manuales de usuario</td>
+                        <td>Axioma</td>
+                        <td class="hours-included">-</td>
+                        <td>-</td>
+                        <td>PDF Manuales</td>
+                    </tr>
+                    <tr>
+                        <td>5.5</td>
+                        <td>Capacitación en uso de Axio (chatbot IA) - OPCIONAL</td>
+                        <td>Axioma</td>
+                        <td>-</td>
+                        <td class="hours-optional">1h</td>
+                        <td>Grabación sesión</td>
+                    </tr>
+                    <tr>
+                        <td>5.6</td>
+                        <td>Crear videos tutoriales básicos - OPCIONAL</td>
+                        <td>Axioma</td>
+                        <td>-</td>
+                        <td class="hours-optional">4h</td>
+                        <td>Videos en portal</td>
+                    </tr>
+                    <tr>
+                        <td colspan="3" class="subtotal">Subtotal Fase 5:</td>
+                        <td class="subtotal">10h</td>
+                        <td class="subtotal">5h</td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- FASE 6 -->
+        <section class="no-break">
+            <h3>FASE 6: GO-LIVE Y MONITOREO (Semana 4-5)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">#</th>
+                        <th>Tarea</th>
+                        <th style="width: 100px;">Responsable</th>
+                        <th style="width: 60px;">Horas Incluidas</th>
+                        <th style="width: 60px;">Horas Opcionales</th>
+                        <th style="width: 120px;">Entregable</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>6.1</td>
+                        <td>Deploy a producción (verificación completa)</td>
+                        <td>Axioma</td>
+                        <td class="hours-included">2h</td>
+                        <td>-</td>
+                        <td>Ambiente productivo</td>
+                    </tr>
+                    <tr>
+                        <td>6.2</td>
+                        <td>Configurar notificaciones por email (errores, procesamiento completo)</td>
+                        <td>Axioma</td>
+                        <td class="hours-included">2h</td>
+                        <td>-</td>
+                        <td>Emails activos</td>
+                    </tr>
+                    <tr>
+                        <td>6.3</td>
+                        <td>Crear usuarios con roles (Admin, Operador, Consulta)</td>
+                        <td>Axioma</td>
+                        <td class="hours-included">1h</td>
+                        <td>-</td>
+                        <td>Usuarios creados</td>
+                    </tr>
+                    <tr>
+                        <td>6.4</td>
+                        <td>Comunicación a usuarios (plan básico + emails de bienvenida)</td>
+                        <td>Cliente + Axioma</td>
+                        <td class="hours-included">1h</td>
+                        <td>-</td>
+                        <td>Comunicados enviados</td>
+                    </tr>
+                    <tr>
+                        <td>6.5</td>
+                        <td>Procesamiento piloto de primeros 100 documentos reales</td>
+                        <td>Cliente + Axioma</td>
+                        <td class="hours-included">4h</td>
+                        <td>-</td>
+                        <td>Documentos procesados</td>
+                    </tr>
+                    <tr>
+                        <td>6.6</td>
+                        <td>Ajuste de reglas/prompts según resultados piloto</td>
+                        <td>Axioma</td>
+                        <td class="hours-included">3h</td>
+                        <td>-</td>
+                        <td>Ajustes aplicados</td>
+                    </tr>
+                    <tr>
+                        <td colspan="3" class="subtotal">Subtotal Fase 6:</td>
+                        <td class="subtotal">13h</td>
+                        <td class="subtotal">-</td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <div class="page-break"></div>
+
+        <!-- FASE 7 -->
+        <section class="no-break">
+            <h3>FASE 7: SOPORTE POST GO-LIVE (Semanas 5-6) - OPCIONAL</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">#</th>
+                        <th>Tarea</th>
+                        <th style="width: 100px;">Responsable</th>
+                        <th style="width: 60px;">Horas Incluidas</th>
+                        <th style="width: 60px;">Horas Opcionales</th>
+                        <th style="width: 120px;">Entregable</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>7.1</td>
+                        <td>Resolución de tickets de soporte - PRIORITARIO por lanzamiento</td>
+                        <td>Axioma</td>
+                        <td>-</td>
+                        <td class="hours-optional">10h</td>
+                        <td>Tickets cerrados</td>
+                    </tr>
+                    <tr>
+                        <td>7.2</td>
+                        <td>Monitoreo diario de métricas (precisión, errores)</td>
+                        <td>Axioma</td>
+                        <td>-</td>
+                        <td class="hours-optional">10h</td>
+                        <td>Reportes diarios</td>
+                    </tr>
+                    <tr>
+                        <td>7.3</td>
+                        <td>Ajuste fino de prompts según feedback</td>
+                        <td>Axioma</td>
+                        <td>-</td>
+                        <td class="hours-optional">8h</td>
+                        <td>Prompts mejorados</td>
+                    </tr>
+                    <tr>
+                        <td>7.4</td>
+                        <td>Reuniones de seguimiento semanales</td>
+                        <td>Axioma + Cliente</td>
+                        <td>-</td>
+                        <td class="hours-optional">4h</td>
+                        <td>Actas reuniones</td>
+                    </tr>
+                    <tr>
+                        <td>7.5</td>
+                        <td>Reunión de cierre y lessons learned</td>
+                        <td>Axioma + Cliente</td>
+                        <td>-</td>
+                        <td class="hours-optional">1h</td>
+                        <td>Documento final</td>
+                    </tr>
+                    <tr>
+                        <td colspan="3" class="subtotal">Subtotal Fase 7:</td>
+                        <td class="subtotal">-</td>
+                        <td class="subtotal">33h</td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+            <p style="font-size: 7.5pt; color: #92400e; margin-top: 5px;"><strong>Nota:</strong> Esta fase es opcional. El cliente puede contratar soporte extendido según necesidad.</p>
+        </section>
+
+        <div class="success-box" style="margin: 20px 0;">
+            <strong>TOTAL PAQUETE BASE:</strong><br>
+            Horas Incluidas: <strong>67h</strong> | Horas Opcionales: <strong>40h</strong><br>
+            (Fase 1: 5h | Fase 3: 19h | Fase 4: 20h+2h | Fase 5: 10h+5h | Fase 6: 13h | Fase 7: 33h)
+        </div>
+
+        <div class="page-break"></div>
+
+        <!-- ADICIONALES OPCIONALES -->
+        <h2>ADICIONALES OPCIONALES (se cotizan aparte)</h2>
+
+        <!-- OPCIÓN 1 -->
+        <div class="optional-section">
+            <h4>OPCIÓN 1: API Pública para Integración Externa (12h)</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">#</th>
+                        <th>Tarea</th>
+                        <th style="width: 50px;">Horas</th>
+                        <th>Descripción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>A1.1</td>
+                        <td>Activar API pública de Parse</td>
+                        <td>2h</td>
+                        <td>Endpoint POST /api/v1/parse/document</td>
+                    </tr>
+                    <tr>
+                        <td>A1.2</td>
+                        <td>Generar API Keys de cliente</td>
+                        <td>1h</td>
+                        <td>Autenticación con Bearer Token</td>
+                    </tr>
+                    <tr>
+                        <td>A1.3</td>
+                        <td>Documentar API (Postman/OpenAPI)</td>
+                        <td>3h</td>
+                        <td>Collection completa con ejemplos</td>
+                    </tr>
+                    <tr>
+                        <td>A1.4</td>
+                        <td>Configurar webhooks de notificación</td>
+                        <td>4h</td>
+                        <td>Callback cuando procesamiento completa</td>
+                    </tr>
+                    <tr>
+                        <td>A1.5</td>
+                        <td>Testing de integración con sistema cliente</td>
+                        <td>2h</td>
+                        <td>Pruebas end-to-end</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p><strong>Consideraciones:</strong> Permite integrar Parse con sistemas externos (ERPs, CRMs). Incluye autenticación, rate limiting y monitoreo de uso.</p>
+        </div>
+
+        <!-- OPCIÓN 2 -->
+        <div class="optional-section">
+            <h4>OPCIÓN 2: Conector API Bidireccional (PULL/PUSH desde ERP) (28h)</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">#</th>
+                        <th>Tarea</th>
+                        <th style="width: 50px;">Horas</th>
+                        <th>Descripción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>A2.1</td>
+                        <td>Análisis de API del ERP cliente</td>
+                        <td>4h</td>
+                        <td>Documentación, endpoints, autenticación</td>
+                    </tr>
+                    <tr>
+                        <td>A2.2</td>
+                        <td>Configurar conector PULL (importar datos desde ERP)</td>
+                        <td>8h</td>
+                        <td>Órdenes de compra, maestros, etc.</td>
+                    </tr>
+                    <tr>
+                        <td>A2.3</td>
+                        <td>Configurar conector PUSH (exportar documentos procesados)</td>
+                        <td>8h</td>
+                        <td>Envío automático al ERP</td>
+                    </tr>
+                    <tr>
+                        <td>A2.4</td>
+                        <td>Mapeo de campos (Parse ↔ ERP)</td>
+                        <td>4h</td>
+                        <td>Wizard de configuración visual</td>
+                    </tr>
+                    <tr>
+                        <td>A2.5</td>
+                        <td>Testing y validación de sincronización</td>
+                        <td>4h</td>
+                        <td>Pruebas bidireccionales</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p><strong>Consideraciones:</strong> Requiere API REST del ERP. Soporta OAuth 2.0, API Key, Basic Auth. Incluye sistema de staging para validación manual antes de importar.</p>
+        </div>
+
+        <!-- OPCIÓN 3 -->
+        <div class="optional-section">
+            <h4>OPCIÓN 3: Conexión LEGACY (Carpeta Local + Sistemas Legacy) (22h)</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">#</th>
+                        <th>Tarea</th>
+                        <th style="width: 50px;">Horas</th>
+                        <th>Descripción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>A3.1</td>
+                        <td>Configurar servicio de monitoreo de carpeta local</td>
+                        <td>4h</td>
+                        <td>File watcher con detección de nuevos archivos</td>
+                    </tr>
+                    <tr>
+                        <td>A3.2</td>
+                        <td>Implementar procesamiento automático desde carpeta</td>
+                        <td>3h</td>
+                        <td>Upload automático a Parse al detectar archivo</td>
+                    </tr>
+                    <tr>
+                        <td>A3.3</td>
+                        <td>Configurar carpetas de salida (procesados/errores)</td>
+                        <td>2h</td>
+                        <td>Organización automática post-procesamiento</td>
+                    </tr>
+                    <tr>
+                        <td>A3.4</td>
+                        <td>Configurar reglas de filtrado por nombre de archivo</td>
+                        <td>2h</td>
+                        <td>Patrones regex para clasificación</td>
+                    </tr>
+                    <tr>
+                        <td>A3.5</td>
+                        <td>Implementar sistema de logs y notificaciones</td>
+                        <td>3h</td>
+                        <td>Registro detallado de operaciones</td>
+                    </tr>
+                    <tr>
+                        <td>A3.6</td>
+                        <td>Crear servicio Windows/Linux para ejecución permanente</td>
+                        <td>4h</td>
+                        <td>Daemon/Service con reinicio automático</td>
+                    </tr>
+                    <tr>
+                        <td>A3.7</td>
+                        <td>Testing completo con volumen real de documentos</td>
+                        <td>2h</td>
+                        <td>Pruebas de stress y validación</td>
+                    </tr>
+                    <tr>
+                        <td>A3.8</td>
+                        <td>Documentación técnica y manual de configuración</td>
+                        <td>2h</td>
+                        <td>Guía de instalación y troubleshooting</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p><strong>Consideraciones:</strong> Ideal para clientes con sistemas legacy sin APIs o que reciben documentos por FTP/carpetas compartidas. Requiere acceso a servidor/PC cliente para instalación del servicio. Soporta múltiples carpetas monitoreadas y procesamiento batch.</p>
+        </div>
+
+        <!-- OPCIÓN 4 -->
+        <div class="optional-section">
+            <h4>OPCIÓN 4: Procesamiento de Emails Automático (IMAP/POP3) (16h)</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">#</th>
+                        <th>Tarea</th>
+                        <th style="width: 50px;">Horas</th>
+                        <th>Descripción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>A4.1</td>
+                        <td>Configurar conexión IMAP a casilla de email</td>
+                        <td>2h</td>
+                        <td>Gmail, Outlook, Exchange</td>
+                    </tr>
+                    <tr>
+                        <td>A4.2</td>
+                        <td>Desarrollar servicio de lectura de emails</td>
+                        <td>6h</td>
+                        <td>Cron job cada 5 minutos</td>
+                    </tr>
+                    <tr>
+                        <td>A4.3</td>
+                        <td>Extracción de adjuntos PDF/imagen</td>
+                        <td>4h</td>
+                        <td>Filtrado por remitente/asunto</td>
+                    </tr>
+                    <tr>
+                        <td>A4.4</td>
+                        <td>Procesamiento automático con Parse</td>
+                        <td>2h</td>
+                        <td>Pipeline completo sin intervención</td>
+                    </tr>
+                    <tr>
+                        <td>A4.5</td>
+                        <td>Testing y configuración de reglas</td>
+                        <td>2h</td>
+                        <td>Validación de flujo completo</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p><strong>Consideraciones:</strong> Ideal para recibir facturas por email. Soporta filtrado por remitente, asunto, palabras clave. Notifica errores por email.</p>
+        </div>
+
+        <!-- RESUMEN DE COSTOS -->
+        <section>
+            <h2>Resumen de Costos</h2>
+            <table class="summary-table">
+                <thead>
+                    <tr>
+                        <th>Concepto</th>
+                        <th style="text-align: center; width: 100px;">Horas Incluidas</th>
+                        <th style="text-align: center; width: 100px;">Horas Opcionales</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Paquete Base Completo (Fases 1-6)</strong></td>
+                        <td style="text-align: center;"><strong>67h</strong></td>
+                        <td style="text-align: center;">7h</td>
+                    </tr>
+                    <tr>
+                        <td>Fase 7: Soporte Post Go-Live</td>
+                        <td style="text-align: center;">-</td>
+                        <td style="text-align: center;">33h</td>
+                    </tr>
+                    <tr>
+                        <td>API Pública</td>
+                        <td style="text-align: center;">-</td>
+                        <td style="text-align: center;">12h</td>
+                    </tr>
+                    <tr>
+                        <td>Conector API Bidireccional</td>
+                        <td style="text-align: center;">-</td>
+                        <td style="text-align: center;">28h</td>
+                    </tr>
+                    <tr>
+                        <td>Conexión LEGACY (Carpeta Local)</td>
+                        <td style="text-align: center;">-</td>
+                        <td style="text-align: center;">22h</td>
+                    </tr>
+                    <tr>
+                        <td>Procesamiento de Emails</td>
+                        <td style="text-align: center;">-</td>
+                        <td style="text-align: center;">16h</td>
+                    </tr>
+                    <tr class="total-row">
+                        <td><strong>TOTAL (con todos los opcionales)</strong></td>
+                        <td style="text-align: center;"><strong>67h</strong></td>
+                        <td style="text-align: center;"><strong>118h</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <div class="page-break"></div>
+
+        <!-- MATRIZ RACI -->
+        <section class="no-break">
+            <h2>Matriz de Responsabilidades (RACI)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Actividad</th>
+                        <th style="text-align: center; width: 80px;">Axioma</th>
+                        <th style="text-align: center; width: 80px;">Cliente IT</th>
+                        <th style="text-align: center; width: 100px;">Cliente Negocio</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Configuración de IA</td>
+                        <td style="text-align: center;">R,A</td>
+                        <td style="text-align: center;">I</td>
+                        <td style="text-align: center;">C</td>
+                    </tr>
+                    <tr>
+                        <td>Importar maestros</td>
+                        <td style="text-align: center;">R,A</td>
+                        <td style="text-align: center;">C</td>
+                        <td style="text-align: center;">C</td>
+                    </tr>
+                    <tr>
+                        <td>Configurar reglas de negocio</td>
+                        <td style="text-align: center;">R</td>
+                        <td style="text-align: center;">I</td>
+                        <td style="text-align: center;">A</td>
+                    </tr>
+                    <tr>
+                        <td>Creación usuarios</td>
+                        <td style="text-align: center;">R,A</td>
+                        <td style="text-align: center;">C</td>
+                        <td style="text-align: center;">C</td>
+                    </tr>
+                    <tr>
+                        <td>Capacitación</td>
+                        <td style="text-align: center;">R,A</td>
+                        <td style="text-align: center;">I</td>
+                        <td style="text-align: center;">C</td>
+                    </tr>
+                    <tr>
+                        <td>Testing</td>
+                        <td style="text-align: center;">R</td>
+                        <td style="text-align: center;">C</td>
+                        <td style="text-align: center;">A</td>
+                    </tr>
+                    <tr>
+                        <td>Go-Live</td>
+                        <td style="text-align: center;">R,A</td>
+                        <td style="text-align: center;">C</td>
+                        <td style="text-align: center;">I</td>
+                    </tr>
+                    <tr>
+                        <td>Soporte inicial</td>
+                        <td style="text-align: center;">R,A</td>
+                        <td style="text-align: center;">C</td>
+                        <td style="text-align: center;">I</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p style="font-size: 8pt; margin-top: 5px;"><strong>Leyenda:</strong> R=Responsable | A=Aprueba | C=Consultado | I=Informado</p>
+        </section>
+
+        <!-- REQUISITOS PREVIOS -->
+        <section>
+            <h2>Requisitos Previos del Cliente</h2>
+
+            <h3>Información Funcional</h3>
+            <ul class="checklist">
+                <li>Lista de usuarios (nombre, email, rol)</li>
+                <li><strong>Muestras de documentos</strong> (50-100 documentos de cada tipo a procesar)</li>
+                <li><strong>Plan de cuentas contable</strong> (CSV/Excel con códigos y descripciones)</li>
+                <li><strong>Maestro de proveedores</strong> (CUIT, razón social, datos fiscales)</li>
+                <li>Reglas de validación específicas del negocio</li>
+                <li>Flujos de aprobación (si aplica)</li>
+            </ul>
+
+            <h3>Servicios Externos</h3>
+            <ul class="checklist">
+                <li><strong>Casilla de email:</strong> Gmail/Outlook para notificaciones (SMTP configurado)</li>
+                <li><strong>Documentación técnica de APIs externas</strong> y entorno sandbox para pruebas (si aplica integración con ERPs)</li>
+            </ul>
+
+            <h3>Recursos Humanos</h3>
+            <ul class="checklist">
+                <li>Sponsor del proyecto (C-level)</li>
+                <li>Referente funcional de finanzas/contabilidad</li>
+                <li>Referente funcional de compras (si aplica)</li>
+                <li>Key users para UAT (2-3 usuarios)</li>
+            </ul>
+        </section>
+
+        <div class="page-break"></div>
+
+        <!-- ENTREGABLES -->
+        <section class="no-break">
+            <h2>Entregables por Fase</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 100px;">Fase</th>
+                        <th>Entregables</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Fase 1</strong></td>
+                        <td>Acta kickoff, Tenant configurado, Maestros validados</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Fase 2</strong></td>
+                        <td>No aplica (infraestructura gestionada por Axioma)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Fase 3</strong></td>
+                        <td>IAs configuradas, Pattern learning activo, Reporte de precisión, Prompts optimizados</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Fase 4</strong></td>
+                        <td>Reglas IA creadas, Lookups configurados, Maestros importados, Dimensiones activas, Axio funcionando (opcional)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Fase 5</strong></td>
+                        <td>UAT aprobado, Capacitaciones realizadas, Manuales entregados, Videos tutoriales (opcional)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Fase 6</strong></td>
+                        <td>Sistema en producción, Usuarios activos, 100 documentos piloto procesados, Ajustes aplicados</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Fase 7</strong></td>
+                        <td>Tickets resueltos, Reportes de monitoreo, Prompts optimizados, Documentación de cierre (opcional)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- SUPUESTOS Y EXCLUSIONES -->
+        <section>
+            <h2>Supuestos y Exclusiones</h2>
+
+            <h3>Supuestos</h3>
+            <ol>
+                <li>Parse es una aplicación web completamente gestionada por Axioma</li>
+                <li>El cliente proveerá usuarios para testing en tiempo y forma</li>
+                <li>La capacitación del paquete base es remota vía videollamada</li>
+                <li>El cliente tiene muestras de documentos representativas para entrenamiento</li>
+                <li>Axioma gestiona toda la infraestructura de IA (API Keys, modelos, costos)</li>
+            </ol>
+
+            <h3>Exclusiones (NO incluido en el paquete base)</h3>
+            <ul>
+                <li>Integración con APIs externas/ERPs (se cotiza en Opción 2)</li>
+                <li>Desarrollo de funcionalidades custom no contempladas</li>
+                <li>Soporte extendido post-estabilización (se cotiza en Fase 7)</li>
+                <li>Procesamiento de emails (se cotiza en Opción 3)</li>
+                <li>API pública (se cotiza en Opción 1)</li>
+            </ul>
+        </section>
+
+        <!-- RIESGOS -->
+        <section>
+            <h2>Riesgos y Mitigaciones</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Riesgo</th>
+                        <th style="width: 90px;">Probabilidad</th>
+                        <th style="width: 80px;">Impacto</th>
+                        <th>Mitigación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Documentos con formato no estándar (calidad muy baja)</td>
+                        <td>Media</td>
+                        <td>Alto</td>
+                        <td>Testing exhaustivo en Fase 3, uso de Sharp para optimización, múltiples motores de IA</td>
+                    </tr>
+                    <tr>
+                        <td>Precisión de IA no alcanza EL NIVEL esperado</td>
+                        <td>Baja</td>
+                        <td>Alto</td>
+                        <td>Ajuste de prompts, uso de pattern learning, combinación de múltiples modelos</td>
+                    </tr>
+                    <tr>
+                        <td>Plan de cuentas del cliente está desactualizado</td>
+                        <td>Media</td>
+                        <td>Medio</td>
+                        <td>Validación en Fase 1, actualización antes de Fase 4</td>
+                    </tr>
+                    <tr>
+                        <td>Resistencia al cambio de usuarios</td>
+                        <td>Baja</td>
+                        <td>Medio</td>
+                        <td>Capacitación gradual, piloto con usuarios clave, soporte extendido</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- CRONOGRAMA -->
+        <section class="no-break">
+            <h2>Cronograma Resumido</h2>
+            <div class="info-box">
+                <strong>Semana 1:</strong> Preparación y análisis (5h)<br>
+                <strong>Semana 2:</strong> Configuración de IA (19h)<br>
+                <strong>Semana 3:</strong> Reglas de negocio y validaciones (20h + 2h opcionales)<br>
+                <strong>Semana 4:</strong> Testing, capacitación y Go-Live (23h + 5h opcionales)<br>
+                <strong>Semanas 5-6:</strong> Soporte post go-live (33h opcionales)
+            </div>
+            <p style="text-align: center; margin-top: 15px;"><strong>Total: 3-4 semanas | 67h incluidas + 40h opcionales</strong></p>
+        </section>
+
+        <!-- PRÓXIMOS PASOS -->
+        <section>
+            <h2>Próximos Pasos</h2>
+            <ol>
+                <li><strong>Validar alcance con el cliente</strong>
+                    <ul>
+                        <li>Revisar paquete base vs opcionales</li>
+                        <li>Confirmar tipos de documentos a procesar (facturas, recibos, despachos, etc.)</li>
+                        <li>Estimar volumetría mensual</li>
+                        <li>Definir si requieren API pública o conector ERP</li>
+                        <li>Confirmar si requieren soporte extendido</li>
+                    </ul>
+                </li>
+                <li><strong>Preparar propuesta comercial</strong>
+                    <ul>
+                        <li>Costear horas incluidas y opcionales por separado</li>
+                        <li>Incluir costos recurrentes mensuales de Parse (licenciamiento SaaS)</li>
+                        <li>Estimar ROI: tiempo ahorrado vs costo de implementación</li>
+                    </ul>
+                </li>
+                <li><strong>Validar requisitos previos</strong>
+                    <ul>
+                        <li>Confirmar que el cliente tiene muestras de documentos (50-100 por tipo)</li>
+                        <li>Validar disponibilidad de plan de cuentas y maestros</li>
+                    </ul>
+                </li>
+                <li><strong>Agendar kickoff</strong>
+                    <ul>
+                        <li>Presentar plan de onboarding</li>
+                        <li>Alinear expectativas de timeline y precisión de IA</li>
+                        <li>Definir equipo del cliente (sponsor, funcional)</li>
+                    </ul>
+                </li>
+            </ol>
+        </section>
+
+        <!-- Footer -->
+        <div class="footer">
+            <strong>Documento generado:</strong> 2025-12-18 |
+            <strong>Autor:</strong> Equipo Axioma |
+            <strong>Versión:</strong> 3.1 |
+            <strong>Estado:</strong> Listo para propuesta comercial
+        </div>
+    </div>
+</body>
+</html>
