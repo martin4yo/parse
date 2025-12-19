@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parse - Propuesta de Valor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:ital,wght@1,700;1,800;1,900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #352151 0%, #8E6AAA 100%);
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #352151 0%, #8E6AAA 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        header .logo-container {
+            margin-bottom: 20px;
+        }
+
+        header .logo-container img {
+            max-width: 250px;
+            width: 50%;
+            height: auto;
+        }
+
+        header h1 {
+            font-family: 'Rubik', sans-serif;
+            font-style: italic;
+            font-size: 4em;
+            margin-bottom: 15px;
+            font-weight: 900;
+            letter-spacing: -2px;
+            text-transform: uppercase;
+        }
+
+        header .tagline {
+            font-size: 1.4em;
+            opacity: 0.95;
+            font-weight: 300;
+            line-height: 1.4;
+        }
+
+        .hero-section {
+            background: #FCE5B7;
+            padding: 40px 50px;
+            text-align: center;
+            border-bottom: 4px solid #F8D820;
+        }
+
+        .hero-section h2 {
+            color: #352151;
+            font-size: 2.2em;
+            margin-bottom: 20px;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+
+        .hero-section .highlight {
+            color: #8E6AAA;
+            font-weight: 900;
+        }
+
+        .value-props {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0;
+            margin: 50px 30px;
+        }
+
+        .value-card {
+            text-align: center;
+            padding: 30px 20px;
+            border-right: 2px solid #f0f0f0;
+        }
+
+        .value-card:last-child {
+            border-right: none;
+        }
+
+        .value-card .icon {
+            font-size: 3.5em;
+            margin-bottom: 15px;
+        }
+
+        .value-card .metric {
+            font-size: 3em;
+            font-weight: 900;
+            color: #352151;
+            margin-bottom: 10px;
+            line-height: 1;
+        }
+
+        .value-card .label {
+            font-size: 1.1em;
+            color: #8E6AAA;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .problem-solution {
+            padding: 50px 50px;
+            background: linear-gradient(to bottom, white 0%, #f9f9f9 100%);
+        }
+
+        .section-title {
+            text-align: center;
+            color: #352151;
+            font-size: 2em;
+            margin-bottom: 40px;
+            font-weight: 700;
+        }
+
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .comparison-card {
+            padding: 30px;
+            border-radius: 12px;
+            position: relative;
+        }
+
+        .comparison-card.before {
+            background: #FFE5E5;
+            border-left: 5px solid #E74C3C;
+        }
+
+        .comparison-card.after {
+            background: #E5F9E5;
+            border-left: 5px solid #27AE60;
+        }
+
+        .comparison-card h3 {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .comparison-card.before h3 {
+            color: #C0392B;
+        }
+
+        .comparison-card.after h3 {
+            color: #27AE60;
+        }
+
+        .comparison-card ul {
+            list-style: none;
+        }
+
+        .comparison-card li {
+            padding: 10px 0;
+            font-size: 1em;
+            line-height: 1.5;
+            position: relative;
+            padding-left: 30px;
+        }
+
+        .comparison-card.before li::before {
+            content: '✗';
+            position: absolute;
+            left: 0;
+            color: #E74C3C;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .comparison-card.after li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #27AE60;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .key-message {
+            background: linear-gradient(135deg, #352151 0%, #8E6AAA 100%);
+            color: white;
+            padding: 50px 50px;
+            text-align: center;
+        }
+
+        .key-message h2 {
+            font-size: 2.5em;
+            margin-bottom: 25px;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+
+        .key-message p {
+            font-size: 1.3em;
+            line-height: 1.6;
+            opacity: 0.95;
+        }
+
+        .key-message .emphasis {
+            background: #F8D820;
+            color: #352151;
+            padding: 5px 15px;
+            border-radius: 5px;
+            font-weight: 700;
+        }
+
+        .features-grid {
+            padding: 50px 50px;
+            background: white;
+        }
+
+        .features-list {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: start;
+            gap: 15px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            border-left: 4px solid #8E6AAA;
+        }
+
+        .feature-item .icon {
+            font-size: 2em;
+            min-width: 40px;
+        }
+
+        .feature-item .content h4 {
+            color: #352151;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+
+        .feature-item .content p {
+            color: #666;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+
+        .cta-section {
+            background: #FCE5B7;
+            padding: 40px 50px;
+            text-align: center;
+        }
+
+        .cta-section h2 {
+            color: #352151;
+            font-size: 2em;
+            margin-bottom: 25px;
+        }
+
+        .cta-button {
+            display: inline-block;
+            padding: 18px 50px;
+            background: linear-gradient(135deg, #352151 0%, #8E6AAA 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 1.2em;
+            transition: transform 0.3s, box-shadow 0.3s;
+            box-shadow: 0 10px 30px rgba(53, 33, 81, 0.3);
+        }
+
+        .cta-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(53, 33, 81, 0.4);
+        }
+
+        footer {
+            background: #352151;
+            color: white;
+            padding: 30px 50px;
+            text-align: center;
+        }
+
+        footer .parse-logo {
+            font-family: 'Rubik', sans-serif;
+            font-style: italic;
+            font-size: 2em;
+            font-weight: 900;
+            color: white;
+            margin-bottom: 15px;
+            letter-spacing: -2px;
+            text-transform: uppercase;
+        }
+
+        footer .axioma-logo {
+            margin-bottom: 20px;
+        }
+
+        footer .axioma-logo img {
+            height: 35px;
+            width: auto;
+        }
+
+        footer .contact-info {
+            font-size: 0.9em;
+            line-height: 1.8;
+            opacity: 0.9;
+        }
+
+        footer .contact-info a {
+            color: #FCE5B7;
+            text-decoration: none;
+        }
+
+        footer .contact-info a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .value-props {
+                grid-template-columns: 1fr;
+            }
+
+            .value-card {
+                border-right: none;
+                border-bottom: 2px solid #f0f0f0;
+            }
+
+            .value-card:last-child {
+                border-bottom: none;
+            }
+
+            .comparison {
+                grid-template-columns: 1fr;
+            }
+
+            .features-list {
+                grid-template-columns: 1fr;
+            }
+
+            header h1 {
+                font-size: 3em;
+            }
+
+            .hero-section h2 {
+                font-size: 1.6em;
+            }
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .container {
+                box-shadow: none;
+                border-radius: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="logo-container">
+                <img src="axioma_logo_300x500_invertido.png" alt="AXIOMA">
+            </div>
+            <h1>Parse</h1>
+            <p class="tagline">Transforme facturas en datos<br>Transforme empleados en analistas</p>
+        </header>
+
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <h2>
+                Deje que <span class="highlight">Parse</span> tipee<br>
+                Para que su equipo <span class="highlight">piense</span>
+            </h2>
+        </section>
+
+        <!-- Value Metrics -->
+        <section class="value-props">
+            <div class="value-card">
+                <div class="icon">⚡</div>
+                <div class="metric">80%</div>
+                <div class="label">Más rápido</div>
+            </div>
+            <div class="value-card">
+                <div class="icon">✓</div>
+                <div class="metric">95%</div>
+                <div class="label">Menos errores</div>
+            </div>
+            <div class="value-card">
+                <div class="icon">🎯</div>
+                <div class="metric">99%</div>
+                <div class="label">Precisión OCR</div>
+            </div>
+        </section>
+
+        <!-- ROI Metrics -->
+        <section style="background: white; padding: 40px 50px; text-align: center;">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; max-width: 800px; margin: 0 auto;">
+                <div>
+                    <div style="font-size: 2.5em; font-weight: 900; color: #8E6AAA; margin-bottom: 8px;">3-6</div>
+                    <div style="font-size: 1em; color: #666; font-weight: 600;">Meses ROI</div>
+                </div>
+                <div>
+                    <div style="font-size: 2.5em; font-weight: 900; color: #8E6AAA; margin-bottom: 8px;">10-15h</div>
+                    <div style="font-size: 1em; color: #666; font-weight: 600;">Semanales ahorradas</div>
+                </div>
+                <div>
+                    <div style="font-size: 2.5em; font-weight: 900; color: #8E6AAA; margin-bottom: 8px;">70%</div>
+                    <div style="font-size: 1em; color: #666; font-weight: 600;">Menos tickets soporte</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Problem vs Solution -->
+        <section class="problem-solution">
+            <h2 class="section-title">El Cambio que su Organización Necesita</h2>
+
+            <div class="comparison">
+                <div class="comparison-card before">
+                    <h3><span>❌</span> Sin Parse</h3>
+                    <ul>
+                        <li>Empleados dedicados a tipear datos manualmente</li>
+                        <li>10-15 horas semanales perdidas en carga</li>
+                        <li>Errores de transcripción que generan pérdidas</li>
+                        <li>Alto volumen de tickets de soporte por errores</li>
+                        <li>Personal calificado en tareas repetitivas sin valor</li>
+                        <li>Riesgo de fraude por falta de validaciones automáticas</li>
+                        <li>Documentación desorganizada y difícil de auditar</li>
+                    </ul>
+                </div>
+
+                <div class="comparison-card after">
+                    <h3><span>✅</span> Con Parse</h3>
+                    <ul>
+                        <li>Extracción automática con 99% de precisión OCR</li>
+                        <li>Procesamiento en segundos, 80% más rápido</li>
+                        <li>95% menos errores de carga manual</li>
+                        <li>70% reducción en tickets de soporte</li>
+                        <li>Prevención de fraude: ahorro de $5K-20K USD/año</li>
+                        <li>Equipo enfocado en análisis y control de gestión</li>
+                        <li>ROI garantizado en 3-6 meses</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Key Message -->
+        <section class="key-message">
+            <h2>La Verdadera Propuesta de Valor</h2>
+            <p>
+                Parse no solo acelera el procesamiento de documentos.<br>
+                <strong>Parse libera a su equipo de tareas mecánicas para que agregue valor real.</strong>
+            </p>
+            <br>
+            <p>
+                Convierta empleados que <span class="emphasis">tipean</span> en profesionales que
+                <span class="emphasis">analizan</span>, <span class="emphasis">controlan</span> y
+                <span class="emphasis">toman decisiones</span>.
+            </p>
+        </section>
+
+        <!-- Features -->
+        <section class="features-grid">
+            <h2 class="section-title">Cómo Funciona Parse</h2>
+
+            <div class="features-list">
+                <div class="feature-item">
+                    <div class="icon">📄</div>
+                    <div class="content">
+                        <h4>Carga Inteligente</h4>
+                        <p>Arrastre PDFs o imágenes, o procese directamente desde correo electrónico con extracción automática de adjuntos.</p>
+                    </div>
+                </div>
+
+                <div class="feature-item">
+                    <div class="icon">🤖</div>
+                    <div class="content">
+                        <h4>Extracción con IA Multi-Proveedor</h4>
+                        <p>99% de precisión OCR con Gemini, Claude, OpenAI u Ollama. Extrae cabecera, items, cantidades, precios, impuestos y totales.</p>
+                    </div>
+                </div>
+
+                <div class="feature-item">
+                    <div class="icon">🎯</div>
+                    <div class="content">
+                        <h4>Validaciones Automáticas</h4>
+                        <p>Verificación de CUIT, cálculos de impuestos, formatos y coherencia. Previene fraude y errores costosos.</p>
+                    </div>
+                </div>
+
+                <div class="feature-item">
+                    <div class="icon">⚙️</div>
+                    <div class="content">
+                        <h4>Reglas sin Programación</h4>
+                        <p>Configure reglas de negocio personalizadas para cuentas contables, centros de costo y clasificaciones sin escribir código.</p>
+                    </div>
+                </div>
+
+                <div class="feature-item">
+                    <div class="icon">🔗</div>
+                    <div class="content">
+                        <h4>Integración Total</h4>
+                        <p>Sincronización bidireccional con SQL Server, API REST completa y exportación a Excel/CSV/JSON para su ERP.</p>
+                    </div>
+                </div>
+
+                <div class="feature-item">
+                    <div class="icon">📊</div>
+                    <div class="content">
+                        <h4>Documentación Organizada</h4>
+                        <p>100% de documentos organizados y auditables. Reducción del 70% en tickets de soporte por errores.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA -->
+        <section class="cta-section">
+            <h2>Invierta en Tecnología, Ahorre en Operaciones</h2>
+            <p style="color: #555; margin-bottom: 20px; font-size: 1.1em;">
+                Cada minuto que su equipo dedica a tipear es una oportunidad perdida de agregar valor.
+            </p>
+            <p style="color: #352151; margin-bottom: 30px; font-size: 1em; font-weight: 600;">
+                ⚡ Implementación en 2-3 semanas | 💰 ROI garantizado en 3-6 meses
+            </p>
+            <a href="#contacto" class="cta-button">Solicitar Demo</a>
+        </section>
+
+        <!-- Footer -->
+        <footer id="contacto">
+            <div class="parse-logo">Parse</div>
+            <div class="axioma-logo">
+                <img src="axioma_logo_300x500_invertido.png" alt="AXIOMA">
+            </div>
+            <div class="contact-info">
+                <p><strong>Contacto:</strong></p>
+                <p>
+                    Email: <a href="mailto:contacto@axiomacloud.com">contacto@axiomacloud.com</a>
+                </p>
+                <p>
+                    WhatsApp: <a href="https://wa.me/5491134365783">+54 11 3436-5783</a>
+                </p>
+                <p>
+                    Web: <a href="https://parse.axiomacloud.com/">parse.axiomacloud.com</a>
+                </p>
+                <p style="font-size: 0.85em; margin-top: 10px; opacity: 0.8;">
+                    📍 Buenos Aires, Argentina | Sucursales: Pilar y Miramar
+                </p>
+            </div>
+            <p style="margin-top: 20px; opacity: 0.7; font-size: 0.85em;">
+                © 2025 Parse - Todos los derechos reservados
+            </p>
+        </footer>
+    </div>
+</body>
+</html>

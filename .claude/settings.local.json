@@ -108,18 +108,15 @@
       "Bash(set PORT=3000)",
       "Bash(Stop-Process -Id 4636 -Force)",
       "Bash(Stop-Process -Id 22276 -Force)",
-<<<<<<< HEAD
       "Bash(Stop-Process -Id 24112 -Force)",
       "Bash(cmd.exe /c \"taskkill /F /PID 36756\")",
       "Bash(cmd.exe:*)",
-      "Bash(Stop-Process -Id 31632 -Force)"
-=======
+      "Bash(Stop-Process -Id 31632 -Force)",
       "Bash(magick:*)",
       "Bash(python:*)",
       "Bash(python3:*)",
       "Bash(start http://localhost:3001)",
       "Bash(npx http-server:*)"
->>>>>>> 0e5925ea04ad79596ff2f3840fa907b0299e9398
     ],
     "deny": [],
     "ask": []
