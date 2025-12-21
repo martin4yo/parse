@@ -297,6 +297,133 @@ Ejemplo: `exportacion_2025-01-28_143052.json`
 
 ---
 
+### ✅ Sprint 4 - OAuth 2.0 + API Pública
+
+**Implementado:** 21 de Enero 2025
+
+Sistema completo de OAuth 2.0 y API REST pública para que sistemas externos (ERPs, apps móviles, integraciones custom) puedan consultar documentos procesados.
+
+#### Funcionalidades Principales
+
+**Para Desarrolladores Externos:**
+- ✅ Autenticación OAuth 2.0 (Client Credentials flow)
+- ✅ Consultar documentos procesados con filtros avanzados
+- ✅ Descargar archivos originales (PDF/imágenes)
+- ✅ Marcar documentos como exportados desde sistema externo
+- ✅ Ver líneas e impuestos de facturas
+- ✅ Refresh automático de tokens (1h access, 7d refresh)
+- ✅ Rate limiting configurable por cliente
+
+**Para Administradores:**
+- ✅ UI completa de gestión en `/api-clients`
+- ✅ Crear/editar/eliminar clientes OAuth
+- ✅ Ver estadísticas de uso (requests, latencia, rate limiting)
+- ✅ Regenerar secrets comprometidos
+- ✅ Configurar scopes granulares (read:documents, write:documents, read:files)
+- ✅ Auditoría completa de todos los requests
+
+#### API Endpoints Disponibles
+
+**Autenticación OAuth:**
+```bash
+POST /api/v1/auth/token          # Obtener access token
+POST /api/v1/auth/refresh        # Refrescar token expirado
+POST /api/v1/auth/revoke         # Revocar token
+GET  /api/v1/auth/me             # Info del cliente autenticado
+```
+
+**API Pública de Documentos:**
+```bash
+GET  /api/v1/documents           # Listar documentos con filtros
+GET  /api/v1/documents/:id       # Ver detalles de un documento
+GET  /api/v1/documents/:id/lineas    # Ver líneas de factura
+GET  /api/v1/documents/:id/impuestos # Ver impuestos
+GET  /api/v1/documents/:id/file      # Descargar PDF/imagen original
+POST /api/v1/documents/:id/mark-exported  # Marcar como exportado
+```
+
+**Gestión de Clientes (Admin):**
+```bash
+GET    /api/oauth-clients              # Listar clientes
+POST   /api/oauth-clients              # Crear cliente
+PUT    /api/oauth-clients/:id          # Actualizar cliente
+DELETE /api/oauth-clients/:id          # Eliminar cliente
+GET    /api/oauth-clients/:id/stats    # Ver estadísticas
+POST   /api/oauth-clients/:id/regenerate-secret  # Regenerar secret
+```
+
+#### Implementación Técnica
+
+**Backend (5 archivos nuevos):**
+- `src/services/oauthService.js` (650 líneas) - Servicio OAuth completo
+- `src/middleware/oauthAuth.js` (230 líneas) - Middlewares de autenticación
+- `src/routes/authApi.js` (220 líneas) - Endpoints de autenticación
+- `src/routes/publicApi.js` (450 líneas) - Endpoints de API pública
+- `src/routes/oauthClients.js` (380 líneas) - CRUD de clientes OAuth
+
+**Frontend:**
+- `src/app/(protected)/api-clients/page.tsx` (680 líneas) - UI completa con modales
+
+**Base de Datos (3 tablas nuevas):**
+- `oauth_clients` - Clientes OAuth con credenciales hasheadas
+- `oauth_tokens` - Access y refresh tokens (JWT)
+- `oauth_api_logs` - Auditoría completa de requests
+
+#### Seguridad
+
+- ✅ Client secrets hasheados con bcrypt (10 rounds)
+- ✅ Tokens JWT firmados (RS256, 1h expiración)
+- ✅ Validación de scopes granular
+- ✅ Rate limiting configurable
+- ✅ Logs completos de auditoría (IP, user agent, status codes)
+- ✅ HTTPS obligatorio en producción
+
+#### Ejemplo de Uso
+
+```javascript
+// 1. Obtener token
+const response = await fetch('https://api.parsedemo.axiomacloud.com/v1/auth/token', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    client_id: 'client_abc123',
+    client_secret: 'secret_xyz789',
+    grant_type: 'client_credentials'
+  })
+});
+const { access_token } = await response.json();
+
+// 2. Consultar documentos no exportados
+const docs = await fetch('https://api.parsedemo.axiomacloud.com/v1/documents?exportado=false&limit=100', {
+  headers: { 'Authorization': `Bearer ${access_token}` }
+});
+
+// 3. Marcar como exportado
+await fetch(`https://api.parsedemo.axiomacloud.com/v1/documents/${docId}/mark-exported`, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${access_token}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({ externalSystemId: 'ERP-001' })
+});
+```
+
+#### Diferencias con API Parse Existente
+
+| API Parse (`/api/v1/parse/*`) | API Pública OAuth (`/api/v1/documents/*`) |
+|------|------|
+| **Propósito:** Subir y procesar documentos | **Propósito:** Consultar documentos ya procesados |
+| **Autenticación:** API Key (X-API-Key) | **Autenticación:** OAuth 2.0 Bearer tokens |
+| **Dirección:** IN (upload) | **Dirección:** OUT (query) |
+| **Caso de uso:** PDF → Parse extrae datos | **Caso de uso:** ERP consulta facturas procesadas |
+
+**Documentación completa:**
+- `docs/SESION-2025-01-21-SPRINT4-OAUTH-API-PUBLICA.md` - Documentación técnica exhaustiva
+- `docs/API-PUBLICA-PARSE.md` - Especificación de la API
+
+---
+
 ### ✅ Sistema de Aprendizaje de Patrones (Pattern Learning)
 
 **Implementado:** 17 de Enero 2025
@@ -866,10 +993,117 @@ AI_LOOKUP_MODEL=gemini-2.5-flash
 
 ---
 
-### 🚀 EN DESARROLLO: Sistema de Conector API Bidireccional
+## ✅ SPRINTS COMPLETADOS
 
-**Estado:** 🟡 Sprint 1 - Inicio (21 Enero 2025)
-**Prioridad:** ⭐⭐⭐ MUY ALTA
+### Sprint 1-3: Sistema de API Connectors Bidireccionales ✅ COMPLETADO
+
+**Estado:** ✅ 100% Completado (20 Enero 2025)
+**Documentación:**
+- `docs/SESION-2025-01-20-COMPLETA.md`
+- `docs/SESION-2025-01-21-API-CONNECTORS.md`
+- `docs/SESION-2025-01-22-API-FEATURES.md`
+- `docs/SESION-2025-01-XX-WEBHOOKS-INTEGRATION.md`
+- `docs/SESION-2025-01-XX-EXPORTACION-API-UI.md`
+
+**Implementado:**
+- ✅ PULL: Importar datos desde APIs externas
+- ✅ PUSH: Exportar documentos a sistemas externos
+- ✅ UI completa en `/api-connectors` con wizard de configuración
+- ✅ Sistema de webhooks integrado (7 eventos)
+- ✅ Validación y staging de datos importados
+- ✅ Logs completos de sincronización
+- ✅ OAuth2, API Key, Bearer Token soportados
+- ✅ Exportación manual desde `/exportar`
+
+### Sprint 4: OAuth 2.0 + API Pública ✅ COMPLETADO
+
+**Estado:** ✅ 100% Completado (21 Enero 2025)
+**Documentación:** `docs/SESION-2025-01-21-SPRINT4-OAUTH-API-PUBLICA.md`
+
+**Implementado:**
+- ✅ Sistema OAuth 2.0 completo (Client Credentials flow)
+- ✅ API REST pública `/api/v1/documents/*`
+- ✅ UI de gestión de clientes OAuth `/api-clients`
+- ✅ Rate limiting configurable por cliente
+- ✅ Auditoría completa de requests
+- ✅ 5 archivos backend + 1 frontend + 3 tablas BD
+
+---
+
+## 🚀 PRÓXIMOS SPRINTS RECOMENDADOS
+
+### Sprint 5: Testing + Documentación OpenAPI/Swagger (RECOMENDADO)
+
+**Estado:** ⬜ Pendiente
+**Prioridad:** ⭐⭐⭐ ALTA
+**Estimación:** 3-4 horas
+
+**Objetivo:** Asegurar robustez y mejorar experiencia de developers
+
+**Tareas:**
+1. ✅ Tests unitarios para oauthService
+2. ✅ Tests de integración para flujo OAuth completo
+3. ✅ Colección de Postman/Insomnia
+4. ✅ Documentación OpenAPI 3.0 con swagger-ui-express
+5. ✅ UI interactiva en `/api/v1/docs`
+6. ✅ Scripts de ejemplo (JavaScript, Python, cURL)
+
+**Beneficios:**
+- Mayor confianza para entornos productivos
+- Onboarding más rápido para desarrolladores externos
+- Detección temprana de regresiones
+- Documentación siempre actualizada
+
+---
+
+### Sprint 6: Webhooks para API Pública
+
+**Estado:** ⬜ Pendiente
+**Prioridad:** ⭐⭐ MEDIA
+**Estimación:** 2-3 horas
+
+**Objetivo:** Notificar a clientes OAuth cuando hay nuevos documentos listos para exportar
+
+**Tareas:**
+1. Extender tabla webhooks con `oauthClientId`
+2. Nuevo evento: `document.ready_for_export`
+3. Endpoint `/api/oauth-clients/:id/webhooks` (CRUD)
+4. UI en página `/api-clients` para configurar webhooks
+5. Testing de entrega de webhooks
+
+**Beneficios:**
+- Integraciones más reactivas (push vs pull)
+- Reducción de polling innecesario
+- Mejor UX para sistemas externos
+
+---
+
+### Sprint 7: Dashboard de Métricas Avanzado
+
+**Estado:** ⬜ Pendiente
+**Prioridad:** ⭐⭐ MEDIA
+**Estimación:** 4-5 horas
+
+**Objetivo:** Página `/api-clients/:id/dashboard` con gráficos interactivos
+
+**Tareas:**
+1. Gráfico de requests por día/hora (Chart.js o Recharts)
+2. Distribución de status codes (pie chart)
+3. Latencia promedio en el tiempo (line chart)
+4. Top endpoints más usados (bar chart)
+5. Alertas configurables (email/webhook cuando rate limit > X)
+6. Exportar reportes en CSV/PDF
+
+**Beneficios:**
+- Mejor observabilidad
+- Detección proactiva de problemas
+- Insights de uso para optimización
+
+---
+
+### 🚀 BACKLOG: Sistema de Conector API Bidireccional (DEPRECADO - YA IMPLEMENTADO)
+
+**Estado:** ✅ COMPLETADO en Sprints 1-3
 **Documentación:** Ver `docs/CONECTOR-API-BIDIRECCIONAL.md`
 
 #### Resumen

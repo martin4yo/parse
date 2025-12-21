@@ -100,6 +100,29 @@ class ApiPullService extends ApiConnectorService {
     console.log(`\n✅ PULL completado en ${durationMs}ms`);
     console.log(`📊 Total: ${results.totalRecords} | Importados: ${results.importedRecords} | Fallidos: ${results.failedRecords} | En staging: ${results.stagedRecords}`);
 
+    // Disparar webhooks según el resultado
+    try {
+      const { triggerSyncCompleted, triggerSyncFailed } = require('./webhookService');
+
+      if (finalStatus === 'SUCCESS' || finalStatus === 'PARTIAL') {
+        // Sincronización exitosa o parcial
+        await triggerSyncCompleted(this.connector.tenantId, this.connector.id, {
+          success: results.importedRecords,
+          failed: results.failedRecords,
+          staged: results.stagedRecords
+        });
+      } else {
+        // Sincronización fallida
+        const errorMsg = results.errors.length > 0
+          ? results.errors.map(e => e.message).join('; ')
+          : 'Fallo en la sincronización';
+        await triggerSyncFailed(this.connector.tenantId, this.connector.id, new Error(errorMsg));
+      }
+    } catch (webhookError) {
+      console.warn('⚠️  Error disparando webhooks sync:', webhookError.message);
+      // No fallar la sincronización por error de webhook
+    }
+
     return { ...results, durationMs };
   }
 

@@ -549,6 +549,8 @@ model tenants {
   sync_logs                 sync_logs[]
   tenant_reglas_globales    tenant_reglas_globales[]
   webhooks                  webhooks[]
+  oauth_clients             oauth_clients[]
+  oauth_api_logs            oauth_api_logs[]
   planes                    planes?                     @relation(fields: [planId], references: [id])
   users                     users[]
 
@@ -869,4 +871,106 @@ model api_export_logs {
   @@index([tenantId])
   @@index([status])
   @@index([exportedAt])
+}
+
+// ============================================
+// OAUTH 2.0 & API CLIENTS
+// ============================================
+
+model oauth_clients {
+  id                  String    @id @default(uuid())
+  tenantId            String
+  
+  // Identificación
+  clientId            String    @unique @db.VarChar(255)
+  clientSecret        String    @db.VarChar(255) // Hasheado con bcrypt
+  nombre              String    @db.VarChar(255)
+  descripcion         String?   @db.Text
+  
+  // Configuración OAuth
+  grantTypes          String[]  @default(["client_credentials"]) // client_credentials, authorization_code, refresh_token
+  redirectUris        String[]  @default([])
+  allowedScopes       String[]  @default(["read:documents", "write:documents"])
+  
+  // Rate limiting (heredado del plan del tenant o custom)
+  customRateLimit     Boolean   @default(false)
+  requestsPerMinute   Int?
+  requestsPerHour     Int?
+  requestsPerDay      Int?
+  
+  // Metadata
+  activo              Boolean   @default(true)
+  ultimoUso           DateTime?
+  totalRequests       Int       @default(0)
+  createdBy           String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  tenants             tenants   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tokens              oauth_tokens[]
+  api_logs            oauth_api_logs[]
+  
+  @@index([tenantId])
+  @@index([clientId])
+  @@index([activo])
+}
+
+model oauth_tokens {
+  id                  String    @id @default(uuid())
+  clientId            String
+  
+  // Tokens
+  accessToken         String    @unique @db.VarChar(500)
+  refreshToken        String?   @unique @db.VarChar(500)
+  tokenType           String    @default("Bearer") @db.VarChar(50)
+  
+  // Scopes y expiración
+  scopes              String[]  @default([])
+  expiresAt           DateTime
+  refreshExpiresAt    DateTime?
+  
+  // Metadata
+  createdAt           DateTime  @default(now())
+  lastUsedAt          DateTime?
+  revoked             Boolean   @default(false)
+  revokedAt           DateTime?
+  
+  client              oauth_clients @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  
+  @@index([clientId])
+  @@index([accessToken])
+  @@index([refreshToken])
+  @@index([expiresAt])
+  @@index([revoked])
+}
+
+model oauth_api_logs {
+  id                  String    @id @default(uuid())
+  clientId            String
+  tenantId            String
+  
+  // Request
+  method              String    @db.VarChar(10)
+  endpoint            String    @db.VarChar(500)
+  ipAddress           String?   @db.VarChar(50)
+  userAgent           String?   @db.Text
+  
+  // Response
+  statusCode          Int
+  responseTime        Int       // en milliseconds
+  
+  // Rate limiting
+  rateLimitHit        Boolean   @default(false)
+  
+  // Metadata
+  timestamp           DateTime  @default(now())
+  errorMessage        String?   @db.Text
+  
+  client              oauth_clients @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tenants             tenants   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@index([clientId])
+  @@index([tenantId])
+  @@index([timestamp])
+  @@index([endpoint])
 }

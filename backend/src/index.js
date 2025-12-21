@@ -59,6 +59,11 @@ const chatRoutes = require('./routes/chat');
 // Parse API - Endpoints públicos para aplicaciones externas
 const parseApiRoutes = require('./routes/parseApi');
 
+// OAuth 2.0 API Pública - Sprint 4
+const authApiRoutes = require('./routes/authApi');        // /api/v1/auth/*
+const publicApiRoutes = require('./routes/publicApi');    // /api/v1/documents/*
+const oauthClientsRoutes = require('./routes/oauthClients'); // /api/oauth-clients (admin UI)
+
 const app = express();
 const PORT = process.env.PORT || 5100;
 
@@ -184,6 +189,11 @@ app.use('/api/metrics', metricsRoutes);
 
 // Parse API Pública - Endpoints para aplicaciones externas (autenticación con API Key)
 app.use('/api/v1/parse', parseApiRoutes);
+
+// OAuth 2.0 API Pública - Sprint 4 (autenticación con OAuth Bearer tokens)
+app.use('/api/v1/auth', authApiRoutes);           // Autenticación OAuth (token, refresh, revoke)
+app.use('/api/v1/documents', publicApiRoutes);    // API pública de consulta de documentos
+app.use('/api/oauth-clients', oauthClientsRoutes); // CRUD de OAuth clients (admin UI)
 
 // Sistema
 app.use('/api/jobs', jobsRoutes);

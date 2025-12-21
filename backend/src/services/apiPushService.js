@@ -83,6 +83,29 @@ class ApiPushService extends ApiConnectorService {
 
     console.log(`\n✅ [PUSH] Exportación completada: ${results.success} éxitos, ${results.failed} fallos, ${results.skipped} omitidos`);
 
+    // Disparar webhooks según el resultado
+    try {
+      const { triggerExportCompleted, triggerExportFailed } = require('./webhookService');
+
+      if (results.success > 0 && results.failed === 0) {
+        // Exportación completamente exitosa
+        await triggerExportCompleted(connector.tenantId, connectorId, {
+          success: results.success,
+          failed: results.failed,
+          skipped: results.skipped
+        });
+      } else if (results.failed > 0) {
+        // Hubo fallos en la exportación
+        const errorMsg = results.errors.length > 0
+          ? results.errors.map(e => e.error).join('; ')
+          : `${results.failed} exportaciones fallidas`;
+        await triggerExportFailed(connector.tenantId, connectorId, new Error(errorMsg));
+      }
+    } catch (webhookError) {
+      console.warn('⚠️  Error disparando webhooks export:', webhookError.message);
+      // No fallar la exportación por error de webhook
+    }
+
     return results;
   }
 
@@ -193,15 +216,18 @@ class ApiPushService extends ApiConnectorService {
    * @returns {Promise<Array>} Datos a exportar
    */
   async fetchDataToExport(tenantId, resourceType, filters = {}, options = {}) {
-    const { forceAll = false, limit = 100 } = options;
+    const { forceAll = false, limit = 100, documentIds } = options;
 
     const baseWhere = {
       tenantId,
       ...filters
     };
 
-    // Si no es forzar todo, solo exportar lo no exportado
-    if (!forceAll) {
+    // Si se proporcionan IDs específicos, usarlos (tiene prioridad)
+    if (documentIds && Array.isArray(documentIds) && documentIds.length > 0) {
+      baseWhere.id = { in: documentIds };
+    } else if (!forceAll) {
+      // Si no es forzar todo, solo exportar lo no exportado
       baseWhere.lastExportedAt = null;
     }
 
@@ -212,7 +238,7 @@ class ApiPushService extends ApiConnectorService {
             ...baseWhere,
             estadoProcesamiento: 'completado' // Solo exportar documentos completados
           },
-          take: limit,
+          take: documentIds ? undefined : limit, // Sin límite si hay IDs específicos
           orderBy: { fechaCarga: 'asc' },
           include: {
             documento_lineas: true,
@@ -474,6 +500,16 @@ class ApiPushService extends ApiConnectorService {
       transformedData,
       response
     );
+
+    // Disparar webhook de documento exportado
+    try {
+      const { triggerDocumentExported } = require('./webhookService');
+      const externalId = response.data?.id || response.data?.externalId || 'unknown';
+      await triggerDocumentExported(connector.tenantId, documento, externalId);
+    } catch (webhookError) {
+      console.warn('⚠️  Error disparando webhook document.exported:', webhookError.message);
+      // No fallar la exportación por error de webhook
+    }
 
     return {
       success: true,

@@ -703,7 +703,7 @@ router.post('/:id/execute-push', authMiddleware, async (req, res) => {
   try {
     const { tenantId } = req.user;
     const { id } = req.params;
-    const { forceAll = false, limit = 100 } = req.body;
+    const { forceAll = false, limit = 100, documentIds } = req.body;
 
     // Verificar que el conector existe y pertenece al tenant
     const connector = await prisma.api_connector_configs.findFirst({
@@ -736,7 +736,11 @@ router.post('/:id/execute-push', authMiddleware, async (req, res) => {
     // Ejecutar exportación
     console.log(`\n🚀 [API] Ejecutando PUSH para conector ${connector.nombre}...`);
 
-    const result = await ApiPushService.executePush(id, { forceAll, limit });
+    const result = await ApiPushService.executePush(id, {
+      forceAll,
+      limit,
+      documentIds // Pasar IDs específicos si se proporcionan
+    });
 
     // Actualizar estado del último PUSH
     await prisma.api_connector_configs.update({

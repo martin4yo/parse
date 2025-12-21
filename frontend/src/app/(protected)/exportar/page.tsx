@@ -27,6 +27,11 @@ export default function ExportarPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
+  // Estados para API Connectors
+  const [apiConnectors, setApiConnectors] = useState<any[]>([]);
+  const [selectedConnector, setSelectedConnector] = useState<string>('json');
+  const [exportingToApi, setExportingToApi] = useState(false);
+
   // Hook para el DocumentViewer
   const documentViewer = useDocumentViewer({
     findDocument: (documentId: string) => documentos.find(doc => doc.id === documentId),
@@ -83,6 +88,27 @@ export default function ExportarPage() {
       toast.error('Error al descargar el archivo JSON');
     }
   };
+
+  // Mutation para exportar a API Connector
+  const exportToApiMutation = useApiMutation({
+    showSuccessToast: false,
+    onSuccess: (response: any) => {
+      const { success = 0, failed = 0, skipped = 0 } = response;
+
+      if (failed > 0) {
+        toast.error(`Exportación completada con errores: ${success} éxitos, ${failed} fallos, ${skipped} omitidos`);
+      } else {
+        toast.success(`${success} documento(s) exportado(s) correctamente a ${apiConnectors.find(c => c.id === selectedConnector)?.nombre}`);
+      }
+
+      setSelectedDocuments(new Set());
+      loadDocumentos();
+    },
+    onError: (error: any) => {
+      const errorMsg = error.response?.data?.error || error.message || 'Error al exportar documentos';
+      toast.error(`Error en exportación: ${errorMsg}`);
+    }
+  });
 
   // Mutations
   const exportMutation = useApiMutation({
@@ -146,7 +172,23 @@ export default function ExportarPage() {
 
   useEffect(() => {
     loadDocumentos();
+    loadApiConnectors();
   }, []);
+
+  // Cargar conectores API configurados
+  const loadApiConnectors = async () => {
+    try {
+      const response = await api.get('/api-connectors');
+      // Filtrar solo conectores con PUSH o BIDIRECTIONAL
+      const pushConnectors = response.data.filter(
+        (c: any) => c.direction === 'PUSH' || c.direction === 'BIDIRECTIONAL'
+      );
+      setApiConnectors(pushConnectors);
+    } catch (error) {
+      console.error('Error loading API connectors:', error);
+      // No mostrar error, simplemente no habrá opción de exportar a API
+    }
+  };
 
   // Función para abrir el archivo
   const handleViewDocument = (documentId: string) => {
@@ -210,6 +252,43 @@ const handleSelectDocument = (documentId: string) => {
       // Seleccionar todos los filtrados que no están exportados
       setSelectedDocuments(new Set(selectable.map((doc: DocumentoProcessado) => doc.id)));
     }
+  };
+
+  // Handler para exportar a API Connector
+  const handleExportToApi = async () => {
+    if (selectedDocuments.size === 0) {
+      toast.error('Debe seleccionar al menos un documento para exportar');
+      return;
+    }
+
+    if (!selectedConnector || selectedConnector === 'json') {
+      toast.error('Seleccione un conector de API para exportar');
+      return;
+    }
+
+    const connector = apiConnectors.find(c => c.id === selectedConnector);
+    if (!connector) {
+      toast.error('Conector no encontrado');
+      return;
+    }
+
+    const confirmed = await confirm(
+      `¿Está seguro que desea exportar ${selectedDocuments.size} documento(s) a ${connector.nombre}?`,
+      'Confirmar exportación a API',
+      'warning'
+    );
+
+    if (!confirmed) return;
+
+    setExportingToApi(true);
+    exportToApiMutation.mutate(() =>
+      api.post(`/api-connectors/${selectedConnector}/execute-push`, {
+        documentIds: Array.from(selectedDocuments),
+        forceAll: false
+      })
+    ).finally(() => {
+      setExportingToApi(false);
+    });
   };
 
   const handleExport = async () => {
@@ -342,23 +421,65 @@ const handleSelectDocument = (documentId: string) => {
                 </>
               )}
             </Button>
-            <Button
-              onClick={handleExport}
-              disabled={selectedDocuments.size === 0 || exporting}
-              className="bg-green-600 hover:bg-green-700 text-white"
+
+            {/* Selector de destino de exportación */}
+            <select
+              value={selectedConnector}
+              onChange={(e) => setSelectedConnector(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+              disabled={selectedDocuments.size === 0}
             >
-              {exporting ? (
+              <option value="json">📥 Descargar JSON</option>
+              {apiConnectors.length > 0 && (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Exportando...
-                </>
-              ) : (
-                <>
-                  <Download className="w-4 h-4 mr-2" />
-                  Exportar y Descargar JSON ({selectedDocuments.size})
+                  <option disabled>──────────</option>
+                  {apiConnectors.map((connector) => (
+                    <option key={connector.id} value={connector.id}>
+                      🔌 {connector.nombre}
+                    </option>
+                  ))}
                 </>
               )}
-            </Button>
+            </select>
+
+            {/* Botón de exportación dinámico */}
+            {selectedConnector === 'json' ? (
+              <Button
+                onClick={handleExport}
+                disabled={selectedDocuments.size === 0 || exporting}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                {exporting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Exportando...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    Descargar JSON ({selectedDocuments.size})
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Button
+                onClick={handleExportToApi}
+                disabled={selectedDocuments.size === 0 || exportingToApi}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {exportingToApi ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Exportando a API...
+                  </>
+                ) : (
+                  <>
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Exportar a API ({selectedDocuments.size})
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </div>
 

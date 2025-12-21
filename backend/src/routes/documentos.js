@@ -3073,6 +3073,18 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo, forceAI 
     // Documento procesado correctamente
     console.log('✅ Documento procesado correctamente');
 
+    // Disparar webhook de documento procesado
+    try {
+      const { triggerDocumentProcessed } = require('../services/webhookService');
+      const documentoCompleto = await prisma.documentos_procesados.findUnique({
+        where: { id: documentoId }
+      });
+      await triggerDocumentProcessed(documento.tenantId, documentoCompleto);
+    } catch (webhookError) {
+      console.warn('⚠️  Error disparando webhook document.processed:', webhookError.message);
+      // No fallar el procesamiento por error de webhook
+    }
+
   } catch (error) {
     console.error('❌ Error procesando documento:', error.message);
 
@@ -3091,6 +3103,22 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo, forceAI 
       });
 
       console.log(`✅ Documento marcado como error con mensaje: ${error.message}`);
+
+      // Disparar webhook de documento fallido
+      try {
+        const { triggerDocumentFailed } = require('../services/webhookService');
+        // Obtener tenantId del documento
+        const doc = await prisma.documentos_procesados.findUnique({
+          where: { id: documentoId },
+          select: { tenantId: true }
+        });
+        if (doc && doc.tenantId) {
+          await triggerDocumentFailed(doc.tenantId, documentoId, error);
+        }
+      } catch (webhookError) {
+        console.warn('⚠️  Error disparando webhook document.failed:', webhookError.message);
+        // No fallar el procesamiento por error de webhook
+      }
     } catch (updateError) {
       console.error('❌ Error actualizando estado del documento:', updateError);
 
