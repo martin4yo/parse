@@ -118,7 +118,8 @@
       "Bash(start http://localhost:3001)",
       "Bash(npx http-server:*)",
       "Bash(git push:*)",
-      "Read(//home/martin/Desarrollos/**)"
+      "Read(//home/martin/Desarrollos/**)",
+      "Bash(git reset:*)"
     ],
     "deny": [],
     "ask": []
