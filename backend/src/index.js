@@ -3,6 +3,8 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const passport = require('passport');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./config/swagger');
 
 // Cargar variables de entorno con ruta explícita
 const path = require('path');
@@ -194,6 +196,19 @@ app.use('/api/v1/parse', parseApiRoutes);
 app.use('/api/v1/auth', authApiRoutes);           // Autenticación OAuth (token, refresh, revoke)
 app.use('/api/v1/documents', publicApiRoutes);    // API pública de consulta de documentos
 app.use('/api/oauth-clients', oauthClientsRoutes); // CRUD de OAuth clients (admin UI)
+
+// Documentación OpenAPI/Swagger
+app.use('/api/v1/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'Parse API - Documentación',
+  customfavIcon: '/favicon.ico'
+}));
+
+// JSON de la especificación OpenAPI
+app.get('/api/v1/openapi.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
 
 // Sistema
 app.use('/api/jobs', jobsRoutes);

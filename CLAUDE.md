@@ -20,6 +20,123 @@
 
 ---
 
+## ⚡ ÚLTIMAS ACTUALIZACIONES - Enero 2025
+
+### ✅ Sprint 5: Testing + Documentación OpenAPI/Swagger (21 Enero 2025)
+
+**Documentación completa:** Ver `docs/SESION-2025-01-21-SPRINT5-TESTING-DOCS.md`
+
+Se completó exitosamente testing automatizado y documentación interactiva para la API pública OAuth 2.0.
+
+#### Testing Implementado
+
+**Tests Unitarios** (`tests/unit/oauthService.test.js` - 17 tests):
+- ✅ createClient() - Creación y validación de clientes OAuth
+- ✅ validateClient() - Validación de credenciales
+- ✅ generateTokens() - Generación de JWT access/refresh tokens
+- ✅ validateToken() - Validación y revocación de tokens
+- ✅ refreshAccessToken() - Refresh token flow
+- ✅ revokeToken() - Revocación de tokens
+- ✅ logApiRequest() - Logging de peticiones
+- ✅ getClientStats() - Estadísticas de uso
+
+**Tests de Integración** (`tests/integration/oauth-flow.test.js` - 17 tests):
+- ✅ POST /api/v1/auth/token - Obtener access token
+- ✅ POST /api/v1/auth/refresh - Refrescar token
+- ✅ POST /api/v1/auth/revoke - Revocar token
+- ✅ GET /api/v1/auth/me - Info del cliente
+- ✅ GET /api/v1/auth/health - Health check
+- ✅ Flujo completo: token → uso → refresh → revoke
+
+**Coverage:** >70% en branches, functions, lines y statements
+
+**Ejecutar tests:**
+```bash
+cd backend
+npm test                    # Todos los tests con coverage
+npm run test:unit           # Solo tests unitarios
+npm run test:integration    # Solo tests de integración
+```
+
+#### Documentación OpenAPI/Swagger
+
+**URL Interactiva:** https://api.parsedemo.axiomacloud.com/api/v1/docs
+
+**Características:**
+- ✅ Swagger UI interactivo para probar endpoints
+- ✅ Modelos de datos documentados (Document, DocumentLinea, etc.)
+- ✅ Ejemplos de request/response
+- ✅ Autenticación OAuth 2.0 documentada
+- ✅ Rate limiting explicado
+- ✅ Códigos de error con descripciones
+
+**Especificación descargable:**
+- OpenAPI JSON: https://api.parsedemo.axiomacloud.com/api/v1/openapi.json
+- Importable en Postman, Insomnia, Paw, etc.
+
+#### Ejemplos de Uso en Múltiples Lenguajes
+
+**JavaScript/Node.js** (`docs/api-examples/javascript-example.js`):
+```bash
+npm install axios
+export CLIENT_ID=your_client_id
+export CLIENT_SECRET=your_secret
+node javascript-example.js
+```
+
+**Python** (`docs/api-examples/python-example.py`):
+```bash
+pip install requests
+export CLIENT_ID=your_client_id
+export CLIENT_SECRET=your_secret
+python python-example.py
+```
+
+**Bash/cURL** (`docs/api-examples/curl-examples.sh`):
+```bash
+export CLIENT_ID=your_client_id
+export CLIENT_SECRET=your_secret
+bash curl-examples.sh
+```
+
+**Funciones implementadas:**
+- obtenerToken() / refreshToken()
+- listarDocumentos(filtros)
+- obtenerDocumento(id) / obtenerLineas(id) / obtenerImpuestos(id)
+- marcarComoExportado(id, externalId)
+- descargarArchivo(id, ruta)
+
+Cada ejemplo incluye:
+- Cliente completo listo para usar
+- Error handling robusto
+- Retry con exponential backoff
+- Documentación inline
+
+**README completo:** `docs/api-examples/README.md` con ejemplos de uso por caso (obtener facturas, exportar a ERP, sincronización periódica)
+
+#### Archivos Creados/Modificados
+
+**Creados (11 archivos):**
+- `jest.config.js` - Configuración de Jest
+- `tests/setup.js` - Setup y mocks globales
+- `tests/unit/oauthService.test.js` - 442 líneas de tests unitarios
+- `tests/integration/oauth-flow.test.js` - 420 líneas de tests de integración
+- `src/config/swagger.js` - Configuración OpenAPI (650 líneas)
+- `docs/api-examples/javascript-example.js` - 380 líneas
+- `docs/api-examples/python-example.py` - 450 líneas
+- `docs/api-examples/curl-examples.sh` - 650 líneas
+- `docs/api-examples/README.md` - 320 líneas
+- `docs/SESION-2025-01-21-SPRINT5-TESTING-DOCS.md` - Documentación completa
+
+**Modificados (3 archivos):**
+- `package.json` - Scripts de testing y dependencias (jest, supertest, swagger-ui-express)
+- `src/index.js` - Integración Swagger UI en `/api/v1/docs`
+- `src/routes/authApi.js` - Anotaciones JSDoc completas
+
+**Total líneas agregadas:** ~3,500
+
+---
+
 ## ⚡ ÚLTIMAS ACTUALIZACIONES - Diciembre 2025
 
 ### ✅ Correcciones Motor de Reglas y Axio (9 Diciembre 2025)

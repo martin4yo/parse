@@ -4,31 +4,34 @@ const oauthService = require('../services/oauthService');
 const { authenticateOAuth } = require('../middleware/oauthAuth');
 
 /**
- * POST /api/v1/auth/token
- * Obtener access token usando Client Credentials flow
- *
- * Body (JSON):
- * {
- *   "client_id": "client_abc123",
- *   "client_secret": "secret_xyz789",
- *   "grant_type": "client_credentials",
- *   "scope": "read:documents write:documents" // Opcional
- * }
- *
- * Response 200:
- * {
- *   "access_token": "eyJhbGc...",
- *   "token_type": "Bearer",
- *   "expires_in": 3600,
- *   "refresh_token": "eyJhbGc...",
- *   "scope": "read:documents write:documents"
- * }
+ * @swagger
+ * /api/v1/auth/token:
+ *   post:
+ *     summary: Obtener access token
+ *     description: Obtiene un access token usando OAuth 2.0 Client Credentials flow
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/OAuthTokenRequest'
+ *     responses:
+ *       200:
+ *         description: Token generado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/OAuthTokenResponse'
+ *       400:
+ *         description: Parámetros inválidos o grant_type no soportado
+ *       401:
+ *         description: Credenciales de cliente inválidas
  */
 router.post('/token', async (req, res) => {
   try {
     const { client_id, client_secret, grant_type, scope } = req.body;
 
-    // Validar grant_type
     if (grant_type !== 'client_credentials') {
       return res.status(400).json({
         error: 'unsupported_grant_type',
@@ -36,7 +39,6 @@ router.post('/token', async (req, res) => {
       });
     }
 
-    // Validar client_id y client_secret
     if (!client_id || !client_secret) {
       return res.status(400).json({
         error: 'invalid_request',
@@ -44,7 +46,6 @@ router.post('/token', async (req, res) => {
       });
     }
 
-    // Validar credenciales del cliente
     const client = await oauthService.validateClient(client_id, client_secret);
 
     if (!client) {
@@ -54,10 +55,7 @@ router.post('/token', async (req, res) => {
       });
     }
 
-    // Parsear scopes solicitados
     const requestedScopes = scope ? scope.split(' ').filter(s => s) : [];
-
-    // Generar tokens
     const tokens = await oauthService.generateTokens(client, requestedScopes);
 
     console.log(`✅ [Auth API] Token generado para cliente: ${client_id}`);
@@ -74,29 +72,54 @@ router.post('/token', async (req, res) => {
 });
 
 /**
- * POST /api/v1/auth/refresh
- * Refrescar un access token usando refresh token
- *
- * Body (JSON):
- * {
- *   "grant_type": "refresh_token",
- *   "refresh_token": "eyJhbGc..."
- * }
- *
- * Response 200:
- * {
- *   "access_token": "eyJhbGc...",
- *   "token_type": "Bearer",
- *   "expires_in": 3600,
- *   "refresh_token": "eyJhbGc...",
- *   "scope": "read:documents write:documents"
- * }
+ * @swagger
+ * /api/v1/auth/refresh:
+ *   post:
+ *     summary: Refrescar access token
+ *     description: Obtiene un nuevo access token usando un refresh token válido
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - grant_type
+ *               - refresh_token
+ *             properties:
+ *               grant_type:
+ *                 type: string
+ *                 enum: [refresh_token]
+ *                 example: refresh_token
+ *               refresh_token:
+ *                 type: string
+ *                 example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *     responses:
+ *       200:
+ *         description: Nuevo access token generado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 access_token:
+ *                   type: string
+ *                 token_type:
+ *                   type: string
+ *                   example: Bearer
+ *                 expires_in:
+ *                   type: integer
+ *                   example: 3600
+ *       400:
+ *         description: Parámetros inválidos
+ *       401:
+ *         description: Refresh token inválido o expirado
  */
 router.post('/refresh', async (req, res) => {
   try {
     const { grant_type, refresh_token } = req.body;
 
-    // Validar grant_type
     if (grant_type !== 'refresh_token') {
       return res.status(400).json({
         error: 'unsupported_grant_type',
@@ -104,7 +127,6 @@ router.post('/refresh', async (req, res) => {
       });
     }
 
-    // Validar refresh_token
     if (!refresh_token) {
       return res.status(400).json({
         error: 'invalid_request',
@@ -112,7 +134,6 @@ router.post('/refresh', async (req, res) => {
       });
     }
 
-    // Refrescar token
     const newTokens = await oauthService.refreshAccessToken(refresh_token);
 
     if (!newTokens) {
@@ -136,23 +157,50 @@ router.post('/refresh', async (req, res) => {
 });
 
 /**
- * POST /api/v1/auth/revoke
- * Revocar un access token o refresh token
- *
- * Headers:
- *   Authorization: Bearer <token>
- *
- * Body (JSON):
- * {
- *   "token": "eyJhbGc...",  // Access token o refresh token a revocar
- *   "token_type_hint": "access_token"  // Opcional: "access_token" o "refresh_token"
- * }
- *
- * Response 200:
- * {
- *   "success": true,
- *   "message": "Token revoked successfully"
- * }
+ * @swagger
+ * /api/v1/auth/revoke:
+ *   post:
+ *     summary: Revocar un token
+ *     description: Revoca un access token o refresh token para invalidarlo permanentemente
+ *     tags: [Authentication]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 description: Access token o refresh token a revocar
+ *                 example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *               token_type_hint:
+ *                 type: string
+ *                 enum: [access_token, refresh_token]
+ *                 example: access_token
+ *                 description: Hint opcional sobre el tipo de token
+ *     responses:
+ *       200:
+ *         description: Token revocado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Token revoked successfully
+ *       400:
+ *         description: Token no encontrado o ya revocado
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
  */
 router.post('/revoke', authenticateOAuth, async (req, res) => {
   try {
@@ -191,24 +239,70 @@ router.post('/revoke', authenticateOAuth, async (req, res) => {
 });
 
 /**
- * GET /api/v1/auth/me
- * Obtener información del cliente autenticado
- *
- * Headers:
- *   Authorization: Bearer <token>
- *
- * Response 200:
- * {
- *   "clientId": "client_abc123",
- *   "nombre": "Mi Sistema ERP",
- *   "tenantId": "tenant-id",
- *   "tenant": {
- *     "nombre": "Mi Empresa SA",
- *     "slug": "mi-empresa"
- *   },
- *   "scopes": ["read:documents", "write:documents"],
- *   "tokenExpiry": "2025-01-21T15:00:00Z"
- * }
+ * @swagger
+ * /api/v1/auth/me:
+ *   get:
+ *     summary: Información del cliente autenticado
+ *     description: Obtiene información sobre el cliente OAuth actualmente autenticado
+ *     tags: [Authentication]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Información del cliente obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 clientId:
+ *                   type: string
+ *                   example: client_abc123xyz
+ *                 nombre:
+ *                   type: string
+ *                   example: Mi Sistema ERP
+ *                 descripcion:
+ *                   type: string
+ *                   example: Integración con ERP principal
+ *                 tenantId:
+ *                   type: string
+ *                   format: uuid
+ *                 tenant:
+ *                   type: object
+ *                   properties:
+ *                     nombre:
+ *                       type: string
+ *                       example: Mi Empresa SA
+ *                     slug:
+ *                       type: string
+ *                       example: mi-empresa
+ *                 scopes:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   example: [read:documents, write:documents]
+ *                 tokenExpiry:
+ *                   type: string
+ *                   format: date-time
+ *                   example: 2025-01-21T15:00:00.000Z
+ *                 customRateLimit:
+ *                   type: boolean
+ *                   example: false
+ *                 rateLimit:
+ *                   type: object
+ *                   nullable: true
+ *                   properties:
+ *                     requestsPerMinute:
+ *                       type: integer
+ *                       example: 120
+ *                     requestsPerHour:
+ *                       type: integer
+ *                       example: 5000
+ *                     requestsPerDay:
+ *                       type: integer
+ *                       example: 50000
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
  */
 router.get('/me', authenticateOAuth, async (req, res) => {
   try {
@@ -240,8 +334,35 @@ router.get('/me', authenticateOAuth, async (req, res) => {
 });
 
 /**
- * GET /api/v1/auth/health
- * Health check endpoint (no requiere autenticación)
+ * @swagger
+ * /api/v1/auth/health:
+ *   get:
+ *     summary: Health check
+ *     description: Verifica el estado del servicio de autenticación
+ *     tags: [Authentication]
+ *     responses:
+ *       200:
+ *         description: Servicio funcionando correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 status:
+ *                   type: string
+ *                   example: healthy
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *                 service:
+ *                   type: string
+ *                   example: Parse Auth API
+ *                 version:
+ *                   type: string
+ *                   example: 1.0.0
  */
 router.get('/health', (req, res) => {
   res.json({

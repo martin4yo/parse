@@ -7,6 +7,10 @@
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
     "build": "echo 'Backend build complete'",
+    "test": "jest --coverage",
+    "test:watch": "jest --watch",
+    "test:unit": "jest --testPathPattern=tests/unit",
+    "test:integration": "jest --testPathPattern=tests/integration",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
@@ -47,14 +51,20 @@
     "pdf2pic": "^3.2.0",
     "pdfjs-dist": "^5.4.296",
     "sharp": "^0.34.4",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
     "tesseract.js": "^6.0.1",
     "uuid": "^13.0.0",
     "xlsx": "^0.18.5",
     "xtend": "^4.0.2"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/supertest": "^6.0.3",
+    "jest": "^30.2.0",
     "nodemon": "^3.0.1",
-    "prisma": "^5.6.0"
+    "prisma": "^5.6.0",
+    "supertest": "^7.1.4"
   },
   "engines": {
     "node": ">=18.0.0"
