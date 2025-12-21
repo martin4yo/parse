@@ -22,11 +22,55 @@
 
 ## ⚡ ÚLTIMAS ACTUALIZACIONES - Enero 2025
 
+### ✅ Sprint 6.5: Frontend UI para Webhooks OAuth (21 Enero 2025)
+
+**Documentación completa:** Ver `docs/SESION-2025-01-21-SPRINT6.5-WEBHOOKS-UI.md`
+
+Completada la UI de administración de webhooks OAuth en la página `/api-clients`.
+
+#### Características Implementadas
+
+✅ **Panel expandible de webhooks** en cada cliente OAuth
+✅ **Endpoints proxy en backend** (`/api/oauth-clients/:clientId/webhooks`)
+✅ **CRUD completo** desde UI (crear, listar, editar, eliminar)
+✅ **Estadísticas en tiempo real** (enviados, exitosos, fallidos, tasa éxito)
+✅ **Gestión de eventos** con selección visual mediante checkboxes
+✅ **Mostrar/copiar secret** con enmascaramiento de seguridad
+✅ **Activar/desactivar webhooks** con toggle visual
+
+#### Solución Técnica
+
+Creamos **endpoints proxy** que permiten al admin gestionar webhooks usando su JWT (sin necesitar Bearer token OAuth):
+- Backend verifica que cliente pertenece al tenant del admin
+- Frontend usa API proxy transparente
+- Secret completo solo visible al crear
+
+**Archivos creados:**
+- `backend/src/routes/oauthClientWebhooks.js` (350 líneas) - Proxy endpoints
+- `frontend/src/components/api-clients/OAuthWebhooksPanel.tsx` (550 líneas) - UI component
+
+**Archivos modificados:**
+- `backend/src/index.js` - Registro de rutas proxy
+- `frontend/src/app/(protected)/api-clients/page.tsx` - Integración del panel
+
+#### UI Implementada
+
+**Botón webhook** en cada cliente OAuth que despliega panel completo con:
+- Lista de webhooks con stats en tiempo real
+- Modal crear webhook con selección de eventos
+- Botones toggle activar/desactivar
+- Copiar secret con feedback visual
+- Confirmación antes de eliminar
+
+**Total líneas agregadas:** ~900 líneas
+
+---
+
 ### ✅ Sprint 6: Webhooks para API Pública OAuth (21 Enero 2025)
 
 **Documentación completa:** Ver `docs/SESION-2025-01-21-SPRINT6-WEBHOOKS-API-PUBLICA.md`
 
-Sistema completo de webhooks para que clientes OAuth reciban notificaciones en tiempo real de eventos en la API Pública.
+Sistema completo de webhooks (backend) para que clientes OAuth reciban notificaciones en tiempo real de eventos en la API Pública.
 
 #### Características Implementadas
 

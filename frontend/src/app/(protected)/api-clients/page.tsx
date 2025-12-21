@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/Card';
-import { Key, Plus, Trash2, Eye, EyeOff, Copy, Check, Activity, Pause, Play, BarChart } from 'lucide-react';
+import { Key, Plus, Trash2, Eye, EyeOff, Copy, Check, Activity, Pause, Play, BarChart, Webhook, ChevronDown, ChevronUp } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
 import { useCreateMutation, useDeleteMutation, useUpdateMutation } from '@/hooks/useApiMutation';
+import OAuthWebhooksPanel from '@/components/api-clients/OAuthWebhooksPanel';
 
 interface OAuthClient {
   id: string;
@@ -47,6 +48,7 @@ export default function ApiClientsPage() {
   const [copiedItem, setCopiedItem] = useState<string | null>(null);
   const [viewingStats, setViewingStats] = useState<string | null>(null);
   const [clientStats, setClientStats] = useState<ClientStats | null>(null);
+  const [expandedWebhooks, setExpandedWebhooks] = useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -315,6 +317,13 @@ export default function ApiClientsPage() {
                   {/* Acciones */}
                   <div className="flex flex-col gap-2 ml-4">
                     <button
+                      onClick={() => setExpandedWebhooks(expandedWebhooks === client.clientId ? null : client.clientId)}
+                      className="p-2 hover:bg-gray-100 rounded"
+                      title="Ver webhooks"
+                    >
+                      <Webhook className="w-5 h-5 text-text-tertiary" />
+                    </button>
+                    <button
                       onClick={() => loadClientStats(client.clientId)}
                       className="p-2 hover:bg-gray-100 rounded"
                       title="Ver estadísticas"
@@ -341,6 +350,13 @@ export default function ApiClientsPage() {
                     </button>
                   </div>
                 </div>
+
+                {/* Panel de Webhooks Expandible */}
+                {expandedWebhooks === client.clientId && (
+                  <div className="mt-4 pt-4 border-t">
+                    <OAuthWebhooksPanel clientId={client.clientId} />
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}

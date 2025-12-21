@@ -68,6 +68,7 @@ const oauthClientsRoutes = require('./routes/oauthClients'); // /api/oauth-clien
 
 // Webhooks OAuth - Sprint 6
 const oauthWebhooksRoutes = require('./routes/oauthWebhooks'); // /api/v1/webhooks
+const oauthClientWebhooksRoutes = require('./routes/oauthClientWebhooks'); // /api/oauth-clients/:id/webhooks (admin proxy)
 
 const app = express();
 const PORT = process.env.PORT || 5100;
@@ -200,6 +201,7 @@ app.use('/api/v1/auth', authApiRoutes);           // Autenticación OAuth (token
 app.use('/api/v1/documents', publicApiRoutes);    // API pública de consulta de documentos
 app.use('/api/v1/webhooks', oauthWebhooksRoutes); // Webhooks OAuth (Sprint 6)
 app.use('/api/oauth-clients', oauthClientsRoutes); // CRUD de OAuth clients (admin UI)
+app.use('/api/oauth-clients', oauthClientWebhooksRoutes); // Webhooks OAuth (admin proxy - Sprint 6.5)
 
 // Documentación OpenAPI/Swagger
 app.use('/api/v1/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
