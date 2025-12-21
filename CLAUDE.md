@@ -22,6 +22,67 @@
 
 ## ⚡ ÚLTIMAS ACTUALIZACIONES - Enero 2025
 
+### ✅ Sprint 7: Dashboard de Métricas OAuth (21 Enero 2025)
+
+**Documentación completa:** Ver `docs/SESION-2025-01-21-SPRINT7-DASHBOARD-METRICAS.md`
+
+Sistema completo de visualización de métricas avanzadas para clientes OAuth con gráficos interactivos y exportación de datos.
+
+#### Características Implementadas
+
+✅ **7 gráficos interactivos** con Recharts
+✅ **Análisis temporal** (requests por día/hora)
+✅ **Métricas de rendimiento** (latencia promedio/min/max)
+✅ **Distribución de status codes** (pie chart)
+✅ **Top 10 endpoints** más usados
+✅ **Identificación de errores** por endpoint
+✅ **Exportación a CSV** de todas las métricas
+✅ **Selector de período** (7/30/90/365 días)
+
+#### Métricas Disponibles
+
+| Gráfico | Tipo | Objetivo |
+|---------|------|----------|
+| **Requests por Día** | Line Chart | Ver tendencia temporal de uso |
+| **Requests por Hora** | Bar Chart | Identificar patrones de uso (horas pico) |
+| **Latencia por Día** | Line Chart (3 líneas) | Monitorear rendimiento (avg/min/max) |
+| **Status Codes** | Pie Chart | Proporción éxito vs errores |
+| **Top 10 Endpoints** | Horizontal Bar Chart | Endpoints más usados |
+| **Rate Limit Hits** | Bar Chart | Días con problemas de límites |
+| **Errores por Endpoint** | Table | Identificar endpoints problemáticos |
+
+#### API Endpoint
+
+```bash
+# Obtener métricas de dashboard
+GET /api/oauth-clients/:clientId/dashboard?days=30
+Authorization: Bearer <admin-jwt>
+
+# Response incluye:
+# - summary: totalRequests, avgResponseTime, errorRate, rateLimitHits
+# - charts: 7 datasets para gráficos
+```
+
+#### UI Implementada
+
+**Botón dashboard** (BarChart icon) en cada cliente OAuth que despliega:
+- 4 cards de resumen (Total Requests, Latencia, Error Rate, Rate Limits)
+- Selector de período (7/30/90/365 días)
+- 7 gráficos interactivos con tooltips
+- Botón exportar CSV con todos los datos
+
+**Archivos creados:**
+- `backend/src/services/oauthService.js` - Método `getClientDashboardMetrics()` (+217 líneas)
+- `frontend/src/components/api-clients/OAuthDashboard.tsx` (550 líneas) - Componente completo
+
+**Archivos modificados:**
+- `backend/src/routes/oauthClients.js` - Endpoint `GET /:clientId/dashboard` (+63 líneas)
+- `frontend/src/app/(protected)/api-clients/page.tsx` - Integración del dashboard (+20 líneas)
+
+**Total líneas agregadas:** ~850 líneas
+
+---
+
 ### ✅ Sprint 6.5: Frontend UI para Webhooks OAuth (21 Enero 2025)
 
 **Documentación completa:** Ver `docs/SESION-2025-01-21-SPRINT6.5-WEBHOOKS-UI.md`

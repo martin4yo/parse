@@ -303,6 +303,69 @@ router.get('/:clientId/stats', authenticateToken, async (req, res) => {
 });
 
 /**
+ * GET /api/oauth-clients/:clientId/dashboard
+ * Obtener métricas detalladas para dashboard con gráficos temporales
+ *
+ * Query params:
+ *   - days: Días hacia atrás para el análisis (default: 30)
+ *
+ * Response:
+ * {
+ *   "success": true,
+ *   "data": {
+ *     "clientId": "client_abc123",
+ *     "nombre": "Mi App",
+ *     "period": { "days": 30, "startDate": "2025-01-01", "endDate": "2025-01-31" },
+ *     "summary": { "totalRequests": 15420, "avgResponseTime": 245, "errorRate": "2.3" },
+ *     "charts": {
+ *       "requestsByDay": [{ "date": "2025-01-01", "count": 520 }, ...],
+ *       "requestsByHour": [{ "hour": 0, "count": 45 }, ...],
+ *       "latencyByDay": [{ "date": "2025-01-01", "avgLatency": 230, "minLatency": 120, "maxLatency": 890 }, ...],
+ *       "statusCodes": [{ "category": "success", "code": 200, "count": 14580 }, ...],
+ *       "topEndpoints": [{ "endpoint": "/api/v1/documents", "count": 8520 }, ...],
+ *       "rateLimitByDay": [...],
+ *       "errorsByEndpoint": [...]
+ *     }
+ *   }
+ * }
+ */
+router.get('/:clientId/dashboard', authenticateToken, async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const days = parseInt(req.query.days) || 30;
+
+    // Validar días
+    if (days < 1 || days > 365) {
+      return res.status(400).json({
+        success: false,
+        error: 'El parámetro days debe estar entre 1 y 365'
+      });
+    }
+
+    const metrics = await oauthService.getClientDashboardMetrics(clientId, days);
+
+    if (!metrics) {
+      return res.status(404).json({
+        success: false,
+        error: 'Cliente OAuth no encontrado'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: metrics
+    });
+  } catch (error) {
+    console.error('❌ Error obteniendo dashboard metrics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al obtener métricas del dashboard',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
  * POST /api/oauth-clients/:clientId/regenerate-secret
  * Regenerar el client_secret de un cliente
  *

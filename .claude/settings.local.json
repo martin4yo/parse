@@ -117,7 +117,8 @@
       "Bash(python3:*)",
       "Bash(start http://localhost:3001)",
       "Bash(npx http-server:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Read(//home/martin/Desarrollos/**)"
     ],
     "deny": [],
     "ask": []

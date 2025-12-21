@@ -648,6 +648,220 @@ class OAuthService {
       }))
     };
   }
+
+  /**
+   * Obtener métricas detalladas para dashboard (gráficos temporales, endpoints, etc.)
+   * @param {string} clientId - Client ID
+   * @param {number} [days=30] - Días hacia atrás
+   * @returns {Promise<Object>} Métricas detalladas
+   */
+  async getClientDashboardMetrics(clientId, days = 30) {
+    const client = await prisma.oauth_clients.findUnique({
+      where: { clientId }
+    });
+
+    if (!client) {
+      return null;
+    }
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    // 1. Requests por día (para gráfico de línea temporal)
+    const requestsByDay = await prisma.$queryRaw`
+      SELECT
+        DATE(timestamp) as date,
+        COUNT(*) as count
+      FROM oauth_api_logs
+      WHERE clientId = ${client.id}
+        AND timestamp >= ${startDate}
+      GROUP BY DATE(timestamp)
+      ORDER BY date ASC
+    `;
+
+    // 2. Requests por hora del día (para gráfico de barras - patrón de uso)
+    const requestsByHour = await prisma.$queryRaw`
+      SELECT
+        HOUR(timestamp) as hour,
+        COUNT(*) as count
+      FROM oauth_api_logs
+      WHERE clientId = ${client.id}
+        AND timestamp >= ${startDate}
+      GROUP BY HOUR(timestamp)
+      ORDER BY hour ASC
+    `;
+
+    // 3. Top 10 endpoints más usados
+    const topEndpoints = await prisma.oauth_api_logs.groupBy({
+      by: ['endpoint'],
+      where: {
+        clientId: client.id,
+        timestamp: { gte: startDate }
+      },
+      _count: {
+        endpoint: true
+      },
+      orderBy: {
+        _count: {
+          endpoint: 'desc'
+        }
+      },
+      take: 10
+    });
+
+    // 4. Status codes agrupados
+    const statusCodes = await prisma.oauth_api_logs.groupBy({
+      by: ['statusCode'],
+      where: {
+        clientId: client.id,
+        timestamp: { gte: startDate }
+      },
+      _count: {
+        statusCode: true
+      }
+    });
+
+    // 5. Latencia promedio por día (para gráfico de tendencia)
+    const latencyByDay = await prisma.$queryRaw`
+      SELECT
+        DATE(timestamp) as date,
+        AVG(responseTime) as avgLatency,
+        MIN(responseTime) as minLatency,
+        MAX(responseTime) as maxLatency
+      FROM oauth_api_logs
+      WHERE clientId = ${client.id}
+        AND timestamp >= ${startDate}
+      GROUP BY DATE(timestamp)
+      ORDER BY date ASC
+    `;
+
+    // 6. Rate limit hits por día
+    const rateLimitByDay = await prisma.$queryRaw`
+      SELECT
+        DATE(timestamp) as date,
+        COUNT(*) as count
+      FROM oauth_api_logs
+      WHERE clientId = ${client.id}
+        AND timestamp >= ${startDate}
+        AND rateLimitHit = true
+      GROUP BY DATE(timestamp)
+      ORDER BY date ASC
+    `;
+
+    // 7. Errores por endpoint (para identificar endpoints problemáticos)
+    const errorsByEndpoint = await prisma.oauth_api_logs.groupBy({
+      by: ['endpoint'],
+      where: {
+        clientId: client.id,
+        timestamp: { gte: startDate },
+        statusCode: { gte: 400 }
+      },
+      _count: {
+        endpoint: true
+      },
+      orderBy: {
+        _count: {
+          endpoint: 'desc'
+        }
+      },
+      take: 5
+    });
+
+    // 8. Resumen general
+    const totalRequests = await prisma.oauth_api_logs.count({
+      where: {
+        clientId: client.id,
+        timestamp: { gte: startDate }
+      }
+    });
+
+    const rateLimitHits = await prisma.oauth_api_logs.count({
+      where: {
+        clientId: client.id,
+        timestamp: { gte: startDate },
+        rateLimitHit: true
+      }
+    });
+
+    const avgResponseTime = await prisma.oauth_api_logs.aggregate({
+      where: {
+        clientId: client.id,
+        timestamp: { gte: startDate }
+      },
+      _avg: {
+        responseTime: true
+      }
+    });
+
+    const errorCount = await prisma.oauth_api_logs.count({
+      where: {
+        clientId: client.id,
+        timestamp: { gte: startDate },
+        statusCode: { gte: 400 }
+      }
+    });
+
+    return {
+      clientId: client.clientId,
+      nombre: client.nombre,
+      period: {
+        days,
+        startDate,
+        endDate: new Date()
+      },
+      summary: {
+        totalRequests,
+        rateLimitHits,
+        avgResponseTime: Math.round(avgResponseTime._avg.responseTime || 0),
+        errorCount,
+        errorRate: totalRequests > 0 ? ((errorCount / totalRequests) * 100).toFixed(2) : 0
+      },
+      charts: {
+        requestsByDay: requestsByDay.map(r => ({
+          date: r.date,
+          count: Number(r.count)
+        })),
+        requestsByHour: requestsByHour.map(r => ({
+          hour: Number(r.hour),
+          count: Number(r.count)
+        })),
+        latencyByDay: latencyByDay.map(r => ({
+          date: r.date,
+          avgLatency: Math.round(Number(r.avgLatency)),
+          minLatency: Math.round(Number(r.minLatency)),
+          maxLatency: Math.round(Number(r.maxLatency))
+        })),
+        rateLimitByDay: rateLimitByDay.map(r => ({
+          date: r.date,
+          count: Number(r.count)
+        })),
+        statusCodes: statusCodes.map(s => ({
+          code: s.statusCode,
+          count: s._count.statusCode,
+          category: this.getStatusCategory(s.statusCode)
+        })),
+        topEndpoints: topEndpoints.map(e => ({
+          endpoint: e.endpoint,
+          count: e._count.endpoint
+        })),
+        errorsByEndpoint: errorsByEndpoint.map(e => ({
+          endpoint: e.endpoint,
+          count: e._count.endpoint
+        }))
+      }
+    };
+  }
+
+  /**
+   * Categorizar status code para gráficos
+   */
+  getStatusCategory(code) {
+    if (code >= 200 && code < 300) return 'success';
+    if (code >= 300 && code < 400) return 'redirect';
+    if (code >= 400 && code < 500) return 'client_error';
+    if (code >= 500) return 'server_error';
+    return 'unknown';
+  }
 }
 
 module.exports = new OAuthService();
