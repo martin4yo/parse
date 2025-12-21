@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plan de Implementacion de Mejoras de Seguridad - Plataforma Syncro</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --palette-dark: #352151;
+      --palette-purple: #8E6AAA;
+      --palette-light: #9B7BC7;
+      --palette-accent: #F5E6D3;
+      --palette-yellow: #FCE5B7;
+      --palette-pink: #F1ABB5;
+      --primary: #ffffff;
+      --secondary: #6B4E9B;
+      --danger: #EF4444;
+      --success: #22C55E;
+      --warning: #F59E0B;
+      --info: #3B82F6;
+      --text-primary: #1F2937;
+      --text-secondary: #6B7280;
+      --text-white: #FFFFFF;
+      --border: #E5E7EB;
+      --background: #FAFAFA;
+      --background-dark: #F3F4F6;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background-color: var(--background);
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+
+    .header {
+      background: linear-gradient(135deg, var(--palette-dark) 0%, var(--palette-purple) 100%);
+      color: var(--text-white);
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .header h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .header .subtitle { font-size: 1rem; opacity: 0.9; }
+    .header .meta {
+      margin-top: 1rem;
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      font-size: 0.875rem;
+      opacity: 0.8;
+    }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+
+    .card {
+      background: var(--primary);
+      border-radius: 12px;
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+
+    .card-header {
+      background: var(--palette-dark);
+      color: var(--text-white);
+      padding: 1rem 1.5rem;
+      font-weight: 600;
+      font-size: 1.1rem;
+    }
+
+    .card-header.purple { background: var(--palette-purple); }
+    .card-header.danger { background: var(--danger); }
+    .card-header.warning { background: var(--warning); }
+    .card-header.success { background: var(--success); }
+    .card-header.info { background: var(--info); }
+
+    .card-body { padding: 1.5rem; }
+
+    /* Timeline */
+    .timeline {
+      position: relative;
+      padding-left: 2rem;
+    }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 7px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--palette-purple);
+    }
+
+    .timeline-item {
+      position: relative;
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px dashed var(--border);
+    }
+
+    .timeline-item:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+    }
+
+    .timeline-marker {
+      position: absolute;
+      left: -2rem;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--palette-purple);
+      border: 3px solid var(--primary);
+      box-shadow: 0 0 0 2px var(--palette-purple);
+    }
+
+    .timeline-marker.critical { background: var(--danger); box-shadow: 0 0 0 2px var(--danger); }
+    .timeline-marker.high { background: var(--warning); box-shadow: 0 0 0 2px var(--warning); }
+    .timeline-marker.medium { background: var(--info); box-shadow: 0 0 0 2px var(--info); }
+    .timeline-marker.low { background: var(--success); box-shadow: 0 0 0 2px var(--success); }
+
+    .timeline-content h4 {
+      color: var(--palette-dark);
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Priority badges */
+    .priority {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .priority.critical { background: #FEE2E2; color: #991B1B; }
+    .priority.high { background: #FFEDD5; color: #9A3412; }
+    .priority.medium { background: #DBEAFE; color: #1E40AF; }
+    .priority.low { background: #D1FAE5; color: #065F46; }
+
+    /* App tags */
+    .app-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin: 0.75rem 0;
+    }
+
+    .app-tag {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      background: var(--palette-accent);
+      color: var(--palette-dark);
+    }
+
+    .app-tag.parse { background: #E0E7FF; color: #3730A3; }
+    .app-tag.hub { background: #FCE7F3; color: #9D174D; }
+    .app-tag.checkpoint { background: #D1FAE5; color: #065F46; }
+    .app-tag.rendiciones { background: #FEF3C7; color: #92400E; }
+    .app-tag.docs { background: #DBEAFE; color: #1E40AF; }
+    .app-tag.infra { background: #F3E8FF; color: #6B21A8; }
+
+    /* Phase boxes */
+    .phases {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+
+    .phase {
+      background: var(--background-dark);
+      border-radius: 8px;
+      padding: 1rem;
+      border-left: 4px solid var(--palette-purple);
+    }
+
+    .phase h5 {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+
+    .phase p {
+      font-size: 0.875rem;
+      color: var(--text-primary);
+    }
+
+    .phase .duration {
+      font-size: 0.75rem;
+      color: var(--palette-purple);
+      font-weight: 600;
+      margin-top: 0.5rem;
+    }
+
+    /* Tasks */
+    .tasks {
+      background: #F8FAFC;
+      border-radius: 8px;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+
+    .tasks h5 {
+      font-size: 0.85rem;
+      color: var(--palette-dark);
+      margin-bottom: 0.75rem;
+    }
+
+    .task-list {
+      list-style: none;
+    }
+
+    .task-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+    }
+
+    .task-list li:last-child { border-bottom: none; }
+
+    .task-list li::before {
+      content: '☐';
+      color: var(--palette-purple);
+    }
+
+    /* Tests */
+    .tests {
+      background: #ECFDF5;
+      border-radius: 8px;
+      padding: 1rem;
+      margin: 1rem 0;
+      border-left: 4px solid var(--success);
+    }
+
+    .tests h5 {
+      font-size: 0.85rem;
+      color: #065F46;
+      margin-bottom: 0.75rem;
+    }
+
+    /* Dependencies */
+    .dependencies {
+      background: #FEF3C7;
+      border-radius: 8px;
+      padding: 1rem;
+      margin: 1rem 0;
+      border-left: 4px solid var(--warning);
+    }
+
+    .dependencies h5 {
+      font-size: 0.85rem;
+      color: #92400E;
+      margin-bottom: 0.5rem;
+    }
+
+    /* Section headers */
+    .section-header {
+      background: linear-gradient(90deg, var(--palette-dark), var(--palette-purple));
+      color: var(--text-white);
+      padding: 1rem 1.5rem;
+      border-radius: 8px;
+      margin: 2rem 0 1rem 0;
+      font-weight: 600;
+      font-size: 1.1rem;
+    }
+
+    /* Summary boxes */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .summary-item {
+      background: var(--background-dark);
+      padding: 1rem;
+      border-radius: 8px;
+      text-align: center;
+      border-left: 4px solid var(--palette-purple);
+    }
+
+    .summary-item .label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+    }
+
+    .summary-item .value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--palette-dark);
+      margin-top: 0.25rem;
+    }
+
+    /* Gantt-like chart */
+    .gantt {
+      overflow-x: auto;
+      margin: 1rem 0;
+    }
+
+    .gantt-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+
+    .gantt-table th {
+      background: var(--palette-dark);
+      color: white;
+      padding: 0.5rem;
+      text-align: center;
+      font-weight: 500;
+    }
+
+    .gantt-table td {
+      padding: 0.5rem;
+      border: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    .gantt-table .task-name {
+      min-width: 200px;
+      font-weight: 500;
+    }
+
+    .gantt-bar {
+      height: 20px;
+      border-radius: 4px;
+      min-width: 100%;
+    }
+
+    .gantt-bar.critical { background: linear-gradient(90deg, #EF4444, #F87171); }
+    .gantt-bar.high { background: linear-gradient(90deg, #F59E0B, #FBBF24); }
+    .gantt-bar.medium { background: linear-gradient(90deg, #3B82F6, #60A5FA); }
+    .gantt-bar.low { background: linear-gradient(90deg, #22C55E, #4ADE80); }
+
+    /* Resources */
+    .resource-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+    }
+
+    .resource-item {
+      background: var(--background-dark);
+      padding: 1rem;
+      border-radius: 8px;
+    }
+
+    .resource-item h5 {
+      color: var(--palette-dark);
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+    }
+
+    .resource-item p {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+    }
+
+    /* Print */
+    @media print {
+      .header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .card { break-inside: avoid; }
+    }
+
+    @media (max-width: 768px) {
+      .container { padding: 1rem; }
+      .header h1 { font-size: 1.5rem; }
+      .phases { grid-template-columns: 1fr; }
+    }
+
+    /* Effort indicator */
+    .effort {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-left: 0.5rem;
+    }
+
+    .effort-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--border);
+    }
+
+    .effort-dot.filled { background: var(--palette-purple); }
+
+    /* Collapsible */
+    .collapsible-header {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .collapsible-header:hover {
+      opacity: 0.9;
+    }
+
+    .risk-mitigation {
+      background: #FEF2F2;
+      border-left: 4px solid var(--danger);
+      padding: 1rem;
+      border-radius: 0 8px 8px 0;
+      margin: 1rem 0;
+    }
+
+    .risk-mitigation h5 {
+      color: #991B1B;
+      font-size: 0.85rem;
+      margin-bottom: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <h1>Plan de Implementacion de Mejoras de Seguridad</h1>
+    <p class="subtitle">Plataforma Syncro - Roadmap Detallado</p>
+    <div class="meta">
+      <span>Fecha: 15 de Diciembre 2025</span>
+      <span>Duracion Total Estimada: 16 semanas</span>
+      <span>Version: 1.0</span>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Resumen Ejecutivo -->
+    <div class="card">
+      <div class="card-header">Resumen del Plan</div>
+      <div class="card-body">
+        <div class="summary-grid">
+          <div class="summary-item">
+            <div class="label">Mejoras Totales</div>
+            <div class="value">9</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">Criticas</div>
+            <div class="value" style="color: var(--danger);">2</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">Altas</div>
+            <div class="value" style="color: var(--warning);">3</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">Medias</div>
+            <div class="value" style="color: var(--info);">3</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">Bajas</div>
+            <div class="value" style="color: var(--success);">1</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">Semanas</div>
+            <div class="value">16</div>
+          </div>
+        </div>
+
+        <h4 style="margin-bottom: 1rem;">Aplicaciones Afectadas</h4>
+        <div class="app-tags">
+          <span class="app-tag parse">Parse (Principal)</span>
+          <span class="app-tag hub">Hub</span>
+          <span class="app-tag checkpoint">Checkpoint</span>
+          <span class="app-tag rendiciones">Rendiciones</span>
+          <span class="app-tag docs">AxiomaDocs</span>
+          <span class="app-tag infra">Digital Ocean</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cronograma Visual -->
+    <div class="card">
+      <div class="card-header purple">Cronograma General (Gantt Simplificado)</div>
+      <div class="card-body">
+        <div class="gantt">
+          <table class="gantt-table">
+            <thead>
+              <tr>
+                <th>Mejora</th>
+                <th>S1</th>
+                <th>S2</th>
+                <th>S3</th>
+                <th>S4</th>
+                <th>S5</th>
+                <th>S6</th>
+                <th>S7</th>
+                <th>S8</th>
+                <th>S9</th>
+                <th>S10</th>
+                <th>S11</th>
+                <th>S12</th>
+                <th>S13</th>
+                <th>S14</th>
+                <th>S15</th>
+                <th>S16</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="task-name"><span class="priority critical">CRITICA</span> MFA</td>
+                <td colspan="4" style="background: #FEE2E2;"><div class="gantt-bar critical"></div></td>
+                <td colspan="12"></td>
+              </tr>
+              <tr>
+                <td class="task-name"><span class="priority critical">CRITICA</span> IRP</td>
+                <td colspan="2" style="background: #FEE2E2;"><div class="gantt-bar critical"></div></td>
+                <td colspan="14"></td>
+              </tr>
+              <tr>
+                <td class="task-name"><span class="priority high">ALTA</span> Vuln. CI/CD</td>
+                <td></td>
+                <td colspan="2" style="background: #FFEDD5;"><div class="gantt-bar high"></div></td>
+                <td colspan="13"></td>
+              </tr>
+              <tr>
+                <td class="task-name"><span class="priority high">ALTA</span> SIEM/Logging</td>
+                <td colspan="3"></td>
+                <td colspan="4" style="background: #FFEDD5;"><div class="gantt-bar high"></div></td>
+                <td colspan="9"></td>
+              </tr>
+              <tr>
+                <td class="task-name"><span class="priority high">ALTA</span> Pentest</td>
+                <td colspan="8"></td>
+                <td colspan="4" style="background: #FFEDD5;"><div class="gantt-bar high"></div></td>
+                <td colspan="4"></td>
+              </tr>
+              <tr>
+                <td class="task-name"><span class="priority medium">MEDIA</span> Backups DO</td>
+                <td colspan="2" style="background: #DBEAFE;"><div class="gantt-bar medium"></div></td>
+                <td colspan="14"></td>
+              </tr>
+              <tr>
+                <td class="task-name"><span class="priority medium">MEDIA</span> 2FA DO Panel</td>
+                <td style="background: #DBEAFE;"><div class="gantt-bar medium"></div></td>
+                <td colspan="15"></td>
+              </tr>
+              <tr>
+                <td class="task-name"><span class="priority medium">MEDIA</span> Capacitacion</td>
+                <td colspan="10"></td>
+                <td colspan="3" style="background: #DBEAFE;"><div class="gantt-bar medium"></div></td>
+                <td colspan="3"></td>
+              </tr>
+              <tr>
+                <td class="task-name"><span class="priority low">BAJA</span> Secrets Mgmt</td>
+                <td colspan="12"></td>
+                <td colspan="4" style="background: #D1FAE5;"><div class="gantt-bar low"></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.5rem;">S = Semana. Las barras indican el periodo de implementacion de cada mejora.</p>
+      </div>
+    </div>
+
+    <!-- FASE 1: CRITICAS -->
+    <div class="section-header">FASE 1: Mejoras Criticas (Semanas 1-4)</div>
+
+    <!-- MFA -->
+    <div class="card">
+      <div class="card-header danger">
+        1. Implementacion de MFA (Autenticacion Multi-Factor)
+        <span class="effort" style="margin-left: auto;">
+          Esfuerzo: <span class="effort-dot filled"></span><span class="effort-dot filled"></span><span class="effort-dot filled"></span><span class="effort-dot"></span><span class="effort-dot"></span>
+        </span>
+      </div>
+      <div class="card-body">
+        <p><strong>Objetivo:</strong> Agregar segundo factor de autenticacion (TOTP) para todos los usuarios, obligatorio para administradores.</p>
+
+        <h4 style="margin: 1rem 0 0.5rem;">Aplicaciones Afectadas</h4>
+        <div class="app-tags">
+          <span class="app-tag parse">Parse (Primero)</span>
+          <span class="app-tag hub">Hub</span>
+          <span class="app-tag checkpoint">Checkpoint</span>
+          <span class="app-tag rendiciones">Rendiciones</span>
+          <span class="app-tag docs">AxiomaDocs</span>
+        </div>
+
+        <div class="phases">
+          <div class="phase">
+            <h5>Diseno</h5>
+            <p>Arquitectura MFA centralizada en Parse, SDK para apps cliente</p>
+            <div class="duration">3 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Desarrollo</h5>
+            <p>Backend Parse + migracion DB + endpoints + UI en todas las apps</p>
+            <div class="duration">12 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Pruebas</h5>
+            <p>Testing unitario, integracion, UAT con usuarios reales</p>
+            <div class="duration">4 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Despliegue</h5>
+            <p>Rollout gradual: admins primero, luego todos</p>
+            <div class="duration">3 dias</div>
+          </div>
+        </div>
+
+        <div class="tasks">
+          <h5>Tareas de Desarrollo</h5>
+          <ul class="task-list">
+            <li><strong>Parse Backend:</strong> Instalar speakeasy/otplib para generacion TOTP</li>
+            <li><strong>Parse Backend:</strong> Crear modelo MfaSecret (userId, secret, enabled, backupCodes)</li>
+            <li><strong>Parse Backend:</strong> Endpoint POST /auth/mfa/setup - Generar secreto y QR</li>
+            <li><strong>Parse Backend:</strong> Endpoint POST /auth/mfa/verify - Validar codigo TOTP</li>
+            <li><strong>Parse Backend:</strong> Endpoint POST /auth/mfa/disable - Desactivar (requiere codigo)</li>
+            <li><strong>Parse Backend:</strong> Modificar POST /auth/login - Agregar paso MFA si habilitado</li>
+            <li><strong>Parse Backend:</strong> Generar backup codes (10 codigos de un solo uso)</li>
+            <li><strong>Parse Frontend:</strong> Pantalla de configuracion MFA con QR</li>
+            <li><strong>Parse Frontend:</strong> Modal de verificacion MFA en login</li>
+            <li><strong>Parse Frontend:</strong> Pantalla de backup codes</li>
+            <li><strong>Hub/Checkpoint/Rendiciones/Docs:</strong> Integrar flujo MFA en login</li>
+            <li><strong>Migracion DB:</strong> Agregar tabla mfa_secrets y campo mfaEnabled en users</li>
+            <li><strong>Admin:</strong> Forzar MFA para roles SUPER_ADMIN y ADMIN</li>
+          </ul>
+        </div>
+
+        <div class="tests">
+          <h5>Plan de Pruebas</h5>
+          <ul class="task-list">
+            <li>Unit tests: Generacion de secretos, validacion TOTP, backup codes</li>
+            <li>Integration tests: Flujo completo login -> MFA -> dashboard</li>
+            <li>Test de tiempo: Verificar ventana de 30 segundos del TOTP</li>
+            <li>Test de backup codes: Uso unico y regeneracion</li>
+            <li>Test de fuerza bruta: Rate limiting en verificacion MFA</li>
+            <li>UAT: 3 usuarios admin prueban el flujo completo</li>
+            <li>Test de recuperacion: Proceso cuando usuario pierde dispositivo</li>
+          </ul>
+        </div>
+
+        <div class="dependencies">
+          <h5>Dependencias</h5>
+          <p>Ninguna. Esta mejora puede comenzar inmediatamente.</p>
+        </div>
+
+        <div class="risk-mitigation">
+          <h5>Riesgos y Mitigacion</h5>
+          <ul style="font-size: 0.85rem; margin-left: 1rem;">
+            <li><strong>Usuarios sin smartphone:</strong> Proveer backup codes impresos</li>
+            <li><strong>Perdida de dispositivo:</strong> Proceso de recuperacion via email + validacion manual</li>
+            <li><strong>Resistencia al cambio:</strong> Rollout gradual, comunicacion previa</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- IRP -->
+    <div class="card">
+      <div class="card-header danger">
+        2. Plan de Respuesta a Incidentes (IRP)
+        <span class="effort" style="margin-left: auto;">
+          Esfuerzo: <span class="effort-dot filled"></span><span class="effort-dot filled"></span><span class="effort-dot"></span><span class="effort-dot"></span><span class="effort-dot"></span>
+        </span>
+      </div>
+      <div class="card-body">
+        <p><strong>Objetivo:</strong> Documentar procedimientos de respuesta ante incidentes de seguridad con roles, escalamiento y comunicacion.</p>
+
+        <h4 style="margin: 1rem 0 0.5rem;">Aplicaciones Afectadas</h4>
+        <div class="app-tags">
+          <span class="app-tag infra">Todas (Documentacion)</span>
+          <span class="app-tag infra">Digital Ocean</span>
+        </div>
+
+        <div class="phases">
+          <div class="phase">
+            <h5>Investigacion</h5>
+            <p>Revisar templates NIST, adaptar a contexto Syncro</p>
+            <div class="duration">2 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Documentacion</h5>
+            <p>Redactar IRP completo con procedimientos DO</p>
+            <div class="duration">5 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Revision</h5>
+            <p>Validar con equipo tecnico y stakeholders</p>
+            <div class="duration">2 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Tabletop</h5>
+            <p>Simulacro de mesa con escenario ficticio</p>
+            <div class="duration">1 dia</div>
+          </div>
+        </div>
+
+        <div class="tasks">
+          <h5>Contenido del IRP</h5>
+          <ul class="task-list">
+            <li><strong>Seccion 1:</strong> Definicion de incidente y niveles de severidad (Bajo/Medio/Alto/Critico)</li>
+            <li><strong>Seccion 2:</strong> Equipo de respuesta - Roles y contactos (Lider, Tecnico, Comunicacion, Legal)</li>
+            <li><strong>Seccion 3:</strong> Procedimiento de deteccion - Como identificar un incidente</li>
+            <li><strong>Seccion 4:</strong> Procedimiento de contencion inmediata (aislamiento de Droplets, revocacion de tokens)</li>
+            <li><strong>Seccion 5:</strong> Procedimientos Digital Ocean (snapshots de emergencia, logs, firewall rules)</li>
+            <li><strong>Seccion 6:</strong> Procedimiento de erradicacion y recuperacion</li>
+            <li><strong>Seccion 7:</strong> Comunicacion interna y externa (templates de notificacion)</li>
+            <li><strong>Seccion 8:</strong> Post-mortem y lecciones aprendidas</li>
+            <li><strong>Anexo A:</strong> Checklist de respuesta rapida (1 pagina)</li>
+            <li><strong>Anexo B:</strong> Contactos de emergencia (DO Support, ISP, Legal)</li>
+            <li><strong>Anexo C:</strong> Comandos utiles Digital Ocean CLI</li>
+          </ul>
+        </div>
+
+        <div class="tests">
+          <h5>Validacion</h5>
+          <ul class="task-list">
+            <li>Revision tecnica por desarrollador senior</li>
+            <li>Revision por responsable de operaciones</li>
+            <li>Tabletop exercise: Escenario "Breach de credenciales de usuario admin"</li>
+            <li>Documentar tiempos de respuesta del ejercicio</li>
+            <li>Ajustar IRP segun hallazgos del tabletop</li>
+          </ul>
+        </div>
+
+        <div class="dependencies">
+          <h5>Dependencias</h5>
+          <p>Ninguna. Puede ejecutarse en paralelo con MFA.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- FASE 2: ALTAS -->
+    <div class="section-header">FASE 2: Mejoras de Prioridad Alta (Semanas 2-12)</div>
+
+    <!-- Vulnerabilidades CI/CD -->
+    <div class="card">
+      <div class="card-header warning">
+        3. Escaneo de Vulnerabilidades en CI/CD
+        <span class="effort" style="margin-left: auto;">
+          Esfuerzo: <span class="effort-dot filled"></span><span class="effort-dot filled"></span><span class="effort-dot"></span><span class="effort-dot"></span><span class="effort-dot"></span>
+        </span>
+      </div>
+      <div class="card-body">
+        <p><strong>Objetivo:</strong> Automatizar escaneo de dependencias vulnerables en cada push/PR usando GitHub Actions + Snyk o Dependabot.</p>
+
+        <h4 style="margin: 1rem 0 0.5rem;">Aplicaciones Afectadas</h4>
+        <div class="app-tags">
+          <span class="app-tag parse">Parse</span>
+          <span class="app-tag hub">Hub</span>
+          <span class="app-tag checkpoint">Checkpoint</span>
+          <span class="app-tag rendiciones">Rendiciones</span>
+          <span class="app-tag docs">AxiomaDocs</span>
+        </div>
+
+        <div class="phases">
+          <div class="phase">
+            <h5>Configuracion</h5>
+            <p>Setup Snyk/Dependabot en cada repositorio</p>
+            <div class="duration">2 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Integracion</h5>
+            <p>GitHub Actions workflows, branch protection</p>
+            <div class="duration">3 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Remediacion Inicial</h5>
+            <p>Resolver vulnerabilidades existentes criticas</p>
+            <div class="duration">3 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Documentacion</h5>
+            <p>Proceso de triaje y actualizacion</p>
+            <div class="duration">1 dia</div>
+          </div>
+        </div>
+
+        <div class="tasks">
+          <h5>Tareas de Implementacion</h5>
+          <ul class="task-list">
+            <li>Crear cuenta Snyk (free tier para proyectos open source/small teams)</li>
+            <li>Conectar repositorios de GitHub a Snyk</li>
+            <li>Configurar .snyk en cada proyecto con politicas de severidad</li>
+            <li>Crear workflow .github/workflows/security-scan.yml</li>
+            <li>Configurar branch protection: bloquear merge si hay vulnerabilidades criticas</li>
+            <li>Habilitar Dependabot alerts en GitHub como backup</li>
+            <li>Ejecutar primer escaneo completo de cada proyecto</li>
+            <li>Priorizar y resolver vulnerabilidades criticas/altas existentes</li>
+            <li>Configurar notificaciones Slack/email para nuevas vulnerabilidades</li>
+            <li>Documentar proceso de triaje semanal</li>
+          </ul>
+        </div>
+
+        <div class="tests">
+          <h5>Validacion</h5>
+          <ul class="task-list">
+            <li>Verificar que PR con dependencia vulnerable es bloqueado</li>
+            <li>Verificar que alertas llegan correctamente</li>
+            <li>Test de bypass: intentar mergear sin resolver (debe fallar)</li>
+            <li>Verificar reportes semanales de estado</li>
+          </ul>
+        </div>
+
+        <div class="dependencies">
+          <h5>Dependencias</h5>
+          <p>Acceso admin a repositorios GitHub. Puede comenzar en Semana 2.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIEM/Logging -->
+    <div class="card">
+      <div class="card-header warning">
+        4. Logging Centralizado (SIEM Ligero)
+        <span class="effort" style="margin-left: auto;">
+          Esfuerzo: <span class="effort-dot filled"></span><span class="effort-dot filled"></span><span class="effort-dot filled"></span><span class="effort-dot filled"></span><span class="effort-dot"></span>
+        </span>
+      </div>
+      <div class="card-body">
+        <p><strong>Objetivo:</strong> Centralizar logs de todas las aplicaciones para deteccion de amenazas, usando Papertrail (integra con DO) o Datadog.</p>
+
+        <h4 style="margin: 1rem 0 0.5rem;">Aplicaciones Afectadas</h4>
+        <div class="app-tags">
+          <span class="app-tag parse">Parse</span>
+          <span class="app-tag hub">Hub</span>
+          <span class="app-tag checkpoint">Checkpoint</span>
+          <span class="app-tag rendiciones">Rendiciones</span>
+          <span class="app-tag docs">AxiomaDocs</span>
+          <span class="app-tag infra">Digital Ocean</span>
+        </div>
+
+        <div class="phases">
+          <div class="phase">
+            <h5>Evaluacion</h5>
+            <p>Comparar Papertrail vs Datadog vs Logtail</p>
+            <div class="duration">2 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Setup Infra</h5>
+            <p>Crear cuenta, configurar retention, alertas base</p>
+            <div class="duration">2 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Integracion Apps</h5>
+            <p>Configurar Winston/Pino en cada app, structured logging</p>
+            <div class="duration">8 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Alertas y Dashboards</h5>
+            <p>Crear alertas de seguridad y dashboard operativo</p>
+            <div class="duration">4 dias</div>
+          </div>
+        </div>
+
+        <div class="tasks">
+          <h5>Tareas de Implementacion</h5>
+          <ul class="task-list">
+            <li><strong>Evaluacion:</strong> Prueba de concepto con Papertrail (14 dias gratis)</li>
+            <li><strong>Parse:</strong> Reemplazar console.log por Winston con formato JSON</li>
+            <li><strong>Parse:</strong> Agregar logs estructurados: login attempts, failed auth, role changes</li>
+            <li><strong>Hub:</strong> Configurar Winston, logs de integraciones</li>
+            <li><strong>Checkpoint:</strong> Logs de fichadas, accesos</li>
+            <li><strong>Rendiciones:</strong> Logs de transacciones financieras</li>
+            <li><strong>AxiomaDocs:</strong> Logs de acceso a documentos sensibles</li>
+            <li><strong>Infra:</strong> Configurar rsyslog en Droplets para logs de sistema</li>
+            <li><strong>Alertas:</strong> Crear alerta: >5 failed logins en 5 min desde misma IP</li>
+            <li><strong>Alertas:</strong> Crear alerta: acceso admin fuera de horario laboral</li>
+            <li><strong>Alertas:</strong> Crear alerta: error rate >5% en cualquier app</li>
+            <li><strong>Dashboard:</strong> Panel con metricas: requests/min, errors, auth events</li>
+            <li><strong>Retention:</strong> Configurar 30 dias de retencion (requisito seguro)</li>
+          </ul>
+        </div>
+
+        <div class="tests">
+          <h5>Validacion</h5>
+          <ul class="task-list">
+            <li>Verificar que logs de todas las apps llegan al SIEM</li>
+            <li>Simular 10 failed logins y verificar alerta</li>
+            <li>Verificar busqueda: encontrar evento especifico por timestamp</li>
+            <li>Test de latencia: tiempo desde evento hasta visible en dashboard</li>
+            <li>Verificar que no se loguean datos sensibles (passwords, tokens)</li>
+          </ul>
+        </div>
+
+        <div class="dependencies">
+          <h5>Dependencias</h5>
+          <p>Mejor comenzar despues de IRP (Semana 4) para alinear alertas con procedimientos.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pentest -->
+    <div class="card">
+      <div class="card-header warning">
+        5. Pentest Anual
+        <span class="effort" style="margin-left: auto;">
+          Esfuerzo: <span class="effort-dot filled"></span><span class="effort-dot filled"></span><span class="effort-dot filled"></span><span class="effort-dot"></span><span class="effort-dot"></span>
+        </span>
+      </div>
+      <div class="card-body">
+        <p><strong>Objetivo:</strong> Contratar pentest profesional para identificar vulnerabilidades no detectadas por herramientas automaticas.</p>
+
+        <h4 style="margin: 1rem 0 0.5rem;">Alcance</h4>
+        <div class="app-tags">
+          <span class="app-tag parse">Parse (API + Frontend)</span>
+          <span class="app-tag hub">Hub</span>
+          <span class="app-tag infra">Infraestructura DO</span>
+        </div>
+
+        <div class="phases">
+          <div class="phase">
+            <h5>RFP y Seleccion</h5>
+            <p>Solicitar propuestas, evaluar 3 proveedores</p>
+            <div class="duration">5 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Preparacion</h5>
+            <p>Ambiente de staging, documentacion, accesos</p>
+            <div class="duration">3 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Ejecucion</h5>
+            <p>Pentest activo por proveedor externo</p>
+            <div class="duration">10 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Remediacion</h5>
+            <p>Corregir hallazgos criticos y altos</p>
+            <div class="duration">10 dias</div>
+          </div>
+        </div>
+
+        <div class="tasks">
+          <h5>Tareas</h5>
+          <ul class="task-list">
+            <li>Definir alcance: Web App Pentest + API Security + Infra basica</li>
+            <li>Solicitar propuestas a 3 proveedores (ej: Securetia, Base4, Faraday)</li>
+            <li>Evaluar propuestas: metodologia, experiencia, precio, certificaciones</li>
+            <li>Seleccionar proveedor y firmar NDA + contrato</li>
+            <li>Preparar ambiente de staging identico a produccion</li>
+            <li>Crear cuentas de prueba con diferentes roles</li>
+            <li>Documentar endpoints, flujos criticos, datos sensibles</li>
+            <li>Coordinar ventana de testing (evitar horarios criticos)</li>
+            <li>Acompanar ejecucion, responder consultas</li>
+            <li>Recibir reporte preliminar, revisar hallazgos</li>
+            <li>Priorizar remediacion: Criticos en 7 dias, Altos en 14 dias</li>
+            <li>Solicitar re-test de hallazgos corregidos</li>
+            <li>Obtener reporte final para evidencia de seguro</li>
+          </ul>
+        </div>
+
+        <div class="tests">
+          <h5>Entregables Esperados</h5>
+          <ul class="task-list">
+            <li>Reporte ejecutivo (para gerencia/aseguradora)</li>
+            <li>Reporte tecnico detallado con PoC de vulnerabilidades</li>
+            <li>Matriz de hallazgos con CVSS score</li>
+            <li>Recomendaciones de remediacion</li>
+            <li>Carta de re-test confirmando correccion</li>
+          </ul>
+        </div>
+
+        <div class="dependencies">
+          <h5>Dependencias</h5>
+          <p>Idealmente ejecutar despues de implementar MFA y SIEM (Semana 9+) para testear controles nuevos.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- FASE 3: MEDIAS -->
+    <div class="section-header">FASE 3: Mejoras de Prioridad Media (Semanas 1-13)</div>
+
+    <!-- Backups DO -->
+    <div class="card">
+      <div class="card-header info">
+        6. Documentacion y Pruebas de Backups DO
+        <span class="effort" style="margin-left: auto;">
+          Esfuerzo: <span class="effort-dot filled"></span><span class="effort-dot"></span><span class="effort-dot"></span><span class="effort-dot"></span><span class="effort-dot"></span>
+        </span>
+      </div>
+      <div class="card-body">
+        <p><strong>Objetivo:</strong> Verificar configuracion de backups en Digital Ocean, documentar RTO/RPO y realizar prueba de restauracion.</p>
+
+        <div class="app-tags">
+          <span class="app-tag infra">Digital Ocean</span>
+        </div>
+
+        <div class="phases">
+          <div class="phase">
+            <h5>Auditoria</h5>
+            <p>Verificar backups habilitados en todos los recursos</p>
+            <div class="duration">1 dia</div>
+          </div>
+          <div class="phase">
+            <h5>Documentacion</h5>
+            <p>Crear documento de backup policy con RTO/RPO</p>
+            <div class="duration">2 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Prueba</h5>
+            <p>Restaurar un Droplet desde backup en ambiente de test</p>
+            <div class="duration">1 dia</div>
+          </div>
+          <div class="phase">
+            <h5>Checklist</h5>
+            <p>Crear checklist trimestral de verificacion</p>
+            <div class="duration">1 dia</div>
+          </div>
+        </div>
+
+        <div class="tasks">
+          <h5>Tareas</h5>
+          <ul class="task-list">
+            <li>Login a Digital Ocean, revisar cada Droplet: backup habilitado?</li>
+            <li>Revisar Managed Databases: verificar backup automatico y PITR</li>
+            <li>Documentar: que recursos tienen backup, frecuencia, retencion</li>
+            <li>Definir RTO objetivo: 4 horas, RPO objetivo: 24 horas</li>
+            <li>Crear Droplet de prueba desde backup mas reciente</li>
+            <li>Medir tiempo de restauracion real</li>
+            <li>Verificar integridad de datos post-restauracion</li>
+            <li>Documentar procedimiento de restauracion paso a paso</li>
+            <li>Crear checklist trimestral con fecha de proxima prueba</li>
+            <li>Configurar snapshot semanal adicional en region diferente (opcional)</li>
+          </ul>
+        </div>
+
+        <div class="dependencies">
+          <h5>Dependencias</h5>
+          <p>Ninguna. Puede comenzar inmediatamente (Semana 1).</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2FA DO -->
+    <div class="card">
+      <div class="card-header info">
+        7. Habilitar 2FA en Panel Digital Ocean
+        <span class="effort" style="margin-left: auto;">
+          Esfuerzo: <span class="effort-dot filled"></span><span class="effort-dot"></span><span class="effort-dot"></span><span class="effort-dot"></span><span class="effort-dot"></span>
+        </span>
+      </div>
+      <div class="card-body">
+        <p><strong>Objetivo:</strong> Asegurar que todos los usuarios con acceso al panel de Digital Ocean tengan 2FA habilitado.</p>
+
+        <div class="app-tags">
+          <span class="app-tag infra">Digital Ocean</span>
+        </div>
+
+        <div class="phases">
+          <div class="phase">
+            <h5>Auditoria</h5>
+            <p>Listar usuarios con acceso, verificar 2FA</p>
+            <div class="duration">0.5 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Comunicacion</h5>
+            <p>Notificar a usuarios que deben habilitar 2FA</p>
+            <div class="duration">0.5 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Implementacion</h5>
+            <p>Habilitar 2FA en cada cuenta</p>
+            <div class="duration">1 dia</div>
+          </div>
+          <div class="phase">
+            <h5>Verificacion</h5>
+            <p>Confirmar que todos tienen 2FA activo</p>
+            <div class="duration">0.5 dias</div>
+          </div>
+        </div>
+
+        <div class="tasks">
+          <h5>Tareas</h5>
+          <ul class="task-list">
+            <li>Acceder a DO > Settings > Team > listar todos los miembros</li>
+            <li>Identificar usuarios sin 2FA habilitado</li>
+            <li>Enviar comunicacion: "Habilitar 2FA antes del [fecha]"</li>
+            <li>Proveer instrucciones paso a paso</li>
+            <li>Cada usuario: Settings > Security > Enable 2FA</li>
+            <li>Guardar backup codes de forma segura</li>
+            <li>Verificar que todos los usuarios tienen 2FA activo</li>
+            <li>Revocar acceso a usuarios que no cumplan en plazo</li>
+          </ul>
+        </div>
+
+        <div class="dependencies">
+          <h5>Dependencias</h5>
+          <p>Ninguna. Ejecutar en Semana 1 (tarea rapida de alto impacto).</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Capacitacion -->
+    <div class="card">
+      <div class="card-header info">
+        8. Programa de Capacitacion en Seguridad
+        <span class="effort" style="margin-left: auto;">
+          Esfuerzo: <span class="effort-dot filled"></span><span class="effort-dot filled"></span><span class="effort-dot"></span><span class="effort-dot"></span><span class="effort-dot"></span>
+        </span>
+      </div>
+      <div class="card-body">
+        <p><strong>Objetivo:</strong> Capacitar al equipo en buenas practicas de seguridad, incluyendo simulacion de phishing.</p>
+
+        <div class="app-tags">
+          <span class="app-tag infra">Todo el equipo</span>
+        </div>
+
+        <div class="phases">
+          <div class="phase">
+            <h5>Contenido</h5>
+            <p>Desarrollar material de capacitacion</p>
+            <div class="duration">5 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Sesiones</h5>
+            <p>Dictar 2 sesiones de 2 horas</p>
+            <div class="duration">2 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Phishing Sim</h5>
+            <p>Ejecutar simulacion y analizar resultados</p>
+            <div class="duration">5 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Seguimiento</h5>
+            <p>Refuerzo a quienes cayeron en phishing</p>
+            <div class="duration">2 dias</div>
+          </div>
+        </div>
+
+        <div class="tasks">
+          <h5>Contenido de Capacitacion</h5>
+          <ul class="task-list">
+            <li>Modulo 1: Phishing y ingenieria social - como detectar</li>
+            <li>Modulo 2: Passwords seguros y uso de password manager</li>
+            <li>Modulo 3: MFA - por que es importante y como usarlo</li>
+            <li>Modulo 4: Manejo seguro de datos sensibles</li>
+            <li>Modulo 5: Que hacer si sospechas un incidente</li>
+            <li>Quiz final con certificado de completacion</li>
+            <li>Configurar herramienta de phishing simulation (ej: Gophish, KnowBe4)</li>
+            <li>Crear 3 templates de phishing realistas</li>
+            <li>Ejecutar campana a todo el equipo</li>
+            <li>Analizar: quien hizo click, quien reporto</li>
+            <li>Sesion de refuerzo para quienes cayeron</li>
+          </ul>
+        </div>
+
+        <div class="dependencies">
+          <h5>Dependencias</h5>
+          <p>Mejor ejecutar despues de implementar MFA (Semana 5+) para incluirlo en capacitacion.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- FASE 4: BAJAS -->
+    <div class="section-header">FASE 4: Mejoras de Prioridad Baja (Semanas 13-16)</div>
+
+    <!-- Secrets Management -->
+    <div class="card">
+      <div class="card-header success">
+        9. Gestor de Secretos (Futuro)
+        <span class="effort" style="margin-left: auto;">
+          Esfuerzo: <span class="effort-dot filled"></span><span class="effort-dot filled"></span><span class="effort-dot filled"></span><span class="effort-dot filled"></span><span class="effort-dot"></span>
+        </span>
+      </div>
+      <div class="card-body">
+        <p><strong>Objetivo:</strong> Migrar secretos de variables de entorno a un gestor dedicado (HashiCorp Vault o DO Secrets) con rotacion automatica.</p>
+
+        <h4 style="margin: 1rem 0 0.5rem;">Aplicaciones Afectadas</h4>
+        <div class="app-tags">
+          <span class="app-tag parse">Parse</span>
+          <span class="app-tag hub">Hub</span>
+          <span class="app-tag checkpoint">Checkpoint</span>
+          <span class="app-tag rendiciones">Rendiciones</span>
+          <span class="app-tag docs">AxiomaDocs</span>
+        </div>
+
+        <div class="phases">
+          <div class="phase">
+            <h5>Evaluacion</h5>
+            <p>Comparar Vault vs DO Secrets vs AWS SM</p>
+            <div class="duration">3 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Setup</h5>
+            <p>Instalar y configurar gestor elegido</p>
+            <div class="duration">5 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Migracion</h5>
+            <p>Migrar secretos de cada app, una por una</p>
+            <div class="duration">8 dias</div>
+          </div>
+          <div class="phase">
+            <h5>Rotacion</h5>
+            <p>Configurar politicas de rotacion automatica</p>
+            <div class="duration">4 dias</div>
+          </div>
+        </div>
+
+        <div class="tasks">
+          <h5>Tareas</h5>
+          <ul class="task-list">
+            <li>Inventariar todos los secretos en .env de cada proyecto</li>
+            <li>Clasificar: DB credentials, API keys, JWT secrets, etc.</li>
+            <li>Evaluar opciones: Vault (self-hosted), DO Secrets, Doppler</li>
+            <li>PoC con la opcion elegida</li>
+            <li>Configurar acceso por aplicacion (cada app solo ve sus secretos)</li>
+            <li>Modificar codigo: leer secretos desde API del gestor</li>
+            <li>Parse: migrar primero (es el core)</li>
+            <li>Hub, Checkpoint, Rendiciones, Docs: migrar en orden</li>
+            <li>Configurar rotacion automatica para DB passwords (cada 90 dias)</li>
+            <li>Configurar alertas de expiracion de secretos</li>
+            <li>Eliminar .env de produccion una vez migrado</li>
+            <li>Documentar proceso de agregar nuevos secretos</li>
+          </ul>
+        </div>
+
+        <div class="tests">
+          <h5>Validacion</h5>
+          <ul class="task-list">
+            <li>Verificar que apps inician correctamente leyendo secretos del gestor</li>
+            <li>Test de rotacion: rotar un secreto y verificar que app sigue funcionando</li>
+            <li>Test de acceso: app A no puede leer secretos de app B</li>
+            <li>Test de auditoria: verificar logs de acceso a secretos</li>
+          </ul>
+        </div>
+
+        <div class="dependencies">
+          <h5>Dependencias</h5>
+          <p>Recomendado ejecutar despues de que las demas mejoras esten estables. No es urgente dado que los .env actuales son de testing.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recursos Necesarios -->
+    <div class="card">
+      <div class="card-header purple">Recursos Necesarios</div>
+      <div class="card-body">
+        <div class="resource-grid">
+          <div class="resource-item">
+            <h5>Desarrollador Backend Senior</h5>
+            <p>Dedicacion: 60-80% durante 16 semanas</p>
+            <p>Responsable de: MFA, Logging, integraciones</p>
+          </div>
+          <div class="resource-item">
+            <h5>Desarrollador Frontend</h5>
+            <p>Dedicacion: 40% durante semanas 1-6</p>
+            <p>Responsable de: UI de MFA en todas las apps</p>
+          </div>
+          <div class="resource-item">
+            <h5>DevOps / SysAdmin</h5>
+            <p>Dedicacion: 30% durante 16 semanas</p>
+            <p>Responsable de: CI/CD, DO config, SIEM infra</p>
+          </div>
+          <div class="resource-item">
+            <h5>Project Manager / Lead</h5>
+            <p>Dedicacion: 20% durante 16 semanas</p>
+            <p>Responsable de: Coordinacion, IRP, capacitacion</p>
+          </div>
+          <div class="resource-item">
+            <h5>Presupuesto Externo</h5>
+            <p>Pentest: $3,000 - $8,000 USD</p>
+            <p>SIEM (Papertrail/Datadog): ~$50-200/mes</p>
+          </div>
+          <div class="resource-item">
+            <h5>Herramientas</h5>
+            <p>Snyk (free tier o $25/dev/mes)</p>
+            <p>Gophish (open source) o KnowBe4</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Metricas de Exito -->
+    <div class="card">
+      <div class="card-header">Metricas de Exito</div>
+      <div class="card-body">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+          <thead>
+            <tr style="background: var(--background-dark);">
+              <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid var(--border);">Mejora</th>
+              <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid var(--border);">Metrica de Exito</th>
+              <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid var(--border);">Objetivo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">MFA</td>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">% usuarios admin con MFA activo</td>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">100%</td>
+            </tr>
+            <tr>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">IRP</td>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">Documento aprobado + tabletop ejecutado</td>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">Completado</td>
+            </tr>
+            <tr>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">CI/CD Security</td>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">Vulnerabilidades criticas en produccion</td>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">0</td>
+            </tr>
+            <tr>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">SIEM</td>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">Tiempo de deteccion de anomalias</td>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">&lt; 15 minutos</td>
+            </tr>
+            <tr>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">Pentest</td>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">Hallazgos criticos/altos remediados</td>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">100%</td>
+            </tr>
+            <tr>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">Backups</td>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">RTO real medido</td>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">&lt; 4 horas</td>
+            </tr>
+            <tr>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">2FA DO</td>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">% usuarios DO con 2FA</td>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">100%</td>
+            </tr>
+            <tr>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">Capacitacion</td>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">% equipo capacitado + tasa de click phishing</td>
+              <td style="padding: 0.75rem; border-bottom: 1px solid var(--border);">100% / &lt;20%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Conclusion -->
+    <div class="card">
+      <div class="card-header">Proximos Pasos Inmediatos</div>
+      <div class="card-body">
+        <div style="background: var(--palette-accent); padding: 1.5rem; border-radius: 8px;">
+          <h4 style="color: var(--palette-dark); margin-bottom: 1rem;">Semana 1 - Acciones Inmediatas</h4>
+          <ol style="margin-left: 1.5rem;">
+            <li style="margin-bottom: 0.5rem;"><strong>Dia 1:</strong> Habilitar 2FA en panel Digital Ocean para todos los usuarios</li>
+            <li style="margin-bottom: 0.5rem;"><strong>Dia 1-2:</strong> Verificar backups habilitados en todos los Droplets y DBs</li>
+            <li style="margin-bottom: 0.5rem;"><strong>Dia 2-3:</strong> Iniciar diseno de arquitectura MFA en Parse</li>
+            <li style="margin-bottom: 0.5rem;"><strong>Dia 3-5:</strong> Comenzar redaccion de IRP</li>
+            <li style="margin-bottom: 0.5rem;"><strong>Dia 5:</strong> Configurar Snyk en repositorio de Parse como piloto</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer class="footer">
+    <p>Plan de Implementacion de Mejoras de Seguridad - Plataforma Syncro</p>
+    <p>Documento generado: 15 de Diciembre 2025</p>
+    <p style="margin-top: 0.5rem; color: var(--palette-purple);">&copy; 2025 - Documento confidencial</p>
+  </footer>
+</body>
+</html>

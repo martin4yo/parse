@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Security TODO Tracker - Plataforma Syncro</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --palette-dark: #352151;
+      --palette-purple: #8E6AAA;
+      --palette-light: #9B7BC7;
+      --palette-accent: #F5E6D3;
+      --palette-yellow: #FCE5B7;
+      --primary: #ffffff;
+      --danger: #EF4444;
+      --success: #22C55E;
+      --warning: #F59E0B;
+      --info: #3B82F6;
+      --text-primary: #1F2937;
+      --text-secondary: #6B7280;
+      --text-white: #FFFFFF;
+      --border: #E5E7EB;
+      --background: #FAFAFA;
+      --background-dark: #F3F4F6;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background-color: var(--background);
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+
+    .header {
+      background: linear-gradient(135deg, var(--palette-dark) 0%, var(--palette-purple) 100%);
+      color: var(--text-white);
+      padding: 1.5rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .header-content {
+      max-width: 1000px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .header h1 { font-size: 1.5rem; font-weight: 700; }
+
+    .progress-container {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .progress-bar {
+      width: 200px;
+      height: 12px;
+      background: rgba(255,255,255,0.3);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--success);
+      transition: width 0.3s ease;
+      border-radius: 6px;
+    }
+
+    .progress-text {
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .container { max-width: 1000px; margin: 0 auto; padding: 2rem; }
+
+    /* Stats */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat {
+      background: var(--primary);
+      padding: 1rem;
+      border-radius: 8px;
+      text-align: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--palette-dark);
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+    }
+
+    .stat.critical .stat-value { color: var(--danger); }
+    .stat.completed .stat-value { color: var(--success); }
+
+    /* Phase */
+    .phase {
+      background: var(--primary);
+      border-radius: 12px;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+
+    .phase-header {
+      padding: 1rem 1.5rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+
+    .phase-header:hover { background: var(--background-dark); }
+
+    .phase-header h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .phase-header.critical { border-left: 4px solid var(--danger); }
+    .phase-header.high { border-left: 4px solid var(--warning); }
+    .phase-header.medium { border-left: 4px solid var(--info); }
+    .phase-header.low { border-left: 4px solid var(--success); }
+
+    .phase-progress {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+
+    .phase-content {
+      padding: 0 1.5rem 1.5rem;
+      display: none;
+    }
+
+    .phase.open .phase-content { display: block; }
+
+    .phase-arrow {
+      transition: transform 0.2s;
+    }
+
+    .phase.open .phase-arrow { transform: rotate(180deg); }
+
+    /* Milestone */
+    .milestone {
+      background: var(--background-dark);
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      overflow: hidden;
+    }
+
+    .milestone-header {
+      padding: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      cursor: pointer;
+    }
+
+    .milestone-header:hover { background: var(--palette-accent); }
+
+    .milestone-checkbox {
+      width: 24px;
+      height: 24px;
+      border: 2px solid var(--border);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    .milestone-checkbox:hover { border-color: var(--palette-purple); }
+
+    .milestone-checkbox.checked {
+      background: var(--success);
+      border-color: var(--success);
+      color: white;
+    }
+
+    .milestone-info { flex: 1; }
+
+    .milestone-title {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .milestone.completed .milestone-title {
+      text-decoration: line-through;
+      color: var(--text-secondary);
+    }
+
+    .milestone-meta {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-top: 0.25rem;
+    }
+
+    .milestone-apps {
+      display: flex;
+      gap: 0.25rem;
+      flex-wrap: wrap;
+    }
+
+    .app-tag {
+      font-size: 0.65rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      font-weight: 500;
+    }
+
+    .app-tag.parse { background: #E0E7FF; color: #3730A3; }
+    .app-tag.hub { background: #FCE7F3; color: #9D174D; }
+    .app-tag.checkpoint { background: #D1FAE5; color: #065F46; }
+    .app-tag.rendiciones { background: #FEF3C7; color: #92400E; }
+    .app-tag.docs { background: #DBEAFE; color: #1E40AF; }
+    .app-tag.infra { background: #F3E8FF; color: #6B21A8; }
+    .app-tag.all { background: var(--palette-dark); color: white; }
+
+    /* Tasks */
+    .tasks {
+      padding: 0 1rem 1rem;
+      display: none;
+    }
+
+    .milestone.expanded .tasks { display: block; }
+
+    .task {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+    }
+
+    .task:last-child { border-bottom: none; }
+
+    .task-checkbox {
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--border);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .task-checkbox:hover { border-color: var(--palette-purple); }
+
+    .task-checkbox.checked {
+      background: var(--success);
+      border-color: var(--success);
+      color: white;
+    }
+
+    .task.completed .task-text {
+      text-decoration: line-through;
+      color: var(--text-secondary);
+    }
+
+    /* Priority badges */
+    .priority {
+      font-size: 0.65rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .priority.critical { background: #FEE2E2; color: #991B1B; }
+    .priority.high { background: #FFEDD5; color: #9A3412; }
+    .priority.medium { background: #DBEAFE; color: #1E40AF; }
+    .priority.low { background: #D1FAE5; color: #065F46; }
+
+    /* Actions */
+    .actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .btn {
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--palette-purple);
+      color: white;
+    }
+
+    .btn-primary:hover { background: var(--palette-dark); }
+
+    .btn-secondary {
+      background: var(--background-dark);
+      color: var(--text-primary);
+    }
+
+    .btn-secondary:hover { background: var(--border); }
+
+    .btn-danger {
+      background: #FEE2E2;
+      color: #991B1B;
+    }
+
+    .btn-danger:hover { background: #FECACA; }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .container { padding: 1rem; }
+      .header-content { flex-direction: column; text-align: center; }
+      .stats { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    @media print {
+      .header { position: relative; }
+      .actions { display: none; }
+      .phase-content { display: block !important; }
+      .tasks { display: block !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-content">
+      <h1>Security TODO Tracker</h1>
+      <div class="progress-container">
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+        </div>
+        <span class="progress-text" id="progressText">0%</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-value" id="totalMilestones">0</div>
+        <div class="stat-label">Hitos Totales</div>
+      </div>
+      <div class="stat completed">
+        <div class="stat-value" id="completedMilestones">0</div>
+        <div class="stat-label">Completados</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="totalTasks">0</div>
+        <div class="stat-label">Tareas</div>
+      </div>
+      <div class="stat completed">
+        <div class="stat-value" id="completedTasks">0</div>
+        <div class="stat-label">Tareas OK</div>
+      </div>
+      <div class="stat critical">
+        <div class="stat-value" id="pendingCritical">0</div>
+        <div class="stat-label">Criticas Pend.</div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions">
+      <button class="btn btn-primary" onclick="expandAll()">Expandir Todo</button>
+      <button class="btn btn-secondary" onclick="collapseAll()">Colapsar Todo</button>
+      <button class="btn btn-secondary" onclick="exportProgress()">Exportar JSON</button>
+      <button class="btn btn-danger" onclick="resetProgress()">Resetear</button>
+    </div>
+
+    <!-- FASE 1: CRITICAS -->
+    <div class="phase open" data-phase="critical">
+      <div class="phase-header critical" onclick="togglePhase(this)">
+        <h2><span class="priority critical">FASE 1</span> Mejoras Criticas (Semanas 1-4)</h2>
+        <span class="phase-progress" data-phase-progress="critical">0/2</span>
+        <span class="phase-arrow">▼</span>
+      </div>
+      <div class="phase-content">
+
+        <!-- MFA -->
+        <div class="milestone" data-milestone="mfa">
+          <div class="milestone-header" onclick="toggleMilestone(this)">
+            <div class="milestone-checkbox" onclick="event.stopPropagation(); toggleMilestoneCheck(this)"></div>
+            <div class="milestone-info">
+              <div class="milestone-title">1. Implementacion de MFA</div>
+              <div class="milestone-meta">
+                <span class="priority critical">CRITICA</span> · 4 semanas ·
+                <span class="milestone-apps">
+                  <span class="app-tag parse">Parse</span>
+                  <span class="app-tag hub">Hub</span>
+                  <span class="app-tag checkpoint">Checkpoint</span>
+                  <span class="app-tag rendiciones">Rendiciones</span>
+                  <span class="app-tag docs">Docs</span>
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="tasks">
+            <div class="task" data-task="mfa-1">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Instalar speakeasy/otplib en Parse backend</span>
+            </div>
+            <div class="task" data-task="mfa-2">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Crear modelo MfaSecret en Prisma (userId, secret, enabled, backupCodes)</span>
+            </div>
+            <div class="task" data-task="mfa-3">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Endpoint POST /auth/mfa/setup - Generar secreto y QR</span>
+            </div>
+            <div class="task" data-task="mfa-4">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Endpoint POST /auth/mfa/verify - Validar codigo TOTP</span>
+            </div>
+            <div class="task" data-task="mfa-5">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Endpoint POST /auth/mfa/disable - Desactivar MFA</span>
+            </div>
+            <div class="task" data-task="mfa-6">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Modificar POST /auth/login - Agregar paso MFA</span>
+            </div>
+            <div class="task" data-task="mfa-7">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Generar y almacenar backup codes (10 codigos)</span>
+            </div>
+            <div class="task" data-task="mfa-8">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Parse Frontend: Pantalla de configuracion MFA</span>
+            </div>
+            <div class="task" data-task="mfa-9">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Parse Frontend: Modal de verificacion MFA en login</span>
+            </div>
+            <div class="task" data-task="mfa-10">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Hub: Integrar flujo MFA en login</span>
+            </div>
+            <div class="task" data-task="mfa-11">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Checkpoint: Integrar flujo MFA en login</span>
+            </div>
+            <div class="task" data-task="mfa-12">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Rendiciones: Integrar flujo MFA en login</span>
+            </div>
+            <div class="task" data-task="mfa-13">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">AxiomaDocs: Integrar flujo MFA en login</span>
+            </div>
+            <div class="task" data-task="mfa-14">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Forzar MFA para roles SUPER_ADMIN y ADMIN</span>
+            </div>
+            <div class="task" data-task="mfa-15">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Tests unitarios: generacion TOTP, backup codes</span>
+            </div>
+            <div class="task" data-task="mfa-16">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Tests de integracion: flujo completo</span>
+            </div>
+            <div class="task" data-task="mfa-17">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">UAT con 3 usuarios admin</span>
+            </div>
+            <div class="task" data-task="mfa-18">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Deploy a produccion (rollout gradual)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- IRP -->
+        <div class="milestone" data-milestone="irp">
+          <div class="milestone-header" onclick="toggleMilestone(this)">
+            <div class="milestone-checkbox" onclick="event.stopPropagation(); toggleMilestoneCheck(this)"></div>
+            <div class="milestone-info">
+              <div class="milestone-title">2. Plan de Respuesta a Incidentes (IRP)</div>
+              <div class="milestone-meta">
+                <span class="priority critical">CRITICA</span> · 2 semanas ·
+                <span class="milestone-apps">
+                  <span class="app-tag all">Todas</span>
+                  <span class="app-tag infra">Digital Ocean</span>
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="tasks">
+            <div class="task" data-task="irp-1">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Revisar templates NIST para IRP</span>
+            </div>
+            <div class="task" data-task="irp-2">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Definir niveles de severidad (Bajo/Medio/Alto/Critico)</span>
+            </div>
+            <div class="task" data-task="irp-3">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Documentar equipo de respuesta y contactos</span>
+            </div>
+            <div class="task" data-task="irp-4">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Escribir procedimiento de deteccion</span>
+            </div>
+            <div class="task" data-task="irp-5">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Escribir procedimiento de contencion (aislamiento Droplets)</span>
+            </div>
+            <div class="task" data-task="irp-6">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Documentar procedimientos Digital Ocean especificos</span>
+            </div>
+            <div class="task" data-task="irp-7">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Escribir procedimiento de erradicacion y recuperacion</span>
+            </div>
+            <div class="task" data-task="irp-8">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Crear templates de comunicacion</span>
+            </div>
+            <div class="task" data-task="irp-9">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Crear checklist de respuesta rapida (1 pagina)</span>
+            </div>
+            <div class="task" data-task="irp-10">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Revision tecnica del documento</span>
+            </div>
+            <div class="task" data-task="irp-11">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Ejecutar tabletop exercise</span>
+            </div>
+            <div class="task" data-task="irp-12">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Ajustar IRP segun hallazgos del tabletop</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- FASE 2: ALTAS -->
+    <div class="phase" data-phase="high">
+      <div class="phase-header high" onclick="togglePhase(this)">
+        <h2><span class="priority high">FASE 2</span> Mejoras de Prioridad Alta (Semanas 2-12)</h2>
+        <span class="phase-progress" data-phase-progress="high">0/3</span>
+        <span class="phase-arrow">▼</span>
+      </div>
+      <div class="phase-content">
+
+        <!-- CI/CD Security -->
+        <div class="milestone" data-milestone="cicd">
+          <div class="milestone-header" onclick="toggleMilestone(this)">
+            <div class="milestone-checkbox" onclick="event.stopPropagation(); toggleMilestoneCheck(this)"></div>
+            <div class="milestone-info">
+              <div class="milestone-title">3. Escaneo de Vulnerabilidades CI/CD</div>
+              <div class="milestone-meta">
+                <span class="priority high">ALTA</span> · 2 semanas ·
+                <span class="milestone-apps">
+                  <span class="app-tag all">Todas las apps</span>
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="tasks">
+            <div class="task" data-task="cicd-1">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Crear cuenta Snyk</span>
+            </div>
+            <div class="task" data-task="cicd-2">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Conectar repositorios GitHub a Snyk</span>
+            </div>
+            <div class="task" data-task="cicd-3">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Configurar .snyk en Parse</span>
+            </div>
+            <div class="task" data-task="cicd-4">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Crear workflow security-scan.yml para Parse</span>
+            </div>
+            <div class="task" data-task="cicd-5">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Replicar configuracion en Hub</span>
+            </div>
+            <div class="task" data-task="cicd-6">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Replicar configuracion en Checkpoint</span>
+            </div>
+            <div class="task" data-task="cicd-7">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Replicar configuracion en Rendiciones</span>
+            </div>
+            <div class="task" data-task="cicd-8">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Replicar configuracion en AxiomaDocs</span>
+            </div>
+            <div class="task" data-task="cicd-9">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Configurar branch protection rules</span>
+            </div>
+            <div class="task" data-task="cicd-10">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Habilitar Dependabot como backup</span>
+            </div>
+            <div class="task" data-task="cicd-11">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Resolver vulnerabilidades criticas existentes</span>
+            </div>
+            <div class="task" data-task="cicd-12">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Configurar notificaciones</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SIEM -->
+        <div class="milestone" data-milestone="siem">
+          <div class="milestone-header" onclick="toggleMilestone(this)">
+            <div class="milestone-checkbox" onclick="event.stopPropagation(); toggleMilestoneCheck(this)"></div>
+            <div class="milestone-info">
+              <div class="milestone-title">4. Logging Centralizado (SIEM)</div>
+              <div class="milestone-meta">
+                <span class="priority high">ALTA</span> · 4 semanas ·
+                <span class="milestone-apps">
+                  <span class="app-tag all">Todas las apps</span>
+                  <span class="app-tag infra">Digital Ocean</span>
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="tasks">
+            <div class="task" data-task="siem-1">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Evaluar Papertrail vs Datadog vs Logtail</span>
+            </div>
+            <div class="task" data-task="siem-2">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Crear cuenta en servicio elegido</span>
+            </div>
+            <div class="task" data-task="siem-3">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Parse: Reemplazar console.log por Winston JSON</span>
+            </div>
+            <div class="task" data-task="siem-4">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Parse: Agregar logs de auth (login, failed, role changes)</span>
+            </div>
+            <div class="task" data-task="siem-5">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Hub: Configurar Winston structured logging</span>
+            </div>
+            <div class="task" data-task="siem-6">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Checkpoint: Configurar logging</span>
+            </div>
+            <div class="task" data-task="siem-7">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Rendiciones: Configurar logging transacciones</span>
+            </div>
+            <div class="task" data-task="siem-8">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">AxiomaDocs: Configurar logging acceso docs</span>
+            </div>
+            <div class="task" data-task="siem-9">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Configurar rsyslog en Droplets</span>
+            </div>
+            <div class="task" data-task="siem-10">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Crear alerta: >5 failed logins en 5 min</span>
+            </div>
+            <div class="task" data-task="siem-11">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Crear alerta: acceso admin fuera de horario</span>
+            </div>
+            <div class="task" data-task="siem-12">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Crear alerta: error rate >5%</span>
+            </div>
+            <div class="task" data-task="siem-13">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Crear dashboard operativo</span>
+            </div>
+            <div class="task" data-task="siem-14">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Configurar retencion 30 dias</span>
+            </div>
+            <div class="task" data-task="siem-15">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Verificar que no se loguean datos sensibles</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pentest -->
+        <div class="milestone" data-milestone="pentest">
+          <div class="milestone-header" onclick="toggleMilestone(this)">
+            <div class="milestone-checkbox" onclick="event.stopPropagation(); toggleMilestoneCheck(this)"></div>
+            <div class="milestone-info">
+              <div class="milestone-title">5. Pentest Anual</div>
+              <div class="milestone-meta">
+                <span class="priority high">ALTA</span> · 4 semanas ·
+                <span class="milestone-apps">
+                  <span class="app-tag parse">Parse</span>
+                  <span class="app-tag hub">Hub</span>
+                  <span class="app-tag infra">Infra DO</span>
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="tasks">
+            <div class="task" data-task="pentest-1">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Definir alcance del pentest</span>
+            </div>
+            <div class="task" data-task="pentest-2">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Solicitar propuestas a 3 proveedores</span>
+            </div>
+            <div class="task" data-task="pentest-3">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Evaluar y seleccionar proveedor</span>
+            </div>
+            <div class="task" data-task="pentest-4">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Firmar NDA y contrato</span>
+            </div>
+            <div class="task" data-task="pentest-5">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Preparar ambiente staging</span>
+            </div>
+            <div class="task" data-task="pentest-6">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Crear cuentas de prueba</span>
+            </div>
+            <div class="task" data-task="pentest-7">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Documentar endpoints y flujos</span>
+            </div>
+            <div class="task" data-task="pentest-8">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Ejecucion del pentest</span>
+            </div>
+            <div class="task" data-task="pentest-9">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Recibir reporte preliminar</span>
+            </div>
+            <div class="task" data-task="pentest-10">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Remediar hallazgos criticos (7 dias)</span>
+            </div>
+            <div class="task" data-task="pentest-11">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Remediar hallazgos altos (14 dias)</span>
+            </div>
+            <div class="task" data-task="pentest-12">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Solicitar re-test</span>
+            </div>
+            <div class="task" data-task="pentest-13">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Obtener reporte final para seguro</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- FASE 3: MEDIAS -->
+    <div class="phase" data-phase="medium">
+      <div class="phase-header medium" onclick="togglePhase(this)">
+        <h2><span class="priority medium">FASE 3</span> Mejoras de Prioridad Media (Semanas 1-13)</h2>
+        <span class="phase-progress" data-phase-progress="medium">0/3</span>
+        <span class="phase-arrow">▼</span>
+      </div>
+      <div class="phase-content">
+
+        <!-- Backups -->
+        <div class="milestone" data-milestone="backups">
+          <div class="milestone-header" onclick="toggleMilestone(this)">
+            <div class="milestone-checkbox" onclick="event.stopPropagation(); toggleMilestoneCheck(this)"></div>
+            <div class="milestone-info">
+              <div class="milestone-title">6. Documentacion y Pruebas de Backups DO</div>
+              <div class="milestone-meta">
+                <span class="priority medium">MEDIA</span> · 1 semana ·
+                <span class="milestone-apps">
+                  <span class="app-tag infra">Digital Ocean</span>
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="tasks">
+            <div class="task" data-task="backups-1">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Verificar backups habilitados en todos los Droplets</span>
+            </div>
+            <div class="task" data-task="backups-2">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Verificar backups en Managed Databases</span>
+            </div>
+            <div class="task" data-task="backups-3">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Documentar inventario de backups</span>
+            </div>
+            <div class="task" data-task="backups-4">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Definir RTO/RPO objetivo</span>
+            </div>
+            <div class="task" data-task="backups-5">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Crear Droplet de prueba desde backup</span>
+            </div>
+            <div class="task" data-task="backups-6">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Medir tiempo de restauracion real</span>
+            </div>
+            <div class="task" data-task="backups-7">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Documentar procedimiento de restauracion</span>
+            </div>
+            <div class="task" data-task="backups-8">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Crear checklist trimestral</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2FA DO -->
+        <div class="milestone" data-milestone="2fado">
+          <div class="milestone-header" onclick="toggleMilestone(this)">
+            <div class="milestone-checkbox" onclick="event.stopPropagation(); toggleMilestoneCheck(this)"></div>
+            <div class="milestone-info">
+              <div class="milestone-title">7. Habilitar 2FA en Panel Digital Ocean</div>
+              <div class="milestone-meta">
+                <span class="priority medium">MEDIA</span> · 1 dia ·
+                <span class="milestone-apps">
+                  <span class="app-tag infra">Digital Ocean</span>
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="tasks">
+            <div class="task" data-task="2fado-1">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Listar usuarios con acceso a DO</span>
+            </div>
+            <div class="task" data-task="2fado-2">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Identificar usuarios sin 2FA</span>
+            </div>
+            <div class="task" data-task="2fado-3">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Enviar comunicacion a usuarios</span>
+            </div>
+            <div class="task" data-task="2fado-4">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Todos los usuarios habilitan 2FA</span>
+            </div>
+            <div class="task" data-task="2fado-5">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Verificar cumplimiento 100%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Capacitacion -->
+        <div class="milestone" data-milestone="training">
+          <div class="milestone-header" onclick="toggleMilestone(this)">
+            <div class="milestone-checkbox" onclick="event.stopPropagation(); toggleMilestoneCheck(this)"></div>
+            <div class="milestone-info">
+              <div class="milestone-title">8. Programa de Capacitacion en Seguridad</div>
+              <div class="milestone-meta">
+                <span class="priority medium">MEDIA</span> · 3 semanas ·
+                <span class="milestone-apps">
+                  <span class="app-tag all">Todo el equipo</span>
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="tasks">
+            <div class="task" data-task="training-1">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Desarrollar modulo: Phishing e ingenieria social</span>
+            </div>
+            <div class="task" data-task="training-2">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Desarrollar modulo: Passwords y password managers</span>
+            </div>
+            <div class="task" data-task="training-3">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Desarrollar modulo: MFA</span>
+            </div>
+            <div class="task" data-task="training-4">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Desarrollar modulo: Manejo de datos sensibles</span>
+            </div>
+            <div class="task" data-task="training-5">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Desarrollar modulo: Reporte de incidentes</span>
+            </div>
+            <div class="task" data-task="training-6">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Crear quiz final</span>
+            </div>
+            <div class="task" data-task="training-7">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Dictar sesion 1</span>
+            </div>
+            <div class="task" data-task="training-8">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Dictar sesion 2</span>
+            </div>
+            <div class="task" data-task="training-9">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Configurar herramienta de phishing simulation</span>
+            </div>
+            <div class="task" data-task="training-10">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Crear templates de phishing</span>
+            </div>
+            <div class="task" data-task="training-11">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Ejecutar campana de phishing</span>
+            </div>
+            <div class="task" data-task="training-12">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Analizar resultados</span>
+            </div>
+            <div class="task" data-task="training-13">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Sesion de refuerzo para afectados</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- FASE 4: BAJAS -->
+    <div class="phase" data-phase="low">
+      <div class="phase-header low" onclick="togglePhase(this)">
+        <h2><span class="priority low">FASE 4</span> Mejoras de Prioridad Baja (Semanas 13-16)</h2>
+        <span class="phase-progress" data-phase-progress="low">0/1</span>
+        <span class="phase-arrow">▼</span>
+      </div>
+      <div class="phase-content">
+
+        <!-- Secrets -->
+        <div class="milestone" data-milestone="secrets">
+          <div class="milestone-header" onclick="toggleMilestone(this)">
+            <div class="milestone-checkbox" onclick="event.stopPropagation(); toggleMilestoneCheck(this)"></div>
+            <div class="milestone-info">
+              <div class="milestone-title">9. Gestor de Secretos</div>
+              <div class="milestone-meta">
+                <span class="priority low">BAJA</span> · 4 semanas ·
+                <span class="milestone-apps">
+                  <span class="app-tag all">Todas las apps</span>
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="tasks">
+            <div class="task" data-task="secrets-1">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Inventariar secretos en .env de cada proyecto</span>
+            </div>
+            <div class="task" data-task="secrets-2">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Clasificar secretos por tipo</span>
+            </div>
+            <div class="task" data-task="secrets-3">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Evaluar opciones: Vault vs DO Secrets vs Doppler</span>
+            </div>
+            <div class="task" data-task="secrets-4">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">PoC con opcion elegida</span>
+            </div>
+            <div class="task" data-task="secrets-5">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Configurar acceso por aplicacion</span>
+            </div>
+            <div class="task" data-task="secrets-6">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Migrar Parse</span>
+            </div>
+            <div class="task" data-task="secrets-7">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Migrar Hub</span>
+            </div>
+            <div class="task" data-task="secrets-8">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Migrar Checkpoint</span>
+            </div>
+            <div class="task" data-task="secrets-9">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Migrar Rendiciones</span>
+            </div>
+            <div class="task" data-task="secrets-10">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Migrar AxiomaDocs</span>
+            </div>
+            <div class="task" data-task="secrets-11">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Configurar rotacion automatica DB passwords</span>
+            </div>
+            <div class="task" data-task="secrets-12">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Configurar alertas de expiracion</span>
+            </div>
+            <div class="task" data-task="secrets-13">
+              <div class="task-checkbox" onclick="toggleTask(this)"></div>
+              <span class="task-text">Documentar proceso de agregar secretos</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <footer class="footer">
+    <p>Security TODO Tracker - Plataforma Syncro</p>
+    <p>El progreso se guarda automaticamente en el navegador (localStorage)</p>
+  </footer>
+
+  <script>
+    // State management
+    let state = {
+      milestones: {},
+      tasks: {}
+    };
+
+    // Load state from localStorage
+    function loadState() {
+      const saved = localStorage.getItem('syncro-security-todo');
+      if (saved) {
+        state = JSON.parse(saved);
+        applyState();
+      }
+      updateStats();
+    }
+
+    // Save state to localStorage
+    function saveState() {
+      localStorage.setItem('syncro-security-todo', JSON.stringify(state));
+      updateStats();
+    }
+
+    // Apply loaded state to UI
+    function applyState() {
+      // Apply milestone states
+      Object.keys(state.milestones).forEach(id => {
+        const milestone = document.querySelector(`[data-milestone="${id}"]`);
+        if (milestone && state.milestones[id]) {
+          milestone.classList.add('completed');
+          milestone.querySelector('.milestone-checkbox').classList.add('checked');
+          milestone.querySelector('.milestone-checkbox').innerHTML = '✓';
+        }
+      });
+
+      // Apply task states
+      Object.keys(state.tasks).forEach(id => {
+        const task = document.querySelector(`[data-task="${id}"]`);
+        if (task && state.tasks[id]) {
+          task.classList.add('completed');
+          task.querySelector('.task-checkbox').classList.add('checked');
+          task.querySelector('.task-checkbox').innerHTML = '✓';
+        }
+      });
+    }
+
+    // Toggle phase collapse
+    function togglePhase(header) {
+      header.parentElement.classList.toggle('open');
+    }
+
+    // Toggle milestone expand
+    function toggleMilestone(header) {
+      header.parentElement.classList.toggle('expanded');
+    }
+
+    // Toggle milestone checkbox
+    function toggleMilestoneCheck(checkbox) {
+      const milestone = checkbox.closest('.milestone');
+      const id = milestone.dataset.milestone;
+
+      checkbox.classList.toggle('checked');
+      milestone.classList.toggle('completed');
+
+      if (checkbox.classList.contains('checked')) {
+        checkbox.innerHTML = '✓';
+        state.milestones[id] = true;
+        // Mark all tasks in this milestone as complete
+        milestone.querySelectorAll('.task').forEach(task => {
+          const taskId = task.dataset.task;
+          task.classList.add('completed');
+          task.querySelector('.task-checkbox').classList.add('checked');
+          task.querySelector('.task-checkbox').innerHTML = '✓';
+          state.tasks[taskId] = true;
+        });
+      } else {
+        checkbox.innerHTML = '';
+        state.milestones[id] = false;
+      }
+
+      saveState();
+    }
+
+    // Toggle task checkbox
+    function toggleTask(checkbox) {
+      const task = checkbox.closest('.task');
+      const id = task.dataset.task;
+
+      checkbox.classList.toggle('checked');
+      task.classList.toggle('completed');
+
+      if (checkbox.classList.contains('checked')) {
+        checkbox.innerHTML = '✓';
+        state.tasks[id] = true;
+      } else {
+        checkbox.innerHTML = '';
+        state.tasks[id] = false;
+      }
+
+      // Check if all tasks in milestone are complete
+      const milestone = task.closest('.milestone');
+      const allTasks = milestone.querySelectorAll('.task');
+      const completedTasks = milestone.querySelectorAll('.task.completed');
+
+      if (allTasks.length === completedTasks.length) {
+        milestone.classList.add('completed');
+        milestone.querySelector('.milestone-checkbox').classList.add('checked');
+        milestone.querySelector('.milestone-checkbox').innerHTML = '✓';
+        state.milestones[milestone.dataset.milestone] = true;
+      } else {
+        milestone.classList.remove('completed');
+        milestone.querySelector('.milestone-checkbox').classList.remove('checked');
+        milestone.querySelector('.milestone-checkbox').innerHTML = '';
+        state.milestones[milestone.dataset.milestone] = false;
+      }
+
+      saveState();
+    }
+
+    // Update statistics
+    function updateStats() {
+      const totalMilestones = document.querySelectorAll('.milestone').length;
+      const completedMilestones = document.querySelectorAll('.milestone.completed').length;
+      const totalTasks = document.querySelectorAll('.task').length;
+      const completedTasks = document.querySelectorAll('.task.completed').length;
+
+      // Count pending critical
+      const criticalPhase = document.querySelector('[data-phase="critical"]');
+      const criticalMilestones = criticalPhase.querySelectorAll('.milestone').length;
+      const criticalCompleted = criticalPhase.querySelectorAll('.milestone.completed').length;
+      const pendingCritical = criticalMilestones - criticalCompleted;
+
+      document.getElementById('totalMilestones').textContent = totalMilestones;
+      document.getElementById('completedMilestones').textContent = completedMilestones;
+      document.getElementById('totalTasks').textContent = totalTasks;
+      document.getElementById('completedTasks').textContent = completedTasks;
+      document.getElementById('pendingCritical').textContent = pendingCritical;
+
+      // Update progress bar
+      const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+      document.getElementById('progressFill').style.width = progress + '%';
+      document.getElementById('progressText').textContent = progress + '%';
+
+      // Update phase progress
+      document.querySelectorAll('.phase').forEach(phase => {
+        const phaseName = phase.dataset.phase;
+        const phaseMilestones = phase.querySelectorAll('.milestone').length;
+        const phaseCompleted = phase.querySelectorAll('.milestone.completed').length;
+        const progressEl = phase.querySelector(`[data-phase-progress="${phaseName}"]`);
+        if (progressEl) {
+          progressEl.textContent = `${phaseCompleted}/${phaseMilestones}`;
+        }
+      });
+    }
+
+    // Expand all phases
+    function expandAll() {
+      document.querySelectorAll('.phase').forEach(phase => {
+        phase.classList.add('open');
+      });
+      document.querySelectorAll('.milestone').forEach(milestone => {
+        milestone.classList.add('expanded');
+      });
+    }
+
+    // Collapse all phases
+    function collapseAll() {
+      document.querySelectorAll('.phase').forEach(phase => {
+        phase.classList.remove('open');
+      });
+      document.querySelectorAll('.milestone').forEach(milestone => {
+        milestone.classList.remove('expanded');
+      });
+    }
+
+    // Export progress as JSON
+    function exportProgress() {
+      const data = JSON.stringify(state, null, 2);
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'syncro-security-progress-' + new Date().toISOString().split('T')[0] + '.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Reset all progress
+    function resetProgress() {
+      if (confirm('¿Estas seguro de que quieres resetear todo el progreso? Esta accion no se puede deshacer.')) {
+        localStorage.removeItem('syncro-security-todo');
+        location.reload();
+      }
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', loadState);
+  </script>
+</body>
+</html>

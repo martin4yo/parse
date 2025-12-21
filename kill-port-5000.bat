@@ -2,7 +2,7 @@
 echo Buscando procesos que usan el puerto 5050...
 
 :: Buscar procesos que usan el puerto 5000
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr :5050') do (
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :5100') do (
     echo Matando proceso con PID: %%a
     taskkill /f /pid %%a >nul 2>&1
     if errorlevel 1 (

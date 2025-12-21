@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Evaluación de Seguridad Cibernética - Plataforma Syncro</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* Paleta AXIOMA */
+      --palette-dark: #352151;
+      --palette-purple: #8E6AAA;
+      --palette-light: #9B7BC7;
+      --palette-accent: #F5E6D3;
+      --palette-yellow: #FCE5B7;
+      --palette-cream: #FCE5B7;
+      --palette-pink: #F1ABB5;
+
+      /* Colores semánticos */
+      --primary: #ffffff;
+      --secondary: #6B4E9B;
+      --secondary-hover: #5A3D8A;
+      --danger: #EF4444;
+      --danger-hover: #DC2626;
+      --success: #22C55E;
+      --success-hover: #16A34A;
+      --warning: #F59E0B;
+      --warning-hover: #D97706;
+      --info: #3B82F6;
+
+      /* Textos */
+      --text-primary: #1F2937;
+      --text-secondary: #6B7280;
+      --text-muted: #9CA3AF;
+      --text-white: #FFFFFF;
+
+      /* Fondos y bordes */
+      --border: #E5E7EB;
+      --background: #FAFAFA;
+      --background-dark: #F3F4F6;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background-color: var(--background);
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, var(--palette-dark) 0%, var(--palette-purple) 100%);
+      color: var(--text-white);
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+
+    .header .subtitle {
+      font-size: 1rem;
+      opacity: 0.9;
+    }
+
+    .header .meta {
+      margin-top: 1rem;
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      font-size: 0.875rem;
+      opacity: 0.8;
+    }
+
+    /* Container */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--primary);
+      border-radius: 12px;
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+
+    .card-header {
+      background: var(--palette-dark);
+      color: var(--text-white);
+      padding: 1rem 1.5rem;
+      font-weight: 600;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .card-header.purple {
+      background: var(--palette-purple);
+    }
+
+    .card-header.light {
+      background: var(--palette-light);
+    }
+
+    .card-header.info {
+      background: var(--info);
+    }
+
+    .card-body {
+      padding: 1.5rem;
+    }
+
+    /* Infrastructure Info */
+    .infra-box {
+      background: linear-gradient(135deg, #0080FF 0%, #0052CC 100%);
+      color: white;
+      padding: 1.5rem;
+      border-radius: 12px;
+      margin-bottom: 1.5rem;
+    }
+
+    .infra-box h3 {
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .infra-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .infra-item {
+      background: rgba(255,255,255,0.15);
+      padding: 1rem;
+      border-radius: 8px;
+    }
+
+    .infra-item .label {
+      font-size: 0.75rem;
+      opacity: 0.8;
+      text-transform: uppercase;
+    }
+
+    .infra-item .value {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-top: 0.25rem;
+    }
+
+    /* Executive Summary */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .summary-item {
+      background: var(--background-dark);
+      padding: 1rem;
+      border-radius: 8px;
+      text-align: center;
+      border-left: 4px solid var(--palette-purple);
+    }
+
+    .summary-item .label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .summary-item .value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--palette-dark);
+      margin-top: 0.25rem;
+    }
+
+    /* Maturity Levels */
+    .maturity-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+    }
+
+    .maturity-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      background: var(--background-dark);
+      border-radius: 8px;
+    }
+
+    .maturity-level {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.875rem;
+      color: var(--text-white);
+    }
+
+    .maturity-level.critical { background: var(--danger); }
+    .maturity-level.warning { background: var(--warning); }
+    .maturity-level.partial { background: var(--palette-purple); }
+    .maturity-level.good { background: var(--success); }
+
+    .maturity-info .domain {
+      font-weight: 600;
+      font-size: 0.875rem;
+    }
+
+    .maturity-info .status {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    /* Risk Table */
+    .risk-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .risk-table th {
+      background: var(--palette-dark);
+      color: var(--text-white);
+      padding: 0.75rem 1rem;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.875rem;
+    }
+
+    .risk-table td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.875rem;
+    }
+
+    .risk-table tr:hover {
+      background: var(--background-dark);
+    }
+
+    .risk-number {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--danger);
+      color: var(--text-white);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.875rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .badge.alto { background: #FEE2E2; color: #991B1B; }
+    .badge.critico { background: #FEE2E2; color: #7F1D1D; }
+    .badge.medio { background: #FEF3C7; color: #92400E; }
+    .badge.alta { background: #FEE2E2; color: #991B1B; }
+    .badge.media { background: #FEF3C7; color: #92400E; }
+
+    /* Questionnaire */
+    .question {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      overflow: hidden;
+    }
+
+    .question-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem;
+      background: var(--background-dark);
+      cursor: pointer;
+    }
+
+    .question-header:hover {
+      background: var(--palette-accent);
+    }
+
+    .question-number {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--palette-purple);
+      color: var(--text-white);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 0.875rem;
+      flex-shrink: 0;
+    }
+
+    .question-text {
+      flex: 1;
+      font-weight: 500;
+    }
+
+    .question-status {
+      padding: 0.25rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .question-status.yes {
+      background: #D1FAE5;
+      color: #065F46;
+    }
+
+    .question-status.no {
+      background: #FEE2E2;
+      color: #991B1B;
+    }
+
+    .question-status.partial {
+      background: #FEF3C7;
+      color: #92400E;
+    }
+
+    .question-body {
+      padding: 1rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .evidence {
+      background: #F8FAFC;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem;
+      margin: 0.75rem 0;
+      font-family: 'Monaco', 'Consolas', monospace;
+      font-size: 0.8rem;
+      overflow-x: auto;
+    }
+
+    .recommendation {
+      background: var(--palette-yellow);
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      margin-top: 0.75rem;
+      font-size: 0.875rem;
+    }
+
+    .recommendation strong {
+      color: var(--palette-dark);
+    }
+
+    .note {
+      background: #DBEAFE;
+      border-left: 4px solid var(--info);
+      border-radius: 0 6px 6px 0;
+      padding: 0.75rem 1rem;
+      margin-top: 0.75rem;
+      font-size: 0.85rem;
+    }
+
+    /* Section Headers */
+    .section-header {
+      background: linear-gradient(90deg, var(--palette-dark), var(--palette-purple));
+      color: var(--text-white);
+      padding: 1rem 1.5rem;
+      border-radius: 8px;
+      margin: 2rem 0 1rem 0;
+      font-weight: 600;
+      font-size: 1.1rem;
+    }
+
+    /* Recommendations Matrix */
+    .rec-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .rec-table th {
+      background: var(--palette-purple);
+      color: var(--text-white);
+      padding: 0.75rem 1rem;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+
+    .rec-table td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8rem;
+      vertical-align: top;
+    }
+
+    .priority-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 0.7rem;
+    }
+
+    .priority-badge.critica { background: #FEE2E2; color: #991B1B; }
+    .priority-badge.alta { background: #FFEDD5; color: #9A3412; }
+    .priority-badge.media { background: #FEF3C7; color: #92400E; }
+    .priority-badge.baja { background: #D1FAE5; color: #065F46; }
+
+    /* Positive Controls */
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .control-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      background: #ECFDF5;
+      border-radius: 8px;
+      border-left: 4px solid var(--success);
+    }
+
+    .control-icon {
+      width: 24px;
+      height: 24px;
+      background: var(--success);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      flex-shrink: 0;
+      font-size: 0.75rem;
+    }
+
+    .control-text {
+      font-size: 0.875rem;
+    }
+
+    .control-text strong {
+      color: var(--palette-dark);
+    }
+
+    /* Conclusion */
+    .conclusion {
+      background: linear-gradient(135deg, var(--palette-accent), var(--palette-yellow));
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-top: 2rem;
+    }
+
+    .conclusion h3 {
+      color: var(--palette-dark);
+      margin-bottom: 1rem;
+    }
+
+    .conclusion p {
+      margin-bottom: 0.75rem;
+    }
+
+    .conclusion .highlight {
+      background: var(--palette-dark);
+      color: var(--text-white);
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 1rem;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+    }
+
+    /* Print styles */
+    @media print {
+      .header {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .card {
+        break-inside: avoid;
+      }
+
+      .question {
+        break-inside: avoid;
+      }
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .container {
+        padding: 1rem;
+      }
+
+      .header h1 {
+        font-size: 1.5rem;
+      }
+
+      .header .meta {
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .summary-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <h1>Evaluacion de Seguridad Cibernetica</h1>
+    <p class="subtitle">Plataforma Syncro (Parse, Hub, Checkpoint, Rendiciones, AxiomaDocs)</p>
+    <div class="meta">
+      <span>Fecha: 15 de Diciembre 2025</span>
+      <span>Version: 1.0</span>
+      <span>Estandares: NIST CSF 2.0 | CIS Controls v8</span>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <!-- Infrastructure Info -->
+    <div class="infra-box">
+      <h3>&#9729; Infraestructura Cloud</h3>
+      <div class="infra-grid">
+        <div class="infra-item">
+          <div class="label">Proveedor</div>
+          <div class="value">Digital Ocean</div>
+        </div>
+        <div class="infra-item">
+          <div class="label">Certificaciones DO</div>
+          <div class="value">SOC 2 Type II, ISO 27001</div>
+        </div>
+        <div class="infra-item">
+          <div class="label">Entorno Analizado</div>
+          <div class="value">Codigo fuente (Testing)</div>
+        </div>
+        <div class="infra-item">
+          <div class="label">Credenciales .ENV</div>
+          <div class="value">Entorno de Testing</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Executive Summary -->
+    <div class="card">
+      <div class="card-header">
+        Resumen Ejecutivo
+      </div>
+      <div class="card-body">
+        <div class="summary-grid">
+          <div class="summary-item">
+            <div class="label">Nivel de Madurez</div>
+            <div class="value">2.5 / 5</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">Clasificacion</div>
+            <div class="value">Intermedio</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">Aplicaciones</div>
+            <div class="value">5</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">Riesgos Criticos</div>
+            <div class="value">4</div>
+          </div>
+        </div>
+
+        <h4 style="margin-bottom: 1rem; color: var(--palette-dark);">Nivel de Madurez por Dominio</h4>
+        <div class="maturity-grid">
+          <div class="maturity-item">
+            <div class="maturity-level partial">2.5</div>
+            <div class="maturity-info">
+              <div class="domain">Autenticacion</div>
+              <div class="status">Parcial</div>
+            </div>
+          </div>
+          <div class="maturity-item">
+            <div class="maturity-level partial">2.5</div>
+            <div class="maturity-info">
+              <div class="domain">Encriptacion</div>
+              <div class="status">Parcial</div>
+            </div>
+          </div>
+          <div class="maturity-item">
+            <div class="maturity-level warning">2.0</div>
+            <div class="maturity-info">
+              <div class="domain">Backups</div>
+              <div class="status">Parcial (DO)</div>
+            </div>
+          </div>
+          <div class="maturity-item">
+            <div class="maturity-level critical">1.5</div>
+            <div class="maturity-info">
+              <div class="domain">Deteccion</div>
+              <div class="status">Deficiente</div>
+            </div>
+          </div>
+          <div class="maturity-item">
+            <div class="maturity-level warning">2.0</div>
+            <div class="maturity-info">
+              <div class="domain">Vulnerabilidades</div>
+              <div class="status">Parcial</div>
+            </div>
+          </div>
+          <div class="maturity-item">
+            <div class="maturity-level partial">2.5</div>
+            <div class="maturity-info">
+              <div class="domain">Gobernanza</div>
+              <div class="status">Parcial</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top 5 Risks -->
+    <div class="card">
+      <div class="card-header" style="background: var(--danger);">
+        Top 4 Riesgos Prioritarios
+      </div>
+      <div class="card-body" style="padding: 0;">
+        <table class="risk-table">
+          <thead>
+            <tr>
+              <th style="width: 50px;">#</th>
+              <th>Riesgo</th>
+              <th>Impacto</th>
+              <th>Probabilidad</th>
+              <th>Mitigacion Prioritaria</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><div class="risk-number">1</div></td>
+              <td><strong>Sin MFA implementado</strong></td>
+              <td><span class="badge alto">ALTO</span></td>
+              <td><span class="badge alta">ALTA</span></td>
+              <td>Implementar MFA en todas las aplicaciones</td>
+            </tr>
+            <tr>
+              <td><div class="risk-number">2</div></td>
+              <td><strong>Sin monitoreo SIEM/EDR a nivel aplicacion</strong></td>
+              <td><span class="badge alto">ALTO</span></td>
+              <td><span class="badge media">MEDIA</span></td>
+              <td>Implementar logging centralizado</td>
+            </tr>
+            <tr>
+              <td><div class="risk-number">3</div></td>
+              <td><strong>Sin plan de respuesta a incidentes documentado</strong></td>
+              <td><span class="badge medio">MEDIO</span></td>
+              <td><span class="badge alta">ALTA</span></td>
+              <td>Documentar y practicar IRP</td>
+            </tr>
+            <tr>
+              <td><div class="risk-number">4</div></td>
+              <td><strong>Pruebas de restauracion no documentadas</strong></td>
+              <td><span class="badge medio">MEDIO</span></td>
+              <td><span class="badge media">MEDIA</span></td>
+              <td>Documentar pruebas periodicas de backups DO</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Section: Authentication -->
+    <div class="section-header">SECCION 1: Autenticacion y Control de Acceso</div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">1</div>
+        <div class="question-text">Se utiliza autenticacion multifactor (MFA) para todos los accesos administrativos?</div>
+        <div class="question-status no">NO</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia:</strong></p>
+        <div class="evidence">
+- Parse: JWT con bcrypt, sin MFA (parse/src/services/auth.ts)
+- Hub: JWT basico, sin MFA (hub/src/middleware/auth.ts)
+- Checkpoint: Autenticacion simple, sin MFA
+- Rendiciones: JWT sin segundo factor
+- AxiomaDocs: JWT/Session, sin MFA
+        </div>
+        <div class="recommendation">
+          <strong>Recomendacion:</strong> Implementar TOTP (Google Authenticator/Authy) como segundo factor obligatorio para usuarios administrativos. <strong>Prioridad: ALTA</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">2</div>
+        <div class="question-text">Se admiten passkeys/FIDO2 como metodo de autenticacion?</div>
+        <div class="question-status no">NO</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia:</strong> Ninguna de las 5 aplicaciones implementa WebAuthn o FIDO2.</p>
+        <div class="recommendation">
+          <strong>Recomendacion:</strong> Considerar implementacion de passkeys como opcion de autenticacion moderna. <strong>Prioridad: BAJA</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">3</div>
+        <div class="question-text">Existe gestion de acceso privilegiado (PAM) para cuentas administrativas?</div>
+        <div class="question-status partial">PARCIAL</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia:</strong></p>
+        <div class="evidence">
+- Parse: Implementa RBAC con roles (SUPER_ADMIN, ADMIN, USER) en parse/src/middleware/rbac.ts
+- Hub: Control basico de permisos
+- Checkpoint: Roles por tenant
+- Digital Ocean: Panel de control con Team Access y 2FA disponible
+        </div>
+        <div class="note">
+          <strong>Nota:</strong> Digital Ocean ofrece gestion de acceso a nivel de infraestructura con 2FA obligatorio para el panel de control, lo cual complementa los controles a nivel de aplicacion.
+        </div>
+        <div class="recommendation">
+          <strong>Recomendacion:</strong> Habilitar 2FA obligatorio en Digital Ocean y documentar matriz de accesos. <strong>Prioridad: MEDIA</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">4</div>
+        <div class="question-text">Se implementa control de acceso basado en roles (RBAC)?</div>
+        <div class="question-status yes">SI</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia:</strong></p>
+        <div class="evidence">
+// parse/src/middleware/rbac.ts
+export const rbac = (...allowedRoles: Role[]) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user?.role || !allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Acceso denegado' })
+    }
+    next()
+  }
+}
+        </div>
+        <p style="margin-top: 0.75rem;">Todas las aplicaciones implementan RBAC con aislamiento multi-tenant verificado.</p>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">5</div>
+        <div class="question-text">Se realizan revisiones periodicas de accesos de usuarios?</div>
+        <div class="question-status no">NO</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia:</strong> No existe funcionalidad de auditoria de accesos ni reportes de revision periodica en ninguna aplicacion.</p>
+        <div class="recommendation">
+          <strong>Recomendacion:</strong> Implementar reportes trimestrales de revision de accesos y proceso de recertificacion. <strong>Prioridad: MEDIA</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section: Encryption -->
+    <div class="section-header">SECCION 2: Encriptacion y Proteccion de Datos</div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">6</div>
+        <div class="question-text">Se utiliza encriptacion de datos en reposo?</div>
+        <div class="question-status yes">SI</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia:</strong></p>
+        <div class="evidence">
+// parse/src/utils/encryption.ts
+const ALGORITHM = 'aes-256-gcm'
+export function encrypt(text: string): string {
+  const iv = crypto.randomBytes(16)
+  const cipher = crypto.createCipheriv(ALGORITHM, key, iv)
+  // ...
+}
+        </div>
+        <p style="margin-top: 0.75rem;"><strong>A nivel de aplicacion:</strong> Parse implementa AES-256-GCM para datos sensibles. Hub encripta credenciales de integracion.</p>
+        <div class="note">
+          <strong>Digital Ocean:</strong> Los Droplets y Managed Databases de Digital Ocean incluyen encriptacion de disco en reposo por defecto (AES-256). Los volumenes adicionales tambien soportan encriptacion.
+        </div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">7</div>
+        <div class="question-text">Se utiliza encriptacion en transito (TLS 1.2+)?</div>
+        <div class="question-status yes">SI</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia:</strong></p>
+        <ul style="margin-left: 1.5rem;">
+          <li>Helmet.js configurado en todas las aplicaciones para headers de seguridad</li>
+          <li>HSTS habilitado via Helmet</li>
+        </ul>
+        <div class="note">
+          <strong>Digital Ocean:</strong> Los Load Balancers y App Platform de Digital Ocean fuerzan TLS 1.2+ por defecto. Los certificados SSL son gestionados automaticamente via Let's Encrypt.
+        </div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">8</div>
+        <div class="question-text">Los clientes pueden gestionar sus propias claves de encriptacion (BYOK)?</div>
+        <div class="question-status no">NO</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia:</strong> Las claves de encriptacion son gestionadas por la aplicacion, no existe opcion BYOK.</p>
+        <div class="recommendation">
+          <strong>Recomendacion:</strong> Evaluar necesidad segun requerimientos de clientes enterprise. <strong>Prioridad: BAJA</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">9</div>
+        <div class="question-text">Se implementa encriptacion a nivel de campo para datos sensibles?</div>
+        <div class="question-status yes">SI</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia:</strong></p>
+        <ul style="margin-left: 1.5rem;">
+          <li>Parse: Encripta campos especificos (API keys, tokens, credenciales)</li>
+          <li>Hub: Encripta credenciales de integraciones</li>
+          <li>Rendiciones: Encripta datos bancarios</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Section: Backups -->
+    <div class="section-header">SECCION 3: Backups y Recuperacion</div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">10</div>
+        <div class="question-text">Existe una estrategia de backup 3-2-1 implementada?</div>
+        <div class="question-status partial">PARCIAL</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia a nivel de codigo:</strong> No hay implementacion de backups en los repositorios analizados.</p>
+        <div class="note">
+          <strong>Digital Ocean ofrece:</strong>
+          <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+            <li><strong>Droplet Backups:</strong> Backups automaticos semanales con retencion de 4 semanas</li>
+            <li><strong>Managed Database Backups:</strong> Backups automaticos diarios con PITR (Point-in-Time Recovery) de 7 dias</li>
+            <li><strong>Spaces (Object Storage):</strong> Replicacion automatica dentro del datacenter</li>
+            <li><strong>Snapshots:</strong> Disponibles bajo demanda para Droplets y Volumes</li>
+          </ul>
+        </div>
+        <div class="recommendation">
+          <strong>Recomendacion:</strong> Verificar que los backups automaticos de Digital Ocean estan habilitados. Configurar snapshot adicional en region diferente para cumplir 3-2-1. <strong>Prioridad: MEDIA</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">11</div>
+        <div class="question-text">Se realizan pruebas de restauracion de backups periodicamente?</div>
+        <div class="question-status partial">NO DOCUMENTADO</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia:</strong> Sin evidencia de pruebas de restauracion documentadas.</p>
+        <div class="note">
+          <strong>Digital Ocean:</strong> Permite restaurar backups y snapshots facilmente desde el panel de control. La funcionalidad esta disponible pero debe documentarse su uso periodico.
+        </div>
+        <div class="recommendation">
+          <strong>Recomendacion:</strong> Establecer pruebas de restauracion trimestrales con documentacion y checklist. <strong>Prioridad: MEDIA</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">12</div>
+        <div class="question-text">Cual es el RTO/RPO definido?</div>
+        <div class="question-status partial">PARCIAL</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia:</strong> No existe documentacion formal de RTO/RPO.</p>
+        <div class="note">
+          <strong>Capacidades de Digital Ocean:</strong>
+          <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+            <li><strong>RPO potencial:</strong> ~24 horas (backups diarios) o minutos (con Managed DB PITR)</li>
+            <li><strong>RTO potencial:</strong> ~1-2 horas (restauracion de Droplet desde backup)</li>
+          </ul>
+        </div>
+        <div class="recommendation">
+          <strong>Recomendacion:</strong> Documentar formalmente RTO &lt; 4 horas, RPO &lt; 24 horas basado en capacidades de DO. <strong>Prioridad: MEDIA</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section: Detection -->
+    <div class="section-header">SECCION 4: Deteccion y Respuesta</div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">13</div>
+        <div class="question-text">Se utiliza EDR/XDR en endpoints y servidores?</div>
+        <div class="question-status partial">PARCIAL</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia a nivel de aplicacion:</strong> No hay agentes EDR implementados en codigo.</p>
+        <div class="note">
+          <strong>Digital Ocean ofrece:</strong>
+          <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+            <li><strong>Cloud Firewalls:</strong> Firewall a nivel de red para Droplets</li>
+            <li><strong>VPC:</strong> Aislamiento de red privada</li>
+            <li><strong>Monitoring:</strong> Metricas basicas de CPU, memoria, disco, red</li>
+          </ul>
+        </div>
+        <div class="recommendation">
+          <strong>Recomendacion:</strong> Considerar implementar agente EDR (CrowdStrike, SentinelOne) en Droplets de produccion. <strong>Prioridad: MEDIA</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">14</div>
+        <div class="question-text">Existe un SIEM para correlacion de eventos?</div>
+        <div class="question-status no">NO</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia:</strong></p>
+        <ul style="margin-left: 1.5rem;">
+          <li>Las aplicaciones tienen logging basico (console.log, Winston en algunos casos)</li>
+          <li>No hay integracion con SIEM</li>
+          <li>No existe correlacion de eventos</li>
+        </ul>
+        <div class="recommendation">
+          <strong>Recomendacion:</strong> Implementar logging centralizado. Opciones: Datadog, Papertrail (integra con DO), o ELK Stack. <strong>Prioridad: ALTA</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">15</div>
+        <div class="question-text">Existe un plan de respuesta a incidentes documentado?</div>
+        <div class="question-status no">NO</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia:</strong> No existe documentacion de IRP en ningun repositorio.</p>
+        <div class="recommendation">
+          <strong>Recomendacion:</strong> Crear y practicar IRP con roles definidos, escalamiento y comunicacion. Incluir procedimientos especificos para Digital Ocean (snapshots de emergencia, aislamiento de Droplets). <strong>Prioridad: ALTA</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">16</div>
+        <div class="question-text">Se realizan simulacros de incidentes (tabletop exercises)?</div>
+        <div class="question-status no">NO</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia:</strong> Sin evidencia de ejercicios de simulacion.</p>
+        <div class="recommendation">
+          <strong>Recomendacion:</strong> Realizar ejercicios tabletop semestrales. <strong>Prioridad: MEDIA</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section: Vulnerabilities -->
+    <div class="section-header">SECCION 5: Gestion de Vulnerabilidades</div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">17</div>
+        <div class="question-text">Se realizan escaneos de vulnerabilidades periodicos?</div>
+        <div class="question-status partial">PARCIAL</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia:</strong> npm audit disponible pero no automatizado. No hay evidencia de escaneos DAST/SAST en CI/CD.</p>
+        <div class="recommendation">
+          <strong>Recomendacion:</strong> Integrar Snyk/Dependabot en CI/CD para escaneo automatico. <strong>Prioridad: ALTA</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">18</div>
+        <div class="question-text">Se realizan pruebas de penetracion anuales?</div>
+        <div class="question-status no">NO DOCUMENTADO</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia:</strong> Sin evidencia de pentests.</p>
+        <div class="recommendation">
+          <strong>Recomendacion:</strong> Contratar pentest anual con remediacion documentada. <strong>Prioridad: ALTA</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">19</div>
+        <div class="question-text">Existe un proceso de gestion de parches?</div>
+        <div class="question-status partial">PARCIAL</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia:</strong> Dependencias actualizables via npm/yarn. No hay politica documentada de actualizacion.</p>
+        <div class="note">
+          <strong>Digital Ocean:</strong> Los Managed Databases reciben parches automaticos. Los Droplets requieren actualizacion manual del SO.
+        </div>
+        <div class="recommendation">
+          <strong>Recomendacion:</strong> Establecer ventanas de mantenimiento mensuales para parches de SO y dependencias. <strong>Prioridad: MEDIA</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section: Governance -->
+    <div class="section-header">SECCION 6: Gobernanza y Capacitacion</div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">20</div>
+        <div class="question-text">Existe un programa de concientizacion en seguridad?</div>
+        <div class="question-status no">NO DOCUMENTADO</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia:</strong> Sin evidencia de programa de capacitacion.</p>
+        <div class="recommendation">
+          <strong>Recomendacion:</strong> Implementar capacitacion anual obligatoria con simulaciones de phishing. <strong>Prioridad: MEDIA</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">21</div>
+        <div class="question-text">Se realizan simulaciones de phishing?</div>
+        <div class="question-status no">NO</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia:</strong> Sin evidencia de simulaciones.</p>
+        <div class="recommendation">
+          <strong>Recomendacion:</strong> Implementar simulaciones trimestrales. <strong>Prioridad: MEDIA</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section: Platform Controls -->
+    <div class="section-header">SECCION 7: Controles Especificos de Plataforma</div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">22</div>
+        <div class="question-text">Se implementa rate limiting para prevenir abuso?</div>
+        <div class="question-status yes">SI</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia:</strong></p>
+        <div class="evidence">
+// parse/src/middleware/rateLimiter.ts
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+        </div>
+        <p style="margin-top: 0.75rem;">Implementado en Parse con fallback a memoria si Redis no esta disponible. Headers de seguridad con Helmet.js en todas las aplicaciones.</p>
+        <div class="note">
+          <strong>Digital Ocean:</strong> Cloud Firewalls adicionales disponibles para proteccion a nivel de red.
+        </div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">23</div>
+        <div class="question-text">Se implementa validacion de entrada y proteccion contra inyeccion?</div>
+        <div class="question-status yes">SI</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia:</strong></p>
+        <ul style="margin-left: 1.5rem;">
+          <li>Prisma ORM previene SQL injection por diseno (queries parametrizadas)</li>
+          <li>Validacion con Zod en endpoints criticos</li>
+          <li>Sanitizacion de entrada en formularios</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Section: Secrets Management -->
+    <div class="section-header">SECCION 8: Gestion de Secretos</div>
+
+    <div class="question">
+      <div class="question-header">
+        <div class="question-number">24</div>
+        <div class="question-text">Como se gestionan los secretos y credenciales?</div>
+        <div class="question-status yes">ADECUADO</div>
+      </div>
+      <div class="question-body">
+        <p><strong>Evidencia:</strong></p>
+        <ul style="margin-left: 1.5rem;">
+          <li>Variables de entorno (.env) para configuracion</li>
+          <li>Archivos .env en repositorio son de <strong>entorno de testing</strong>, no produccion</li>
+          <li>API Keys hasheadas con SHA-256 antes de almacenar</li>
+          <li>Credenciales sensibles encriptadas con AES-256-GCM</li>
+        </ul>
+        <div class="note">
+          <strong>Aclaracion:</strong> Las credenciales encontradas en archivos .env del repositorio corresponden exclusivamente al entorno de testing/desarrollo. Las credenciales de produccion son gestionadas de forma separada en el entorno de Digital Ocean.
+        </div>
+        <div class="recommendation">
+          <strong>Recomendacion (mejora futura):</strong> Considerar migracion a gestor de secretos dedicado (HashiCorp Vault, DO Secrets) para rotacion automatica. <strong>Prioridad: BAJA</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recommendations Matrix -->
+    <div class="card" style="margin-top: 2rem;">
+      <div class="card-header purple">
+        Matriz de Recomendaciones Priorizadas
+      </div>
+      <div class="card-body" style="padding: 0;">
+        <table class="rec-table">
+          <thead>
+            <tr>
+              <th>Prioridad</th>
+              <th>Recomendacion</th>
+              <th>Esfuerzo</th>
+              <th>Impacto</th>
+              <th>Plazo Sugerido</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="priority-badge critica">CRITICA</span></td>
+              <td>Implementar MFA en aplicaciones</td>
+              <td>Medio</td>
+              <td>Alto</td>
+              <td>30 dias</td>
+            </tr>
+            <tr>
+              <td><span class="priority-badge critica">CRITICA</span></td>
+              <td>Plan de respuesta a incidentes</td>
+              <td>Bajo</td>
+              <td>Alto</td>
+              <td>30 dias</td>
+            </tr>
+            <tr>
+              <td><span class="priority-badge alta">ALTA</span></td>
+              <td>Logging centralizado (SIEM)</td>
+              <td>Medio</td>
+              <td>Alto</td>
+              <td>60 dias</td>
+            </tr>
+            <tr>
+              <td><span class="priority-badge alta">ALTA</span></td>
+              <td>Escaneo vulnerabilidades CI/CD</td>
+              <td>Bajo</td>
+              <td>Medio</td>
+              <td>30 dias</td>
+            </tr>
+            <tr>
+              <td><span class="priority-badge alta">ALTA</span></td>
+              <td>Pentest anual</td>
+              <td>Medio</td>
+              <td>Alto</td>
+              <td>90 dias</td>
+            </tr>
+            <tr>
+              <td><span class="priority-badge media">MEDIA</span></td>
+              <td>Documentar pruebas de backup DO</td>
+              <td>Bajo</td>
+              <td>Medio</td>
+              <td>30 dias</td>
+            </tr>
+            <tr>
+              <td><span class="priority-badge media">MEDIA</span></td>
+              <td>Habilitar 2FA en panel Digital Ocean</td>
+              <td>Bajo</td>
+              <td>Medio</td>
+              <td>Inmediato</td>
+            </tr>
+            <tr>
+              <td><span class="priority-badge media">MEDIA</span></td>
+              <td>Capacitacion seguridad</td>
+              <td>Bajo</td>
+              <td>Medio</td>
+              <td>90 dias</td>
+            </tr>
+            <tr>
+              <td><span class="priority-badge baja">BAJA</span></td>
+              <td>Gestor de secretos (Vault)</td>
+              <td>Alto</td>
+              <td>Bajo</td>
+              <td>Futuro</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Positive Controls -->
+    <div class="card">
+      <div class="card-header" style="background: var(--success);">
+        Controles Positivos Identificados
+      </div>
+      <div class="card-body">
+        <div class="controls-grid">
+          <div class="control-item">
+            <div class="control-icon">&#10003;</div>
+            <div class="control-text"><strong>Autenticacion JWT con bcrypt</strong> - Passwords hasheados correctamente</div>
+          </div>
+          <div class="control-item">
+            <div class="control-icon">&#10003;</div>
+            <div class="control-text"><strong>RBAC implementado</strong> - Control de roles en todas las aplicaciones</div>
+          </div>
+          <div class="control-item">
+            <div class="control-icon">&#10003;</div>
+            <div class="control-text"><strong>Aislamiento multi-tenant</strong> - Datos segregados por tenant</div>
+          </div>
+          <div class="control-item">
+            <div class="control-icon">&#10003;</div>
+            <div class="control-text"><strong>Rate limiting</strong> - Proteccion contra abuso de API</div>
+          </div>
+          <div class="control-item">
+            <div class="control-icon">&#10003;</div>
+            <div class="control-text"><strong>Helmet.js</strong> - Headers de seguridad configurados</div>
+          </div>
+          <div class="control-item">
+            <div class="control-icon">&#10003;</div>
+            <div class="control-text"><strong>Prisma ORM</strong> - Proteccion contra SQL injection</div>
+          </div>
+          <div class="control-item">
+            <div class="control-icon">&#10003;</div>
+            <div class="control-text"><strong>Encriptacion AES-256-GCM</strong> - Datos sensibles encriptados</div>
+          </div>
+          <div class="control-item">
+            <div class="control-icon">&#10003;</div>
+            <div class="control-text"><strong>API Keys hasheadas</strong> - Tokens almacenados con SHA-256</div>
+          </div>
+          <div class="control-item">
+            <div class="control-icon">&#10003;</div>
+            <div class="control-text"><strong>Digital Ocean SOC 2</strong> - Infraestructura certificada</div>
+          </div>
+          <div class="control-item">
+            <div class="control-icon">&#10003;</div>
+            <div class="control-text"><strong>TLS automatico</strong> - Certificados Let's Encrypt via DO</div>
+          </div>
+          <div class="control-item">
+            <div class="control-icon">&#10003;</div>
+            <div class="control-text"><strong>Backups automaticos</strong> - Disponibles via Digital Ocean</div>
+          </div>
+          <div class="control-item">
+            <div class="control-icon">&#10003;</div>
+            <div class="control-text"><strong>Separacion de entornos</strong> - Testing vs Produccion</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Conclusion -->
+    <div class="conclusion">
+      <h3>Conclusion</h3>
+      <p>La plataforma Syncro presenta una postura de seguridad <strong>intermedia y adecuada</strong> para una aplicacion empresarial, con controles fundamentales bien implementados a nivel de aplicacion y beneficiandose de la infraestructura certificada de Digital Ocean (SOC 2 Type II, ISO 27001).</p>
+
+      <p><strong>Fortalezas principales:</strong></p>
+      <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+        <li>Autenticacion robusta con JWT y bcrypt</li>
+        <li>Encriptacion de datos sensibles a nivel de aplicacion e infraestructura</li>
+        <li>RBAC y aislamiento multi-tenant efectivo</li>
+        <li>Infraestructura cloud certificada con backups disponibles</li>
+        <li>Separacion adecuada de entornos (testing/produccion)</li>
+      </ul>
+
+      <p style="margin-top: 1rem;"><strong>Areas de mejora prioritarias:</strong></p>
+      <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+        <li>Implementacion de MFA para accesos administrativos</li>
+        <li>Documentacion de plan de respuesta a incidentes</li>
+        <li>Logging centralizado para deteccion de amenazas</li>
+      </ul>
+
+      <div class="highlight">
+        <strong>Recomendacion para aseguradora:</strong> La plataforma cumple con controles basicos de seguridad y opera sobre infraestructura cloud certificada. Se recomienda cobertura con compromiso de implementar MFA y documentar IRP en un plazo de 60 dias.
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>Reporte generado automaticamente | Evaluacion de Seguridad Cibernetica - Plataforma Syncro</p>
+    <p>Infraestructura: Digital Ocean | Estandares: NIST CSF 2.0 | CIS Controls v8</p>
+    <p style="margin-top: 0.5rem; color: var(--palette-purple);">&copy; 2025 - Documento confidencial</p>
+  </footer>
+</body>
+</html>
