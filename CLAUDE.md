@@ -22,6 +22,157 @@
 
 ## ⚡ ÚLTIMAS ACTUALIZACIONES - Enero 2025
 
+### ✅ Sprint 6: Webhooks para API Pública OAuth (21 Enero 2025)
+
+**Documentación completa:** Ver `docs/SESION-2025-01-21-SPRINT6-WEBHOOKS-API-PUBLICA.md`
+
+Sistema completo de webhooks para que clientes OAuth reciban notificaciones en tiempo real de eventos en la API Pública.
+
+#### Características Implementadas
+
+✅ **CRUD completo de webhooks** vía API REST (`/api/v1/webhooks`)
+✅ **6 eventos especializados** para API Pública
+✅ **Validación HMAC SHA-256** para autenticidad
+✅ **Estadísticas y logs** de envíos
+✅ **Reintentos automáticos** con exponential backoff
+✅ **Separación de webhooks** tenant vs OAuth
+✅ **Integración completa** en endpoints públicos
+
+#### Eventos Soportados
+
+| Evento | Cuándo se dispara | Endpoint que lo dispara |
+|--------|-------------------|-------------------------|
+| `api.document.accessed` | GET /api/v1/documents/:id | Cliente consulta documento |
+| `api.document.exported` | POST /api/v1/documents/:id/mark-exported | Cliente marca documento como exportado |
+| `api.document.downloaded` | GET /api/v1/documents/:id/file | Cliente descarga archivo PDF |
+| `api.client.activated` | Admin activa cliente OAuth | Panel admin |
+| `api.client.deactivated` | Admin desactiva cliente OAuth | Panel admin |
+| `api.rate_limit.exceeded` | Cliente excede rate limit | Middleware rate limiter |
+
+#### API Endpoints
+
+```bash
+# Gestión de webhooks (requiere Bearer Token OAuth)
+GET    /api/v1/webhooks              # Listar webhooks
+POST   /api/v1/webhooks              # Crear webhook
+GET    /api/v1/webhooks/:id          # Obtener detalle
+PUT    /api/v1/webhooks/:id          # Actualizar webhook
+DELETE /api/v1/webhooks/:id          # Eliminar webhook
+GET    /api/v1/webhooks/:id/stats    # Estadísticas de envíos
+GET    /api/v1/webhooks/:id/logs     # Logs de envíos
+GET    /api/v1/webhooks/meta/events  # Eventos disponibles
+```
+
+#### Ejemplo de Uso
+
+**Crear webhook:**
+```bash
+curl -X POST https://api.parsedemo.axiomacloud.com/api/v1/webhooks \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nombre": "Webhook ERP",
+    "url": "https://erp.ejemplo.com/webhooks/parse",
+    "eventos": ["api.document.exported", "api.document.downloaded"]
+  }'
+```
+
+**Payload recibido:**
+```json
+{
+  "id": "evt_1737480000_abc123",
+  "event": "api.document.exported",
+  "created": "2025-01-21T14:30:00.000Z",
+  "data": {
+    "documentId": "doc_123",
+    "tipoComprobante": "FACTURA A",
+    "numeroComprobante": "0001-00001234",
+    "total": 12500.50,
+    "externalSystemId": "ERP-INV-12345",
+    "exportedAt": "2025-01-21T14:30:00.000Z"
+  }
+}
+```
+
+**Headers enviados:**
+```http
+Content-Type: application/json
+X-Webhook-Signature: sha256=abc123def456...
+X-Webhook-Event: api.document.exported
+User-Agent: Parse-Webhook/1.0
+```
+
+#### Seguridad
+
+**Validación HMAC (Node.js):**
+```javascript
+const crypto = require('crypto');
+
+function verifyWebhookSignature(payload, signature, secret) {
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(JSON.stringify(payload))
+    .digest('hex');
+
+  return signature === expectedSignature;
+}
+
+app.post('/webhooks/parse', (req, res) => {
+  const signature = req.headers['x-webhook-signature'];
+  const webhookSecret = 'whsec_a1b2c3d4e5f6...4f8a';
+
+  if (!verifyWebhookSignature(req.body, signature, webhookSecret)) {
+    return res.status(401).json({ error: 'Invalid signature' });
+  }
+
+  // Procesar webhook...
+  res.status(200).json({ success: true });
+});
+```
+
+#### Cambios en Base de Datos
+
+**Schema extendido:**
+```prisma
+model webhooks {
+  id             String         @id
+  tenantId       String?        // Opcional: Para webhooks de tenant
+  oauthClientId  String?        // Opcional: Para webhooks OAuth (NUEVO)
+  nombre         String
+  url            String
+  secret         String         // Secret para validación HMAC
+  eventos        Json           @default("[]")
+  activo         Boolean        @default(true)
+  ultimoEnvio    DateTime?
+  totalEnviado   Int            @default(0)   // NUEVO
+  totalExitoso   Int            @default(0)   // NUEVO
+  totalFallido   Int            @default(0)   // NUEVO
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime
+
+  oauth_clients  oauth_clients? @relation(fields: [oauthClientId], references: [id], onDelete: Cascade)
+  webhook_logs   webhook_logs[]
+
+  @@index([oauthClientId])
+}
+```
+
+#### Archivos Modificados
+
+**Creados (1 archivo):**
+- `src/routes/oauthWebhooks.js` - CRUD completo de webhooks (550+ líneas)
+
+**Modificados (4 archivos):**
+- `prisma/schema.prisma` - Extendido modelo webhooks
+- `src/services/webhookService.js` - 6 eventos OAuth + helpers
+- `src/routes/publicApi.js` - Integración webhooks en 3 endpoints
+- `src/index.js` - Registro de ruta `/api/v1/webhooks`
+
+**Pendiente (Frontend UI):**
+- Tab "Webhooks" en `/api-clients` para gestión visual
+
+---
+
 ### ✅ Sprint 5: Testing + Documentación OpenAPI/Swagger (21 Enero 2025)
 
 **Documentación completa:** Ver `docs/SESION-2025-01-21-SPRINT5-TESTING-DOCS.md`

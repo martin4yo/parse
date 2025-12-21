@@ -66,6 +66,9 @@ const authApiRoutes = require('./routes/authApi');        // /api/v1/auth/*
 const publicApiRoutes = require('./routes/publicApi');    // /api/v1/documents/*
 const oauthClientsRoutes = require('./routes/oauthClients'); // /api/oauth-clients (admin UI)
 
+// Webhooks OAuth - Sprint 6
+const oauthWebhooksRoutes = require('./routes/oauthWebhooks'); // /api/v1/webhooks
+
 const app = express();
 const PORT = process.env.PORT || 5100;
 
@@ -195,6 +198,7 @@ app.use('/api/v1/parse', parseApiRoutes);
 // OAuth 2.0 API Pública - Sprint 4 (autenticación con OAuth Bearer tokens)
 app.use('/api/v1/auth', authApiRoutes);           // Autenticación OAuth (token, refresh, revoke)
 app.use('/api/v1/documents', publicApiRoutes);    // API pública de consulta de documentos
+app.use('/api/v1/webhooks', oauthWebhooksRoutes); // Webhooks OAuth (Sprint 6)
 app.use('/api/oauth-clients', oauthClientsRoutes); // CRUD de OAuth clients (admin UI)
 
 // Documentación OpenAPI/Swagger

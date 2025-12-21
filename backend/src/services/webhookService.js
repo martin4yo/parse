@@ -12,13 +12,22 @@ const crypto = require('crypto');
 
 // Eventos soportados
 const EVENTOS = {
+  // Eventos de sistema interno (tenants)
   DOCUMENT_PROCESSED: 'document.processed',
   DOCUMENT_FAILED: 'document.failed',
   DOCUMENT_EXPORTED: 'document.exported',
   SYNC_COMPLETED: 'sync.completed',
   SYNC_FAILED: 'sync.failed',
   EXPORT_COMPLETED: 'export.completed',
-  EXPORT_FAILED: 'export.failed'
+  EXPORT_FAILED: 'export.failed',
+
+  // Eventos de API Pública (clientes OAuth)
+  API_DOCUMENT_ACCESSED: 'api.document.accessed',
+  API_DOCUMENT_EXPORTED: 'api.document.exported',
+  API_DOCUMENT_DOWNLOADED: 'api.document.downloaded',
+  API_CLIENT_ACTIVATED: 'api.client.activated',
+  API_CLIENT_DEACTIVATED: 'api.client.deactivated',
+  API_RATE_LIMIT_EXCEEDED: 'api.rate_limit.exceeded'
 };
 
 /**
@@ -156,7 +165,7 @@ async function sendWebhook(webhookId, evento, payload, retryCount = 0) {
 }
 
 /**
- * Dispara webhooks para un evento específico
+ * Dispara webhooks para un evento específico (tenant)
  */
 async function triggerWebhooks(tenantId, evento, payload) {
   try {
@@ -164,6 +173,7 @@ async function triggerWebhooks(tenantId, evento, payload) {
     const webhooks = await prisma.webhooks.findMany({
       where: {
         tenantId,
+        oauthClientId: null, // Solo webhooks de tenant (no OAuth)
         activo: true
       }
     });
@@ -187,6 +197,42 @@ async function triggerWebhooks(tenantId, evento, payload) {
 
   } catch (error) {
     console.error('Error triggering webhooks:', error);
+  }
+}
+
+/**
+ * Dispara webhooks para clientes OAuth (API pública)
+ */
+async function triggerOAuthWebhooks(oauthClientId, evento, payload) {
+  try {
+    // Obtener todos los webhooks activos del cliente OAuth
+    const webhooks = await prisma.webhooks.findMany({
+      where: {
+        oauthClientId,
+        tenantId: null, // Solo webhooks de OAuth (no tenant)
+        activo: true
+      }
+    });
+
+    if (webhooks.length === 0) {
+      console.log(`ℹ️ No hay webhooks configurados para OAuth client ${oauthClientId}`);
+      return;
+    }
+
+    // Filtrar por evento y enviar async
+    for (const webhook of webhooks) {
+      const eventos = Array.isArray(webhook.eventos) ? webhook.eventos : JSON.parse(webhook.eventos || '[]');
+
+      if (eventos.includes(evento)) {
+        // Enviar async (no bloqueante)
+        sendWebhook(webhook.id, evento, payload).catch(err => {
+          console.error(`Error disparando webhook ${webhook.id}:`, err);
+        });
+      }
+    }
+
+  } catch (error) {
+    console.error('Error triggering OAuth webhooks:', error);
   }
 }
 
@@ -280,6 +326,90 @@ async function triggerExportFailed(tenantId, connectorId, error) {
 }
 
 /**
+ * =========================================
+ * HELPERS PARA API PÚBLICA (OAUTH CLIENTS)
+ * =========================================
+ */
+
+/**
+ * Trigger cuando un cliente OAuth accede a un documento
+ */
+async function triggerApiDocumentAccessed(oauthClientId, documento) {
+  await triggerOAuthWebhooks(oauthClientId, EVENTOS.API_DOCUMENT_ACCESSED, {
+    documentId: documento.id,
+    tipoComprobante: documento.tipoComprobanteExtraido,
+    numeroComprobante: documento.numeroExtraido,
+    fecha: documento.fechaExtraida,
+    total: documento.totalExtraido,
+    proveedor: {
+      cuit: documento.cuitExtraido,
+      razonSocial: documento.razonSocialExtraida
+    },
+    accessedAt: new Date().toISOString()
+  });
+}
+
+/**
+ * Trigger cuando un cliente OAuth marca documento como exportado
+ */
+async function triggerApiDocumentExported(oauthClientId, documento, externalId) {
+  await triggerOAuthWebhooks(oauthClientId, EVENTOS.API_DOCUMENT_EXPORTED, {
+    documentId: documento.id,
+    tipoComprobante: documento.tipoComprobanteExtraido,
+    numeroComprobante: documento.numeroExtraido,
+    total: documento.totalExtraido,
+    externalSystemId: externalId,
+    exportedAt: new Date().toISOString()
+  });
+}
+
+/**
+ * Trigger cuando un cliente OAuth descarga un archivo
+ */
+async function triggerApiDocumentDownloaded(oauthClientId, documentId, fileName) {
+  await triggerOAuthWebhooks(oauthClientId, EVENTOS.API_DOCUMENT_DOWNLOADED, {
+    documentId,
+    fileName,
+    downloadedAt: new Date().toISOString()
+  });
+}
+
+/**
+ * Trigger cuando se activa un cliente OAuth
+ */
+async function triggerApiClientActivated(oauthClientId, clientName) {
+  await triggerOAuthWebhooks(oauthClientId, EVENTOS.API_CLIENT_ACTIVATED, {
+    clientId: oauthClientId,
+    clientName,
+    activatedAt: new Date().toISOString()
+  });
+}
+
+/**
+ * Trigger cuando se desactiva un cliente OAuth
+ */
+async function triggerApiClientDeactivated(oauthClientId, clientName, reason) {
+  await triggerOAuthWebhooks(oauthClientId, EVENTOS.API_CLIENT_DEACTIVATED, {
+    clientId: oauthClientId,
+    clientName,
+    reason: reason || 'Manual deactivation',
+    deactivatedAt: new Date().toISOString()
+  });
+}
+
+/**
+ * Trigger cuando un cliente OAuth excede rate limit
+ */
+async function triggerApiRateLimitExceeded(oauthClientId, endpoint, limit) {
+  await triggerOAuthWebhooks(oauthClientId, EVENTOS.API_RATE_LIMIT_EXCEEDED, {
+    clientId: oauthClientId,
+    endpoint,
+    limit,
+    exceededAt: new Date().toISOString()
+  });
+}
+
+/**
  * Obtiene estadísticas de webhooks
  */
 async function getWebhookStats(webhookId, days = 7) {
@@ -332,6 +462,9 @@ async function getWebhookStats(webhookId, days = 7) {
 module.exports = {
   EVENTOS,
   sendWebhook,
+  generateSignature,
+
+  // Funciones para webhooks de tenant (sistema interno)
   triggerWebhooks,
   triggerDocumentProcessed,
   triggerDocumentFailed,
@@ -340,6 +473,16 @@ module.exports = {
   triggerSyncFailed,
   triggerExportCompleted,
   triggerExportFailed,
-  getWebhookStats,
-  generateSignature
+
+  // Funciones para webhooks de OAuth (API pública)
+  triggerOAuthWebhooks,
+  triggerApiDocumentAccessed,
+  triggerApiDocumentExported,
+  triggerApiDocumentDownloaded,
+  triggerApiClientActivated,
+  triggerApiClientDeactivated,
+  triggerApiRateLimitExceeded,
+
+  // Utilidades
+  getWebhookStats
 };

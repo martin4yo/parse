@@ -3,6 +3,7 @@ const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const { authenticateOAuth, requireScope } = require('../middleware/oauthAuth');
 const { rateLimiter } = require('../middleware/rateLimiter');
+const webhookService = require('../services/webhookService');
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -205,6 +206,11 @@ router.get('/documents/:id', authenticateOAuth, requireScope('read:documents'), 
 
     const baseUrl = `${req.protocol}://${req.get('host')}/api/v1`;
 
+    // Disparar webhook async (no bloquear respuesta)
+    webhookService.triggerApiDocumentAccessed(req.client.id, documento).catch(err => {
+      console.error('Error disparando webhook api.document.accessed:', err);
+    });
+
     res.json({
       success: true,
       data: {
@@ -395,6 +401,11 @@ router.post('/documents/:id/mark-exported', authenticateOAuth, requireScope('wri
 
     console.log(`✅ [Public API] Documento ${id} marcado como exportado por cliente ${req.client.clientId}`);
 
+    // Disparar webhook async
+    webhookService.triggerApiDocumentExported(req.client.id, updated, externalSystemId).catch(err => {
+      console.error('Error disparando webhook api.document.exported:', err);
+    });
+
     res.json({
       success: true,
       message: 'Document marked as exported',
@@ -464,6 +475,11 @@ router.get('/documents/:id/file', authenticateOAuth, requireScope('read:files'),
 
     // Determinar content-type
     const contentType = documento.tipoArchivo || 'application/octet-stream';
+
+    // Disparar webhook async (antes de enviar archivo)
+    webhookService.triggerApiDocumentDownloaded(req.client.id, documento.id, documento.nombreArchivo).catch(err => {
+      console.error('Error disparando webhook api.document.downloaded:', err);
+    });
 
     // Enviar archivo
     res.setHeader('Content-Type', contentType);

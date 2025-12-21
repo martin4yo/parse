@@ -425,20 +425,26 @@ model sync_api_keys {
 }
 
 model webhooks {
-  id          String    @id
-  tenantId    String
-  nombre      String
-  url         String
-  secret      String
-  eventos     Json      @default("[]")
-  activo      Boolean   @default(true)
-  ultimoEnvio DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime
-  tenants     tenants   @relation(fields: [tenantId], references: [id])
-  webhook_logs webhook_logs[]
+  id             String         @id
+  tenantId       String?        // Opcional: Para webhooks de tenant (sistema interno)
+  oauthClientId  String?        // Opcional: Para webhooks de clientes OAuth (API pública)
+  nombre         String
+  url            String
+  secret         String         // Secret para validación HMAC
+  eventos        Json           @default("[]")
+  activo         Boolean        @default(true)
+  ultimoEnvio    DateTime?
+  totalEnviado   Int            @default(0)
+  totalExitoso   Int            @default(0)
+  totalFallido   Int            @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime
+  tenants        tenants?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  oauth_clients  oauth_clients? @relation(fields: [oauthClientId], references: [id], onDelete: Cascade)
+  webhook_logs   webhook_logs[]
 
   @@index([tenantId])
+  @@index([oauthClientId])
   @@index([activo])
 }
 
@@ -909,7 +915,8 @@ model oauth_clients {
   tenants             tenants   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   tokens              oauth_tokens[]
   api_logs            oauth_api_logs[]
-  
+  webhooks            webhooks[]
+
   @@index([tenantId])
   @@index([clientId])
   @@index([activo])
