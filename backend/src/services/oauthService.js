@@ -671,9 +671,9 @@ class OAuthService {
     const requestsByDay = await prisma.$queryRaw`
       SELECT
         DATE(timestamp) as date,
-        COUNT(*) as count
+        COUNT(*)::int as count
       FROM oauth_api_logs
-      WHERE clientId = ${client.id}
+      WHERE "clientId" = ${client.id}
         AND timestamp >= ${startDate}
       GROUP BY DATE(timestamp)
       ORDER BY date ASC
@@ -682,12 +682,12 @@ class OAuthService {
     // 2. Requests por hora del día (para gráfico de barras - patrón de uso)
     const requestsByHour = await prisma.$queryRaw`
       SELECT
-        HOUR(timestamp) as hour,
-        COUNT(*) as count
+        EXTRACT(HOUR FROM timestamp)::int as hour,
+        COUNT(*)::int as count
       FROM oauth_api_logs
-      WHERE clientId = ${client.id}
+      WHERE "clientId" = ${client.id}
         AND timestamp >= ${startDate}
-      GROUP BY HOUR(timestamp)
+      GROUP BY EXTRACT(HOUR FROM timestamp)
       ORDER BY hour ASC
     `;
 
@@ -725,11 +725,11 @@ class OAuthService {
     const latencyByDay = await prisma.$queryRaw`
       SELECT
         DATE(timestamp) as date,
-        AVG(responseTime) as avgLatency,
-        MIN(responseTime) as minLatency,
-        MAX(responseTime) as maxLatency
+        AVG("responseTime")::float as "avgLatency",
+        MIN("responseTime")::int as "minLatency",
+        MAX("responseTime")::int as "maxLatency"
       FROM oauth_api_logs
-      WHERE clientId = ${client.id}
+      WHERE "clientId" = ${client.id}
         AND timestamp >= ${startDate}
       GROUP BY DATE(timestamp)
       ORDER BY date ASC
@@ -739,11 +739,11 @@ class OAuthService {
     const rateLimitByDay = await prisma.$queryRaw`
       SELECT
         DATE(timestamp) as date,
-        COUNT(*) as count
+        COUNT(*)::int as count
       FROM oauth_api_logs
-      WHERE clientId = ${client.id}
+      WHERE "clientId" = ${client.id}
         AND timestamp >= ${startDate}
-        AND rateLimitHit = true
+        AND "rateLimitHit" = true
       GROUP BY DATE(timestamp)
       ORDER BY date ASC
     `;

@@ -36,7 +36,11 @@ import {
   ScanText,
   Package,
   Lightbulb,
-  Webhook
+  Webhook,
+  Plug,
+  Monitor,
+  Database,
+  Globe
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Button } from '@/components/ui/Button';
@@ -82,7 +86,11 @@ const IconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   ScanText,
   Package,
   Lightbulb,
-  Webhook
+  Webhook,
+  Plug,
+  Monitor,
+  Database,
+  Globe
 };
 
 // Helper para obtener el componente de ícono desde el nombre

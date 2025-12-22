@@ -119,7 +119,8 @@
       "Bash(npx http-server:*)",
       "Bash(git push:*)",
       "Read(//home/martin/Desarrollos/**)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(powershell -Command \"\\(Get-Content ''D:\\\\Desarrollos\\\\React\\\\parse\\\\CLAUDE.md'' -Raw\\).Length\")"
     ],
     "deny": [],
     "ask": []

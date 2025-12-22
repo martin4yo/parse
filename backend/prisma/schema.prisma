@@ -514,6 +514,59 @@ model sync_logs {
   @@index([tenantId, createdAt])
 }
 
+// Clientes de sync-client-folder que se conectan para obtener configuración
+model sync_clients {
+  id                  String    @id
+  tenantId            String
+  nombre              String                // Nombre descriptivo del cliente
+  hostname            String?               // Hostname de la máquina
+  plataforma          String?               // win32, linux, darwin
+  version             String?               // Versión del cliente instalado
+
+  // Configuración operativa (lo que el cliente descarga)
+  config              Json?                 // folder, email, output settings
+
+  // Estado del cliente
+  estado              String    @default("offline")  // online, offline, error
+  ultimoHeartbeat     DateTime?
+  ultimaIp            String?
+
+  // Métricas
+  documentosProcesados Int      @default(0)
+  erroresCount        Int       @default(0)
+  ultimoError         String?
+  ultimoDocumento     DateTime?
+
+  // Metadata
+  activo              Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime
+  createdBy           String?
+
+  tenants             tenants   @relation(fields: [tenantId], references: [id])
+  sync_client_logs    sync_client_logs[]
+
+  @@unique([tenantId, nombre])
+  @@index([activo])
+  @@index([estado])
+  @@index([tenantId])
+}
+
+// Logs de actividad de los clientes sync-client-folder
+model sync_client_logs {
+  id          String       @id
+  clientId    String
+  nivel       String       // info, warn, error
+  mensaje     String
+  metadata    Json?
+  createdAt   DateTime     @default(now())
+
+  sync_clients sync_clients @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, createdAt])
+  @@index([nivel])
+}
+
 model tenants {
   id                        String                      @id
   slug                      String                      @unique
@@ -551,6 +604,7 @@ model tenants {
   reglas_negocio            reglas_negocio[]
   sugerencias_ia            sugerencias_ia[]
   sync_api_keys             sync_api_keys[]
+  sync_clients              sync_clients[]
   sync_configurations       sync_configurations?
   sync_logs                 sync_logs[]
   tenant_reglas_globales    tenant_reglas_globales[]

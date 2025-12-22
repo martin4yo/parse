@@ -142,7 +142,7 @@ export function MenuItemsList({ items, loading, onEdit, onRefetch }: MenuItemsLi
   const handleDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
 
-    const { source, destination, draggableId } = result;
+    const { source, destination } = result;
 
     // Si no cambió de posición, no hacer nada
     if (source.index === destination.index && source.droppableId === destination.droppableId) {
@@ -156,7 +156,19 @@ export function MenuItemsList({ items, loading, onEdit, onRefetch }: MenuItemsLi
 
       // Determinar si es un item padre o hijo
       const isParent = source.droppableId === 'root';
-      const itemsList = isParent ? items : items.find(i => i.id === source.droppableId)?.children || [];
+
+      // IMPORTANTE: Usar listas ORDENADAS para que los índices coincidan con la posición visual
+      let itemsList: MenuItem[];
+      if (isParent) {
+        // Para items padre, ordenar por orderIndex (igual que en el render)
+        itemsList = [...items].sort((a, b) => a.orderIndex - b.orderIndex);
+      } else {
+        // Para items hijo, buscar el padre y ordenar sus hijos
+        const parentItem = items.find(i => i.id === source.droppableId);
+        itemsList = parentItem?.children
+          ? [...parentItem.children].sort((a, b) => a.orderIndex - b.orderIndex)
+          : [];
+      }
 
       // Reordenar la lista localmente
       const reorderedItems = Array.from(itemsList);

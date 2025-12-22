@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/Card';
-import { Key, Plus, Trash2, Eye, EyeOff, Copy, Check, Activity, Pause, Play, BarChart, Webhook, ChevronDown, ChevronUp } from 'lucide-react';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table';
+import { Badge } from '@/components/ui/Badge';
+import { Key, Plus, Trash2, Copy, Check, Pause, Play, BarChart, Webhook, RefreshCw } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
@@ -28,12 +30,6 @@ interface OAuthClient {
   updatedAt: string;
 }
 
-interface ClientStats {
-  totalRequests: number;
-  rateLimitHits: number;
-  avgResponseTime: number;
-  statusCodes: Array<{ code: number; count: number }>;
-}
 
 const AVAILABLE_SCOPES = [
   { key: 'read:documents', label: 'Leer documentos', description: 'Consultar documentos procesados' },
@@ -47,8 +43,6 @@ export default function ApiClientsPage() {
   const [showModal, setShowModal] = useState(false);
   const [showSecret, setShowSecret] = useState<OAuthClient | null>(null);
   const [copiedItem, setCopiedItem] = useState<string | null>(null);
-  const [viewingStats, setViewingStats] = useState<string | null>(null);
-  const [clientStats, setClientStats] = useState<ClientStats | null>(null);
   const [expandedWebhooks, setExpandedWebhooks] = useState<string | null>(null);
   const [expandedDashboard, setExpandedDashboard] = useState<string | null>(null);
 
@@ -107,17 +101,6 @@ export default function ApiClientsPage() {
     }
   };
 
-  const loadClientStats = async (clientId: string) => {
-    try {
-      setViewingStats(clientId);
-      const response = await api.get(`/oauth-clients/${clientId}/stats?days=30`);
-      setClientStats(response.data.data);
-    } catch (error: any) {
-      console.error('Error cargando estadísticas:', error);
-      toast.error('Error al cargar estadísticas');
-    }
-  };
-
   const resetForm = () => {
     setFormData({
       nombre: '',
@@ -172,212 +155,204 @@ export default function ApiClientsPage() {
     }));
   };
 
-  if (loading) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-            <Key className="w-6 h-6 text-palette-dark" />
-          </div>
-          <h1 className="text-2xl font-bold text-text-primary">API Clients (OAuth 2.0)</h1>
-        </div>
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-text-secondary">Cargando clientes...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="p-6">
+    <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-palette-yellow rounded-lg flex items-center justify-center">
             <Key className="w-6 h-6 text-palette-dark" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-text-primary">API Clients (OAuth 2.0)</h1>
-            <p className="text-sm text-text-secondary">Gestiona clientes OAuth para la API pública</p>
+            <p className="text-text-secondary mt-1">Gestiona clientes OAuth para la API pública de consulta de documentos</p>
           </div>
         </div>
-        <Button
-          onClick={() => setShowModal(true)}
-          className="bg-primary hover:bg-primary/90 text-palette-dark"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Nuevo Cliente
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={loadClients}
+            disabled={loading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Actualizar
+          </Button>
+          <Button
+            onClick={() => setShowModal(true)}
+            className="bg-palette-dark hover:bg-sidebar-hover text-palette-yellow"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Nuevo Cliente
+          </Button>
+        </div>
       </div>
 
-      {/* Info Card */}
-      <Card className="mb-6 border-l-4 border-l-blue-500">
-        <CardContent className="p-4">
-          <p className="text-sm text-text-secondary">
-            <strong>API Pública:</strong> Los clientes OAuth permiten a sistemas externos acceder a tus documentos procesados
-            mediante la API REST pública. Base URL: <code className="px-2 py-1 bg-gray-100 rounded text-xs">{typeof window !== 'undefined' ? window.location.origin : ''}/api/v1</code>
-          </p>
-        </CardContent>
-      </Card>
+      {/* Content Card */}
+      <Card>
+        <CardContent className="!p-0">
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
+            </div>
+          ) : clients.length === 0 ? (
+            <div className="text-center py-12">
+              <Key className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-500">No hay clientes OAuth configurados</p>
+              <Button
+                onClick={() => setShowModal(true)}
+                className="mt-4 bg-palette-dark hover:bg-sidebar-hover text-palette-yellow"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Crear Primer Cliente
+              </Button>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Client ID</TableHead>
+                  <TableHead>Scopes</TableHead>
+                  <TableHead>Requests</TableHead>
+                  <TableHead>Último Uso</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {clients.map((client) => (
+                  <>
+                    <TableRow key={client.id} className={!client.activo ? 'opacity-60' : ''}>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{client.nombre}</div>
+                          {client.descripcion && (
+                            <div className="text-xs text-gray-500">{client.descripcion}</div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                            {client.clientId.substring(0, 20)}...
+                          </code>
+                          <button
+                            onClick={() => handleCopy(client.clientId, client.clientId)}
+                            className="p-1 hover:bg-gray-100 rounded"
+                            title="Copiar Client ID"
+                          >
+                            {copiedItem === client.clientId ? (
+                              <Check className="w-3 h-3 text-green-600" />
+                            ) : (
+                              <Copy className="w-3 h-3 text-gray-400" />
+                            )}
+                          </button>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1 flex-wrap">
+                          {client.allowedScopes.map(scope => (
+                            <Badge key={scope} variant="default" className="text-xs">
+                              {scope.replace(':', ': ')}
+                            </Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{client.totalRequests.toLocaleString()}</div>
+                          <div className="text-xs text-gray-500">
+                            {client.customRateLimit ? `${client.requestsPerMinute}/min` : 'Sin límite custom'}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {client.ultimoUso ? (
+                          <div className="text-sm">
+                            {new Date(client.ultimoUso).toLocaleDateString('es-AR', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                            })}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">Nunca</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={client.activo ? 'default' : 'secondary'}>
+                          {client.activo ? 'Activo' : 'Inactivo'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setExpandedDashboard(expandedDashboard === client.clientId ? null : client.clientId)}
+                            title="Dashboard de métricas"
+                            className={expandedDashboard === client.clientId ? 'bg-gray-100' : ''}
+                          >
+                            <BarChart className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setExpandedWebhooks(expandedWebhooks === client.clientId ? null : client.clientId)}
+                            title="Webhooks"
+                            className={expandedWebhooks === client.clientId ? 'bg-gray-100' : ''}
+                          >
+                            <Webhook className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleToggleActivo(client)}
+                            title={client.activo ? 'Desactivar' : 'Activar'}
+                          >
+                            {client.activo ? (
+                              <Pause className="h-4 w-4 text-orange-600" />
+                            ) : (
+                              <Play className="h-4 w-4 text-green-600" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(client.clientId)}
+                            className="text-red-600 hover:text-red-700"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
 
-      {/* Lista de clientes */}
-      {clients.length === 0 ? (
-        <Card>
-          <CardContent className="text-center py-12">
-            <Key className="w-16 h-16 mx-auto text-text-tertiary mb-4" />
-            <h3 className="text-lg font-medium text-text-primary mb-2">No hay clientes OAuth</h3>
-            <p className="text-text-secondary mb-4">Crea tu primer cliente OAuth para comenzar a usar la API pública</p>
-            <Button
-              onClick={() => setShowModal(true)}
-              className="bg-primary hover:bg-primary/90 text-palette-dark"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Crear Primer Cliente
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4">
-          {clients.map((client) => (
-            <Card key={client.id} className={!client.activo ? 'opacity-60' : ''}>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="text-lg font-semibold text-text-primary">{client.nombre}</h3>
-                      {client.activo ? (
-                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">Activo</span>
-                      ) : (
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full">Inactivo</span>
-                      )}
-                    </div>
-
-                    {client.descripcion && (
-                      <p className="text-sm text-text-secondary mb-3">{client.descripcion}</p>
+                    {/* Panel de Dashboard Expandible */}
+                    {expandedDashboard === client.clientId && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="bg-gray-50 p-4">
+                          <OAuthDashboard clientId={client.clientId} />
+                        </TableCell>
+                      </TableRow>
                     )}
 
-                    {/* Client ID */}
-                    <div className="mb-2">
-                      <label className="text-xs text-text-tertiary block mb-1">Client ID</label>
-                      <div className="flex items-center gap-2">
-                        <code className="px-3 py-1.5 bg-gray-50 border rounded text-sm font-mono">
-                          {client.clientId}
-                        </code>
-                        <button
-                          onClick={() => handleCopy(client.clientId, 'Client ID')}
-                          className="p-1.5 hover:bg-gray-100 rounded"
-                        >
-                          {copiedItem === 'Client ID' ? (
-                            <Check className="w-4 h-4 text-green-600" />
-                          ) : (
-                            <Copy className="w-4 h-4 text-text-tertiary" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Scopes */}
-                    <div className="mb-3">
-                      <label className="text-xs text-text-tertiary block mb-1">Scopes permitidos</label>
-                      <div className="flex flex-wrap gap-1">
-                        {client.allowedScopes.map(scope => (
-                          <span key={scope} className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded">
-                            {scope}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Estadísticas */}
-                    <div className="grid grid-cols-3 gap-4 pt-3 border-t">
-                      <div>
-                        <div className="text-xs text-text-tertiary">Total Requests</div>
-                        <div className="text-lg font-semibold text-text-primary">
-                          {client.totalRequests.toLocaleString()}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-text-tertiary">Último Uso</div>
-                        <div className="text-sm text-text-secondary">
-                          {client.ultimoUso
-                            ? new Date(client.ultimoUso).toLocaleDateString()
-                            : 'Nunca'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-text-tertiary">Rate Limit</div>
-                        <div className="text-sm text-text-secondary">
-                          {client.customRateLimit
-                            ? `${client.requestsPerMinute}/min`
-                            : 'Por defecto'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Acciones */}
-                  <div className="flex flex-col gap-2 ml-4">
-                    <button
-                      onClick={() => setExpandedDashboard(expandedDashboard === client.clientId ? null : client.clientId)}
-                      className="p-2 hover:bg-gray-100 rounded"
-                      title="Ver dashboard de métricas"
-                    >
-                      <BarChart className="w-5 h-5 text-text-tertiary" />
-                    </button>
-                    <button
-                      onClick={() => setExpandedWebhooks(expandedWebhooks === client.clientId ? null : client.clientId)}
-                      className="p-2 hover:bg-gray-100 rounded"
-                      title="Ver webhooks"
-                    >
-                      <Webhook className="w-5 h-5 text-text-tertiary" />
-                    </button>
-                    <button
-                      onClick={() => loadClientStats(client.clientId)}
-                      className="p-2 hover:bg-gray-100 rounded"
-                      title="Ver estadísticas básicas"
-                    >
-                      <Activity className="w-5 h-5 text-text-tertiary" />
-                    </button>
-                    <button
-                      onClick={() => handleToggleActivo(client)}
-                      className="p-2 hover:bg-gray-100 rounded"
-                      title={client.activo ? 'Desactivar' : 'Activar'}
-                    >
-                      {client.activo ? (
-                        <Pause className="w-5 h-5 text-orange-600" />
-                      ) : (
-                        <Play className="w-5 h-5 text-green-600" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => handleDelete(client.clientId)}
-                      className="p-2 hover:bg-red-50 rounded"
-                      title="Eliminar"
-                    >
-                      <Trash2 className="w-5 h-5 text-red-600" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Panel de Dashboard Expandible */}
-                {expandedDashboard === client.clientId && (
-                  <div className="mt-4 pt-4 border-t">
-                    <OAuthDashboard clientId={client.clientId} />
-                  </div>
-                )}
-
-                {/* Panel de Webhooks Expandible */}
-                {expandedWebhooks === client.clientId && (
-                  <div className="mt-4 pt-4 border-t">
-                    <OAuthWebhooksPanel clientId={client.clientId} />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+                    {/* Panel de Webhooks Expandible */}
+                    {expandedWebhooks === client.clientId && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="bg-gray-50 p-4">
+                          <OAuthWebhooksPanel clientId={client.clientId} />
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Modal Crear Cliente */}
       {showModal && (
@@ -496,7 +471,7 @@ export default function ApiClientsPage() {
                   </Button>
                   <Button
                     type="submit"
-                    className="bg-primary hover:bg-primary/90 text-palette-dark"
+                    className="bg-palette-dark hover:bg-sidebar-hover text-palette-yellow"
                     disabled={createMutation.isPending}
                   >
                     {createMutation.isPending ? 'Creando...' : 'Crear Cliente'}
@@ -565,7 +540,7 @@ export default function ApiClientsPage() {
 
               <Button
                 onClick={() => setShowSecret(null)}
-                className="w-full bg-primary hover:bg-primary/90 text-palette-dark"
+                className="w-full bg-palette-dark hover:bg-sidebar-hover text-palette-yellow"
               >
                 Entendido, he guardado el secret
               </Button>
@@ -574,66 +549,6 @@ export default function ApiClientsPage() {
         </div>
       )}
 
-      {/* Modal de Estadísticas */}
-      {viewingStats && clientStats && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-2xl">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-text-primary">Estadísticas (últimos 30 días)</h2>
-                <button
-                  onClick={() => {
-                    setViewingStats(null);
-                    setClientStats(null);
-                  }}
-                  className="text-text-tertiary hover:text-text-primary"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-700">{clientStats.totalRequests}</div>
-                  <div className="text-xs text-blue-600">Total Requests</div>
-                </div>
-                <div className="text-center p-4 bg-orange-50 rounded-lg">
-                  <div className="text-2xl font-bold text-orange-700">{clientStats.rateLimitHits}</div>
-                  <div className="text-xs text-orange-600">Rate Limit Hits</div>
-                </div>
-                <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <div className="text-2xl font-bold text-green-700">{Math.round(clientStats.avgResponseTime)}ms</div>
-                  <div className="text-xs text-green-600">Avg Response Time</div>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-medium text-text-primary mb-2">Status Codes</h3>
-                <div className="space-y-1">
-                  {clientStats.statusCodes.map(({ code, count }) => (
-                    <div key={code} className="flex items-center justify-between text-sm">
-                      <span className={`font-mono ${code >= 400 ? 'text-red-600' : 'text-green-600'}`}>
-                        {code}
-                      </span>
-                      <span className="text-text-secondary">{count} requests</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <Button
-                onClick={() => {
-                  setViewingStats(null);
-                  setClientStats(null);
-                }}
-                className="w-full mt-6 bg-gray-200 text-gray-700 hover:bg-gray-300"
-              >
-                Cerrar
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }

@@ -60,6 +60,8 @@ const chatRoutes = require('./routes/chat');
 
 // Parse API - Endpoints públicos para aplicaciones externas
 const parseApiRoutes = require('./routes/parseApi');
+const syncClientsRoutes = require('./routes/syncClients');
+const syncClientsAdminRoutes = require('./routes/syncClientsAdmin'); // Admin UI para sync clients
 
 // OAuth 2.0 API Pública - Sprint 4
 const authApiRoutes = require('./routes/authApi');        // /api/v1/auth/*
@@ -133,7 +135,7 @@ app.use(cors({
       ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-API-Key']
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -195,6 +197,8 @@ app.use('/api/metrics', metricsRoutes);
 
 // Parse API Pública - Endpoints para aplicaciones externas (autenticación con API Key)
 app.use('/api/v1/parse', parseApiRoutes);
+app.use('/api/v1/sync-clients', syncClientsRoutes);  // Sync Client Folder API (público para clientes)
+app.use('/api/sync-clients', syncClientsAdminRoutes); // Admin UI para gestionar sync clients
 
 // OAuth 2.0 API Pública - Sprint 4 (autenticación con OAuth Bearer tokens)
 app.use('/api/v1/auth', authApiRoutes);           // Autenticación OAuth (token, refresh, revoke)
