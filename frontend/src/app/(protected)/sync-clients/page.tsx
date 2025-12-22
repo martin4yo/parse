@@ -75,9 +75,40 @@ export default function SyncClientsPage() {
 
   useEffect(() => {
     fetchClients();
-    // Refrescar cada 30 segundos
-    const interval = setInterval(fetchClients, 30000);
-    return () => clearInterval(interval);
+
+    // Refrescar cada 30 segundos, pero solo si la pestaña está visible
+    let interval: NodeJS.Timeout | null = null;
+
+    const startPolling = () => {
+      if (!interval) {
+        interval = setInterval(fetchClients, 30000);
+      }
+    };
+
+    const stopPolling = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        fetchClients(); // Refrescar al volver
+        startPolling();
+      }
+    };
+
+    // Iniciar polling
+    startPolling();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const fetchClients = async () => {

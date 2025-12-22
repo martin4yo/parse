@@ -362,7 +362,7 @@ export default function OAuthDashboard({ clientId }: OAuthDashboardProps) {
                   cx="50%"
                   cy="50%"
                   outerRadius={80}
-                  label={(entry) => `${STATUS_LABELS[entry.category]}: ${entry.count}`}
+                  label={(entry: any) => `${STATUS_LABELS[entry.category]}: ${entry.count}`}
                   labelLine={{ stroke: '#6b7280' }}
                 >
                   {metrics.charts.statusCodes.map((entry, index) => (
@@ -371,7 +371,7 @@ export default function OAuthDashboard({ clientId }: OAuthDashboardProps) {
                 </Pie>
                 <Tooltip
                   contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb' }}
-                  formatter={(value: any, name: string) => [value, STATUS_LABELS[name] || name]}
+                  formatter={(value: any, name?: string) => [value, name ? (STATUS_LABELS[name] || name) : '']}
                 />
               </PieChart>
             </ResponsiveContainer>

@@ -472,9 +472,9 @@ export default function ApiClientsPage() {
                   <Button
                     type="submit"
                     className="bg-palette-dark hover:bg-sidebar-hover text-palette-yellow"
-                    disabled={createMutation.isPending}
+                    disabled={createMutation.isLoading}
                   >
-                    {createMutation.isPending ? 'Creando...' : 'Crear Cliente'}
+                    {createMutation.isLoading ? 'Creando...' : 'Crear Cliente'}
                   </Button>
                 </div>
               </form>

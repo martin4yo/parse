@@ -143,10 +143,10 @@ export default function MetricsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-yellow-100 rounded-lg">
-            <BarChart3 className="w-6 h-6 text-purple-700" />
+          <div className="w-10 h-10 bg-palette-yellow rounded-lg flex items-center justify-center">
+            <BarChart3 className="w-6 h-6 text-palette-dark" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard de Métricas</h1>
+          <h1 className="text-2xl font-bold text-text-primary">Dashboard de Métricas</h1>
         </div>
 
         <div className="flex items-center gap-4">
@@ -162,7 +162,7 @@ export default function MetricsPage() {
 
           <button
             onClick={loadMetrics}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500 text-gray-900 font-medium rounded-lg hover:bg-yellow-600 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-palette-dark text-palette-yellow font-medium rounded-lg hover:bg-palette-dark/90 transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
             Actualizar
