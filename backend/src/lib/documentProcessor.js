@@ -2979,7 +2979,11 @@ Responde solo el JSON:`,
         usedPattern,
         patternInfo,
         // Incluir clasificación si el orquestador la devolvió
-        clasificacion: orchestratorResult.clasificacion || null
+        clasificacion: orchestratorResult.clasificacion || null,
+        // IMPORTANTE: Datos crudos del orquestador para guardado consistente con frontend
+        // El frontend usa estos campos directamente, la API debe hacer lo mismo
+        datosOrquestador: extractedData,
+        textoExtraido: text
       };
 
       console.log(`✅ [processFileForAPI] Procesamiento completo`);

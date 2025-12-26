@@ -746,6 +746,10 @@ router.post('/save', authenticateSyncClient, upload.single('file'), async (req, 
     const tipoArchivo = ['pdf'].includes(extension) ? 'pdf' :
                         ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension) ? 'imagen' : extension;
 
+    // Usar datos del orquestador directamente (igual que el frontend)
+    // Esto asegura consistencia en los campos guardados
+    const datosExtraidos = resultado.datosOrquestador || {};
+
     const documentoGuardado = await prisma.documentos_procesados.create({
       data: {
         id: crypto.randomUUID(),
@@ -756,11 +760,14 @@ router.post('/save', authenticateSyncClient, upload.single('file'), async (req, 
         rutaArchivo: file.path,
         hashArchivo: fileHash, // Hash para detección de duplicados
         tipo: 'documento',
-        tipoComprobanteExtraido: resultado.tipoDocumento || tipoDocumento,
         estadoProcesamiento: 'completado',
         fechaProcesamiento: new Date(),
         modeloIA: resultado.modeloIA,
+        // Guardar datos completos igual que el frontend
         datosExtraidos: {
+          texto: resultado.textoExtraido,
+          ...datosExtraidos,
+          // También incluir estructura normalizada para la API response
           cabecera: resultado.cabecera || {},
           items: resultado.items || [],
           impuestos: resultado.impuestos || [],
@@ -768,16 +775,75 @@ router.post('/save', authenticateSyncClient, upload.single('file'), async (req, 
           confianza: resultado.confianza,
           metadata: metadata
         },
-        // Extraer campos del resultado para búsqueda/filtrado
-        cuitExtraido: resultado.cabecera?.cuitEmisor || null,
-        razonSocialExtraida: resultado.cabecera?.razonSocialEmisor || null,
-        importeExtraido: resultado.cabecera?.total || null,
-        fechaExtraida: resultado.cabecera?.fecha ? new Date(resultado.cabecera.fecha) : null,
-        numeroComprobanteExtraido: resultado.cabecera?.numeroComprobante || null,
-        caeExtraido: resultado.cabecera?.cae || null,
+        // Usar campos del orquestador (igual que frontend documentos.js líneas 2926-3014)
+        fechaExtraida: datosExtraidos?.fecha ? (() => {
+          try {
+            if (typeof datosExtraidos.fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(datosExtraidos.fecha)) {
+              return new Date(datosExtraidos.fecha + 'T00:00:00.000Z');
+            }
+            const fecha = new Date(datosExtraidos.fecha);
+            return isNaN(fecha.getTime()) ? null : fecha;
+          } catch (e) {
+            return null;
+          }
+        })() : null,
+        importeExtraido: datosExtraidos?.importe || datosExtraidos?.total || null,
+        cuitExtraido: datosExtraidos?.cuit || null,
+        numeroComprobanteExtraido: datosExtraidos?.numeroComprobante || null,
+        caeExtraido: datosExtraidos?.cae || null,
+        razonSocialExtraida: datosExtraidos?.razonSocial || null,
+        tipoComprobanteExtraido: datosExtraidos?.tipoComprobante || null,
+        netoGravadoExtraido: datosExtraidos?.netoGravado ? parseFloat(datosExtraidos.netoGravado) : null,
+        exentoExtraido: datosExtraidos?.exento ? parseFloat(datosExtraidos.exento) : null,
+        impuestosExtraido: datosExtraidos?.impuestos ? parseFloat(datosExtraidos.impuestos) : null,
+        monedaExtraida: datosExtraidos?.moneda || 'ARS',
         updatedAt: new Date()
       }
     });
+
+    // Guardar line items si existen (igual que el frontend)
+    const lineItems = datosExtraidos.lineItems || [];
+    if (lineItems.length > 0) {
+      console.log(`   📦 Guardando ${lineItems.length} line items...`);
+      for (const item of lineItems) {
+        await prisma.documento_lineas.create({
+          data: {
+            id: crypto.randomUUID(),
+            documentoId: documentoGuardado.id,
+            tenantId: req.syncClient.tenantId,
+            numeroLinea: item.numero || 0,
+            descripcion: item.descripcion || '',
+            cantidad: item.cantidad || 1,
+            unidad: item.unidad || null,
+            precioUnitario: item.precioUnitario || 0,
+            subtotal: item.subtotal || 0,
+            alicuotaIva: item.alicuotaIva || null,
+            importeIva: item.importeIva || null,
+            codigoProducto: item.codigoProducto || null
+          }
+        });
+      }
+    }
+
+    // Guardar impuestos detallados si existen (igual que el frontend)
+    const impuestosDetalle = datosExtraidos.impuestosDetalle || [];
+    if (impuestosDetalle.length > 0) {
+      console.log(`   💰 Guardando ${impuestosDetalle.length} impuestos...`);
+      for (const impuesto of impuestosDetalle) {
+        await prisma.documento_impuestos.create({
+          data: {
+            id: crypto.randomUUID(),
+            documentoId: documentoGuardado.id,
+            tenantId: req.syncClient.tenantId,
+            tipo: impuesto.tipo || 'IVA',
+            descripcion: impuesto.descripcion || null,
+            alicuota: impuesto.alicuota || null,
+            baseImponible: impuesto.baseImponible || 0,
+            importe: impuesto.importe || 0
+          }
+        });
+      }
+    }
 
     // 3. Aplicar reglas si fue solicitado
     let documentoTransformado = null;

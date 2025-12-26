@@ -683,6 +683,113 @@ router.get('/available-tenants', async (req, res) => {
   }
 });
 
+// Listar tenants del usuario actual (para usuarios no-superuser)
+router.get('/my-tenants', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Token no proporcionado' });
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Obtener el usuario con su tenant
+    const user = await prisma.users.findUnique({
+      where: { id: decoded.userId },
+      include: {
+        tenants: {
+          select: {
+            id: true,
+            slug: true,
+            nombre: true,
+            planId: true,
+            cuit: true,
+            activo: true,
+            fechaCreacion: true,
+            _count: {
+              select: {
+                users: true
+              }
+            },
+            planes: {
+              select: {
+                codigo: true,
+                nombre: true,
+                color: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!user || !user.activo) {
+      return res.status(403).json({ error: 'Usuario no activo' });
+    }
+
+    // Si el usuario es superuser, devolver todos los tenants
+    if (user.superuser) {
+      const tenants = await prisma.tenants.findMany({
+        where: { activo: true },
+        select: {
+          id: true,
+          slug: true,
+          nombre: true,
+          planId: true,
+          cuit: true,
+          fechaCreacion: true,
+          _count: {
+            select: {
+              users: true
+            }
+          },
+          planes: {
+            select: {
+              codigo: true,
+              nombre: true,
+              color: true
+            }
+          }
+        },
+        orderBy: { fechaCreacion: 'desc' }
+      });
+
+      const tenantsWithPlan = tenants.map(tenant => ({
+        ...tenant,
+        plan: tenant.planes?.codigo || 'Sin Plan'
+      }));
+
+      return res.json({
+        success: true,
+        tenants: tenantsWithPlan
+      });
+    }
+
+    // Para usuarios normales, devolver solo su tenant asignado
+    const tenants = [];
+    if (user.tenants && user.tenants.activo) {
+      tenants.push({
+        ...user.tenants,
+        plan: user.tenants.planes?.codigo || 'Sin Plan'
+      });
+    }
+
+    res.json({
+      success: true,
+      tenants
+    });
+
+  } catch (error) {
+    console.error('My tenants error:', error);
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ error: 'Token inválido' });
+    }
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
 // Asignar/cambiar tenant de un usuario (solo para superusers)
 router.put('/assign-tenant', [
   body('userId').isString().notEmpty(),

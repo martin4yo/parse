@@ -60,6 +60,10 @@ export default function ComprobantesPage() {
   const [observationText, setObservationText] = useState('');
   const [savingObservation, setSavingObservation] = useState(false);
 
+  // Estado para selección múltiple
+  const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set());
+  const [deletingSelected, setDeletingSelected] = useState(false);
+
   // Hook para el DocumentViewer
   const documentViewer = useDocumentViewer({
     findDocument: (documentId: string) => documentos.find(doc => doc.id === documentId),
@@ -172,6 +176,66 @@ export default function ComprobantesPage() {
     if (!confirmed) return;
 
     deleteDocumentMutation.mutate(() => api.delete(`/documentos/${documentId}`));
+  };
+
+  // Funciones para selección múltiple
+  const toggleDocumentSelection = (docId: string) => {
+    setSelectedDocuments(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(docId)) {
+        newSet.delete(docId);
+      } else {
+        newSet.add(docId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const visibleIds = paginatedDocumentos.map(doc => doc.id);
+    const allSelected = visibleIds.every(id => selectedDocuments.has(id));
+
+    if (allSelected) {
+      // Deseleccionar todos los visibles
+      setSelectedDocuments(prev => {
+        const newSet = new Set(prev);
+        visibleIds.forEach(id => newSet.delete(id));
+        return newSet;
+      });
+    } else {
+      // Seleccionar todos los visibles
+      setSelectedDocuments(prev => {
+        const newSet = new Set(prev);
+        visibleIds.forEach(id => newSet.add(id));
+        return newSet;
+      });
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedDocuments.size === 0) return;
+
+    const confirmed = await confirmDelete(`${selectedDocuments.size} documento(s) seleccionado(s)`);
+    if (!confirmed) return;
+
+    setDeletingSelected(true);
+
+    try {
+      const deletePromises = Array.from(selectedDocuments).map(id =>
+        api.delete(`/documentos/${id}`)
+      );
+
+      await Promise.all(deletePromises);
+
+      toast.success(`${selectedDocuments.size} documento(s) eliminado(s) correctamente`);
+      setSelectedDocuments(new Set());
+      await loadDocumentos();
+    } catch (error) {
+      console.error('Error eliminando documentos:', error);
+      toast.error('Error al eliminar algunos documentos');
+    } finally {
+      setDeletingSelected(false);
+    }
   };
 
   // Función para abrir modal de observaciones
@@ -695,6 +759,11 @@ export default function ComprobantesPage() {
     loadDocumentos();
   }, []);
 
+  // Limpiar selección cuando cambian los filtros o la página
+  useEffect(() => {
+    setSelectedDocuments(new Set());
+  }, [filterStatus, searchTerm, currentPage]);
+
   const handleDocumentProcessed = (documento: any) => {
     setUploadModalOpen(false);
     // Recargar los datos para obtener la información más actualizada
@@ -1161,8 +1230,33 @@ export default function ComprobantesPage() {
       <Card>
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-text-primary">Documentos Procesados</h2>
-            
+            <div className="flex items-center gap-4">
+              <h2 className="text-lg font-semibold text-text-primary">Documentos Procesados</h2>
+
+              {/* Botón eliminar seleccionados */}
+              {selectedDocuments.size > 0 && (
+                <Button
+                  onClick={handleDeleteSelected}
+                  disabled={deletingSelected}
+                  variant="danger"
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
+                  {deletingSelected ? (
+                    <>
+                      <Clock className="w-4 h-4 animate-spin" />
+                      Eliminando...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      Eliminar ({selectedDocuments.size})
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+
             {/* Barra de progreso de asociación automática */}
             {associationProgress.total > 0 && (
               <div className="flex items-center space-x-4">
@@ -1197,6 +1291,15 @@ export default function ComprobantesPage() {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-2 py-3 text-center w-10">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                    checked={paginatedDocumentos.length > 0 && paginatedDocumentos.every(doc => selectedDocuments.has(doc.id))}
+                    onChange={toggleSelectAll}
+                    title="Seleccionar todos"
+                  />
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Fecha Comprobante
                 </th>
@@ -1235,9 +1338,9 @@ export default function ComprobantesPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {paginatedDocumentos.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-6 py-4 text-center text-gray-500">
-                    {documentos.length === 0 ? 
-                      'No hay documentos procesados. ¡Sube tu primer comprobante!' : 
+                  <td colSpan={12} className="px-6 py-4 text-center text-gray-500">
+                    {documentos.length === 0 ?
+                      'No hay documentos procesados. ¡Sube tu primer comprobante!' :
                       'No se encontraron documentos que coincidan con los filtros.'}
                   </td>
                 </tr>
@@ -1248,9 +1351,17 @@ export default function ComprobantesPage() {
                 const exento = doc.exentoExtraido || 0;
                 const total = doc.importeExtraido || 0;
                 const impuestos = doc.impuestosExtraido || (total - gravado - exento);
-                
+
                 return (
-                  <tr key={doc.id} className="hover:bg-gray-50">
+                  <tr key={doc.id} className={`hover:bg-gray-50 ${selectedDocuments.has(doc.id) ? 'bg-blue-50' : ''}`}>
+                    <td className="px-2 py-4 text-center w-10">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                        checked={selectedDocuments.has(doc.id)}
+                        onChange={() => toggleDocumentSelection(doc.id)}
+                      />
+                    </td>
                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                       {doc.fechaExtraida ? formatDate(doc.fechaExtraida) : '-'}
                     </td>
