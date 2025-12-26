@@ -607,7 +607,9 @@ router.post('/save', authenticateSyncClient, upload.single('file'), async (req, 
 
       const resultadoReglas = await engine.applyRulesToDocument(docParaReglas);
       documentoTransformado = resultadoReglas.documentoTransformado;
-      reglasAplicadas = resultadoReglas.reglasAplicadas;
+      reglasAplicadas = Array.isArray(resultadoReglas.reglasAplicadas)
+        ? resultadoReglas.reglasAplicadas
+        : [];
 
       // Actualizar documento con datos transformados
       await prisma.documentos_procesados.update({
@@ -617,7 +619,9 @@ router.post('/save', authenticateSyncClient, upload.single('file'), async (req, 
             ...documentoGuardado.datosExtraidos,
             transformado: documentoTransformado,
             reglasAplicadas: reglasAplicadas.map(r => ({ codigo: r.codigo, nombre: r.nombre }))
-          }
+          },
+          reglasAplicadas: reglasAplicadas.length > 0,
+          fechaReglasAplicadas: reglasAplicadas.length > 0 ? new Date() : null
         }
       });
     }
