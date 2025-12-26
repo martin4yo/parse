@@ -40,12 +40,18 @@ class DocumentProcessor {
 
   // Verificar si debe usar sistema de patrones
   shouldUsePatterns(forceAI = false) {
-    // Si se fuerza AI, no usar patrones
-    if (forceAI) {
-      console.log('⚡ [FORCE-AI] Header X-Force-AI detectado, saltando cache de patrones');
-      return false;
-    }
-    return process.env.ENABLE_PATTERN_LEARNING_PROMPTS !== 'false';
+    // TEMPORALMENTE DESACTIVADO - Se implementará enfoque híbrido más adelante
+    // El sistema de patrones puede devolver datos incompletos
+    // TODO: Implementar validación de campos críticos antes de usar patrón
+    console.log('⚠️ [PATTERN] Sistema de patrones DESACTIVADO temporalmente');
+    return false;
+
+    // Código original comentado:
+    // if (forceAI) {
+    //   console.log('⚡ [FORCE-AI] Header X-Force-AI detectado, saltando cache de patrones');
+    //   return false;
+    // }
+    // return process.env.ENABLE_PATTERN_LEARNING_PROMPTS !== 'false';
   }
 
   // Calcular hash SHA-256 de un archivo

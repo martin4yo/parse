@@ -9,7 +9,23 @@ const BusinessRulesEngine = require('../services/businessRulesEngine');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const fs = require('fs').promises;
+const fsSync = require('fs'); // Para operaciones síncronas (hash)
 const path = require('path');
+
+/**
+ * Calcula el hash SHA-256 de un archivo
+ * @param {string} filePath - Ruta al archivo
+ * @returns {string|null} - Hash del archivo o null si hay error
+ */
+function calculateFileHash(filePath) {
+  try {
+    const fileBuffer = fsSync.readFileSync(filePath);
+    return crypto.createHash('sha256').update(fileBuffer).digest('hex');
+  } catch (error) {
+    console.error('Error calculando hash de archivo:', error);
+    return null;
+  }
+}
 
 // Aplicar rate limiting a todas las rutas de esta API
 router.use(rateLimiter);
@@ -655,6 +671,41 @@ router.post('/save', authenticateSyncClient, upload.single('file'), async (req, 
     console.log(`   Tamaño: ${(file.size / 1024).toFixed(2)} KB`);
     console.log(`   Aplicar reglas: ${aplicarReglas}`);
 
+    // Calcular hash del archivo para detección de duplicados
+    const fileHash = calculateFileHash(file.path);
+    console.log(`   🔐 Hash: ${fileHash ? fileHash.substring(0, 16) + '...' : 'no calculado'}`);
+
+    // Validación de duplicados por HASH del archivo
+    if (fileHash) {
+      const documentoDuplicado = await prisma.documentos_procesados.findFirst({
+        where: {
+          tenantId: req.syncClient.tenantId,
+          hashArchivo: fileHash
+        },
+        select: {
+          id: true,
+          nombreArchivo: true,
+          fechaProcesamiento: true
+        }
+      });
+
+      if (documentoDuplicado) {
+        // Eliminar el archivo subido ya que es duplicado
+        await fs.unlink(file.path).catch(() => {});
+
+        console.log(`⚠️ Documento duplicado detectado por hash. Original: ${documentoDuplicado.nombreArchivo}`);
+        return res.status(409).json({
+          success: false,
+          error: `Este documento ya fue procesado anteriormente`,
+          duplicateInfo: {
+            originalFile: documentoDuplicado.nombreArchivo,
+            originalDate: documentoDuplicado.fechaProcesamiento,
+            duplicateId: documentoDuplicado.id
+          }
+        });
+      }
+    }
+
     // 1. Procesar documento
     const resultado = await documentProcessor.processFileForAPI(
       file.path,
@@ -703,6 +754,7 @@ router.post('/save', authenticateSyncClient, upload.single('file'), async (req, 
         nombreArchivo: file.originalname,
         tipoArchivo: tipoArchivo,
         rutaArchivo: file.path,
+        hashArchivo: fileHash, // Hash para detección de duplicados
         tipo: 'documento',
         tipoComprobanteExtraido: resultado.tipoDocumento || tipoDocumento,
         estadoProcesamiento: 'completado',

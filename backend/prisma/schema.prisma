@@ -155,6 +155,7 @@ model documentos_procesados {
   nombreArchivo             String
   tipoArchivo               String
   rutaArchivo               String
+  hashArchivo               String?                    @db.VarChar(64) // SHA-256 hash para detectar duplicados
   fechaProcesamiento        DateTime                   @default(now())
   estadoProcesamiento       String                     @default("procesando")
   datosExtraidos            Json?
@@ -201,6 +202,8 @@ model documentos_procesados {
   @@index([tipo])
   @@index([exportado])
   @@index([reglasAplicadas])
+  @@index([hashArchivo])
+  @@index([tenantId, hashArchivo]) // Índice compuesto para búsqueda de duplicados por tenant
 }
 
 model menu_items {

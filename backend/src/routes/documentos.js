@@ -16,6 +16,21 @@ const prisma = new PrismaClient();
 const documentProcessor = new DocumentProcessor();
 const imageProcessor = new ImageProcessor();
 
+/**
+ * Calcula el hash SHA-256 de un archivo
+ * @param {string} filePath - Ruta al archivo
+ * @returns {string|null} - Hash del archivo o null si hay error
+ */
+function calculateFileHash(filePath) {
+  try {
+    const fileBuffer = fs.readFileSync(filePath);
+    return crypto.createHash('sha256').update(fileBuffer).digest('hex');
+  } catch (error) {
+    console.error('Error calculando hash de archivo:', error);
+    return null;
+  }
+}
+
 // Función helper para validar y completar campos en la asociación
 async function validateAndUpdateAssociation(documento, resumen_tarjeta, userId) {
   // Normalizar CUIT
@@ -433,16 +448,48 @@ router.post('/procesar', authWithTenant, upload.single('documento'), async (req,
 
     // Determinar tipo de archivo
     const tipoArchivo = path.extname(req.file.filename).toLowerCase().substring(1);
-    
-    // Validación de duplicados por nombre de archivo y tenant (previene subida a efectivo Y tarjeta)
-    const documentoDuplicado = await prisma.documentos_procesados.findFirst({
+
+    // Calcular hash del archivo para detección de duplicados
+    const fileHash = calculateFileHash(req.file.path);
+    console.log(`🔐 Hash del archivo: ${fileHash ? fileHash.substring(0, 16) + '...' : 'no calculado'}`);
+
+    // Validación de duplicados por HASH del archivo (detecta mismo contenido aunque tenga diferente nombre)
+    if (fileHash) {
+      const documentoDuplicadoPorHash = await prisma.documentos_procesados.findFirst({
+        where: {
+          tenantId: req.tenantId,
+          hashArchivo: fileHash
+        },
+        select: {
+          id: true,
+          nombreArchivo: true,
+          fechaProcesamiento: true
+        }
+      });
+
+      if (documentoDuplicadoPorHash) {
+        // Eliminar el archivo subido ya que es duplicado
+        if (fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+
+        console.log(`⚠️ Documento duplicado detectado por hash. Original: ${documentoDuplicadoPorHash.nombreArchivo}`);
+        return res.status(400).json({
+          error: `Este documento ya fue procesado anteriormente (archivo original: "${documentoDuplicadoPorHash.nombreArchivo}", fecha: ${documentoDuplicadoPorHash.fechaProcesamiento.toLocaleDateString('es-AR')}). No se puede subir el mismo comprobante.`,
+          duplicateId: documentoDuplicadoPorHash.id
+        });
+      }
+    }
+
+    // Validación secundaria por nombre (para casos donde no se pudo calcular hash)
+    const documentoDuplicadoPorNombre = await prisma.documentos_procesados.findFirst({
       where: {
         tenantId: req.tenantId,
         nombreArchivo: req.file.originalname
       }
     });
 
-    if (documentoDuplicado) {
+    if (documentoDuplicadoPorNombre) {
       // Eliminar el archivo subido ya que es duplicado
       if (fs.existsSync(req.file.path)) {
         fs.unlinkSync(req.file.path);
@@ -452,13 +499,14 @@ router.post('/procesar', authWithTenant, upload.single('documento'), async (req,
         error: `El archivo "${req.file.originalname}" ya existe en comprobantes. No se puede subir nuevamente.`
       });
     }
-    
+
     // Crear registro inicial en la base de datos
     const createData = {
       id: crypto.randomUUID(),
       nombreArchivo: req.file.originalname,
       tipoArchivo: tipoArchivo,
       rutaArchivo: req.file.path,
+      hashArchivo: fileHash, // Guardar hash para futuras validaciones
       estadoProcesamiento: 'procesando',
       tipo: tipo || 'tarjeta', // Por defecto tarjeta para retrocompatibilidad
       users: {
