@@ -2887,34 +2887,72 @@ Responde solo el JSON:`,
       let usedPattern = false;
       let patternInfo = null;
 
-      if (process.env.ENABLE_AI_EXTRACTION === 'true') {
-        const aiResult = await this.extractDataWithAI(text, tenantId, filePath, forceAI);
-        if (aiResult && aiResult.data) {
-          extractedData = aiResult.data;
-          modeloIA = aiResult.modelUsed || aiResult.model || 'ai-extraction';
-          confianza = aiResult.confidence || 0.8;
+      // ========================================
+      // MISMO FLUJO QUE EL FRONTEND (Orquestador)
+      // ========================================
 
-          // Detectar si usó patrón aprendido
-          if (aiResult.fromCache || aiResult.fromTemplate) {
-            usedPattern = true;
-            patternInfo = {
-              type: aiResult.fromCache ? 'exact_match' : 'template',
-              confidence: aiResult.patternConfidence || aiResult.confianza,
-              occurrences: aiResult.patternOccurrences || aiResult.num_ocurrencias
-            };
-            console.log(`   🎯 Usado patrón aprendido (tipo: ${patternInfo.type})`);
+      // 0. PRIORIDAD MÁXIMA: Intentar con Document AI si está configurado Y activo
+      if (filePath && documentAIProcessor.isConfigured()) {
+        const documentAIActivo = await this.isDocumentAIActive(tenantId);
+
+        if (documentAIActivo) {
+          try {
+            console.log('\n🎯 [API] ===== USANDO DOCUMENT AI (PRIORIDAD) =====');
+            const result = await documentAIProcessor.processInvoice(filePath, { tenantId });
+
+            if (result.success && result.data) {
+              console.log(`✅ Document AI exitoso (confianza: ${result.confidence?.toFixed(1) || 'N/A'}%)`);
+              extractedData = result.data;
+              modeloIA = 'Document AI';
+              confianza = (result.confidence || 95) / 100;
+              // Saltar al formateo de respuesta
+            } else {
+              console.warn(`⚠️  Document AI falló: ${result.error}`);
+              console.log('🔄 Continuando con métodos alternativos...\n');
+              extractedData = null; // Forzar que continue con otros métodos
+            }
+          } catch (error) {
+            console.error('❌ Error con Document AI:', error.message);
+            console.log('🔄 Continuando con métodos alternativos...\n');
+            extractedData = null;
           }
-
-          console.log(`   ✅ Extracción con IA exitosa (modelo: ${modeloIA}, confianza: ${confianza})`);
         } else {
-          // Fallback a extracción básica
-          extractedData = await this.extractData(text);
-          console.log(`   ⚠️  Usando extracción básica (regex fallback)`);
+          console.log('ℹ️  Document AI está INACTIVO (switch desactivado en configuración)');
         }
-      } else {
-        // Extracción básica con regex
-        extractedData = await this.extractData(text);
-        console.log(`   ℹ️  IA deshabilitada, usando extracción básica`);
+      }
+
+      // 1. Si Document AI no funcionó, usar pipeline de IA (Claude Vision, Gemini, etc.)
+      if (!extractedData || Object.keys(extractedData).length === 0) {
+        if (process.env.ENABLE_AI_EXTRACTION === 'true') {
+          console.log('\n🎯 [API] ===== USANDO PIPELINE DE IA =====');
+          const aiResult = await this.extractDataWithAI(text, tenantId, filePath, forceAI);
+          if (aiResult && aiResult.data) {
+            extractedData = aiResult.data;
+            modeloIA = aiResult.modelUsed || aiResult.model || 'ai-extraction';
+            confianza = aiResult.confidence || 0.8;
+
+            // Detectar si usó patrón aprendido
+            if (aiResult.fromCache || aiResult.fromTemplate) {
+              usedPattern = true;
+              patternInfo = {
+                type: aiResult.fromCache ? 'exact_match' : 'template',
+                confidence: aiResult.patternConfidence || aiResult.confianza,
+                occurrences: aiResult.patternOccurrences || aiResult.num_ocurrencias
+              };
+              console.log(`   🎯 Usado patrón aprendido (tipo: ${patternInfo.type})`);
+            }
+
+            console.log(`   ✅ Extracción con IA exitosa (modelo: ${modeloIA}, confianza: ${confianza})`);
+          } else {
+            // Fallback a extracción básica
+            extractedData = await this.extractData(text);
+            console.log(`   ⚠️  Usando extracción básica (regex fallback)`);
+          }
+        } else {
+          // Extracción básica con regex
+          extractedData = await this.extractData(text);
+          console.log(`   ℹ️  IA deshabilitada, usando extracción básica`);
+        }
       }
 
       // Normalizar estructura de respuesta
