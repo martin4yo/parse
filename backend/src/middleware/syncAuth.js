@@ -106,6 +106,7 @@ async function authenticateSyncClient(req, res, next) {
       apiKeyId: apiKeyRecord.id,
       tenantId: apiKeyRecord.tenants.id,
       tenant: apiKeyRecord.tenants,
+      usuarioId: apiKeyRecord.usuarioId, // Usuario asignado a esta API key
       permisos: apiKeyRecord.permisos || {},
     };
 

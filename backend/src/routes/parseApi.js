@@ -663,21 +663,31 @@ router.post('/save', authenticateSyncClient, upload.single('file'), async (req, 
     );
 
     // 2. Guardar en la base de datos usando el procesador de documentos
-    // Obtener un usuario administrador del tenant para asociar el documento
-    const adminUser = await prisma.users.findFirst({
-      where: {
-        tenantId: req.syncClient.tenantId,
-        activo: true
-      },
-      orderBy: { createdAt: 'asc' } // El primer usuario creado suele ser admin
-    });
+    // Usar el usuario configurado en la API key, o buscar uno del tenant como fallback
+    let usuarioId = req.syncClient.usuarioId;
 
-    if (!adminUser) {
-      console.error('❌ No se encontró usuario para el tenant:', req.syncClient.tenantId);
-      return res.status(500).json({
-        success: false,
-        error: 'No hay usuarios configurados para este tenant'
+    if (!usuarioId) {
+      // Fallback: buscar primer usuario activo del tenant
+      const adminUser = await prisma.users.findFirst({
+        where: {
+          tenantId: req.syncClient.tenantId,
+          activo: true
+        },
+        orderBy: { createdAt: 'asc' }
       });
+
+      if (!adminUser) {
+        console.error('❌ No se encontró usuario para el tenant:', req.syncClient.tenantId);
+        return res.status(500).json({
+          success: false,
+          error: 'No hay usuarios configurados para este tenant. Configure un usuario en la API key.'
+        });
+      }
+
+      usuarioId = adminUser.id;
+      console.log(`   ⚠️ API key sin usuario asignado, usando fallback: ${adminUser.email}`);
+    } else {
+      console.log(`   👤 Usuario de API key: ${usuarioId}`);
     }
 
     // Determinar tipo de archivo por extensión
@@ -689,7 +699,7 @@ router.post('/save', authenticateSyncClient, upload.single('file'), async (req, 
       data: {
         id: crypto.randomUUID(),
         tenantId: req.syncClient.tenantId,
-        usuarioId: adminUser.id,
+        usuarioId: usuarioId,
         nombreArchivo: file.originalname,
         tipoArchivo: tipoArchivo,
         rutaArchivo: file.path,

@@ -71,10 +71,19 @@ router.get('/', authWithTenant, async (req, res) => {
         createdAt: true,
         updatedAt: true,
         tenantId: true,
+        usuarioId: true,
         tenants: {
           select: {
             nombre: true,
             slug: true,
+          },
+        },
+        users: {
+          select: {
+            id: true,
+            nombre: true,
+            apellido: true,
+            email: true,
           },
         },
       },
@@ -130,10 +139,19 @@ router.get('/:id', authWithTenant, async (req, res) => {
         createdAt: true,
         updatedAt: true,
         tenantId: true,
+        usuarioId: true,
         tenants: {
           select: {
             nombre: true,
             slug: true,
+          },
+        },
+        users: {
+          select: {
+            id: true,
+            nombre: true,
+            apellido: true,
+            email: true,
           },
         },
       },
@@ -165,7 +183,7 @@ router.get('/:id', authWithTenant, async (req, res) => {
  */
 router.post('/', authWithTenant, async (req, res) => {
   try {
-    const { nombre, permisos = {}, expiraEn } = req.body;
+    const { nombre, permisos = {}, expiraEn, usuarioId } = req.body;
 
     // Verificar que el usuario tenga un tenant asignado
     if (!req.tenantId) {
@@ -186,6 +204,24 @@ router.post('/', authWithTenant, async (req, res) => {
       });
     }
 
+    // Validar que el usuarioId pertenezca al tenant (si se proporciona)
+    if (usuarioId) {
+      const usuario = await prisma.users.findFirst({
+        where: {
+          id: usuarioId,
+          tenantId: tenantId,
+          activo: true
+        }
+      });
+
+      if (!usuario) {
+        return res.status(400).json({
+          success: false,
+          error: 'El usuario seleccionado no existe o no pertenece al tenant'
+        });
+      }
+    }
+
     // Generar la API key
     const plainKey = generateApiKey();
     const hashedKey = hashApiKey(plainKey);
@@ -196,6 +232,7 @@ router.post('/', authWithTenant, async (req, res) => {
       data: {
         id: uuidv4(),
         tenantId,
+        usuarioId: usuarioId || null,
         nombre,
         key: hashedKey,
         keyPreview: preview,
@@ -209,6 +246,14 @@ router.post('/', authWithTenant, async (req, res) => {
           select: {
             nombre: true,
             slug: true,
+          },
+        },
+        users: {
+          select: {
+            id: true,
+            nombre: true,
+            apellido: true,
+            email: true,
           },
         },
       },
@@ -239,7 +284,7 @@ router.post('/', authWithTenant, async (req, res) => {
 router.put('/:id', authWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, permisos, activo, expiraEn } = req.body;
+    const { nombre, permisos, activo, expiraEn, usuarioId } = req.body;
 
     // Verificar que el usuario tenga un tenant asignado
     if (!req.tenantId) {
@@ -264,12 +309,32 @@ router.put('/:id', authWithTenant, async (req, res) => {
       });
     }
 
-    const updateData = {};
+    // Validar que el usuarioId pertenezca al tenant (si se proporciona)
+    if (usuarioId) {
+      const usuario = await prisma.users.findFirst({
+        where: {
+          id: usuarioId,
+          tenantId: req.tenantId,
+          activo: true
+        }
+      });
+
+      if (!usuario) {
+        return res.status(400).json({
+          success: false,
+          error: 'El usuario seleccionado no existe o no pertenece al tenant'
+        });
+      }
+    }
+
+    const updateData = { updatedAt: new Date() };
     if (nombre !== undefined) updateData.nombre = nombre;
     if (permisos !== undefined) updateData.permisos = permisos;
     if (activo !== undefined) updateData.activo = activo;
     if (expiraEn !== undefined)
       updateData.expiraEn = expiraEn ? new Date(expiraEn) : null;
+    if (usuarioId !== undefined)
+      updateData.usuarioId = usuarioId || null; // Permite null para quitar asignación
 
     const apiKey = await prisma.sync_api_keys.update({
       where: { id },
@@ -279,6 +344,14 @@ router.put('/:id', authWithTenant, async (req, res) => {
           select: {
             nombre: true,
             slug: true,
+          },
+        },
+        users: {
+          select: {
+            id: true,
+            nombre: true,
+            apellido: true,
+            email: true,
           },
         },
       },

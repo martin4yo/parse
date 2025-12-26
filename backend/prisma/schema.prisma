@@ -405,6 +405,7 @@ model sugerencias_ia {
 model sync_api_keys {
   id             String    @id
   tenantId       String
+  usuarioId      String?   // Usuario al que se asignan los documentos subidos por esta API key
   nombre         String
   key            String    @unique
   keyPreview     String
@@ -418,10 +419,12 @@ model sync_api_keys {
   updatedAt      DateTime
   createdBy      String?
   tenants        tenants   @relation(fields: [tenantId], references: [id])
+  users          users?    @relation(fields: [usuarioId], references: [id])
 
   @@index([activo])
   @@index([key])
   @@index([tenantId])
+  @@index([usuarioId])
 }
 
 // Logs de procesamiento de documentos via Parse API
@@ -703,6 +706,7 @@ model users {
   updatedAt                 DateTime
   documentos_procesados     documentos_procesados[]
   sugerencias_ia            sugerencias_ia[]
+  sync_api_keys             sync_api_keys[]
   user_atributos            user_atributos[]
   profiles                  profiles?               @relation(fields: [profileId], references: [id])
   tenants                   tenants?                @relation(fields: [tenantId], references: [id])

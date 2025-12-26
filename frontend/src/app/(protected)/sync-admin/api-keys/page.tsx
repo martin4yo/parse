@@ -18,6 +18,13 @@ interface Tenant {
   slug: string;
 }
 
+interface User {
+  id: string;
+  nombre: string;
+  apellido: string;
+  email: string;
+}
+
 interface ApiKey {
   id: string;
   nombre: string;
@@ -37,10 +44,12 @@ interface ApiKey {
   expiraEn: string | null;
   createdAt: string;
   tenantId: string;
+  usuarioId: string | null;
   tenants: {
     nombre: string;
     slug: string;
   };
+  users: User | null;
 }
 
 export default function ApiKeysPage() {
@@ -48,6 +57,7 @@ export default function ApiKeysPage() {
   const { get, post, put, delete: del } = useApiClient();
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -62,6 +72,7 @@ export default function ApiKeysPage() {
   const [formData, setFormData] = useState({
     tenantId: '',
     nombre: '',
+    usuarioId: '',
     permisos: {
       sync: true,
       logs: true,
@@ -76,6 +87,7 @@ export default function ApiKeysPage() {
   // Edit form state
   const [editFormData, setEditFormData] = useState({
     nombre: '',
+    usuarioId: '',
     permisos: {
       sync: false,
       logs: false,
@@ -89,6 +101,7 @@ export default function ApiKeysPage() {
   useEffect(() => {
     fetchApiKeys();
     fetchTenants();
+    fetchUsers();
   }, []);
 
   const fetchTenants = async () => {
@@ -99,6 +112,17 @@ export default function ApiKeysPage() {
       }
     } catch (error) {
       console.error('Error:', error);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const data = await get('/api/usuarios?activo=true');
+      if (data.success) {
+        setUsers(data.data || data.usuarios || []);
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
     }
   };
 
@@ -139,6 +163,7 @@ export default function ApiKeysPage() {
         setFormData({
           tenantId: '',
           nombre: '',
+          usuarioId: '',
           permisos: {
             sync: true,
             logs: true,
@@ -236,6 +261,7 @@ export default function ApiKeysPage() {
     setEditingApiKey(apiKey);
     setEditFormData({
       nombre: apiKey.nombre,
+      usuarioId: apiKey.usuarioId || '',
       permisos: {
         sync: apiKey.permisos.sync || false,
         logs: apiKey.permisos.logs || false,
@@ -256,6 +282,7 @@ export default function ApiKeysPage() {
     try {
       const data = await put(`/api/sync/api-keys/${editingApiKey.id}`, {
         nombre: editFormData.nombre,
+        usuarioId: editFormData.usuarioId || null,
         permisos: editFormData.permisos,
       });
 
@@ -354,6 +381,26 @@ export default function ApiKeysPage() {
                     required
                     placeholder="Ej: Servidor Producción"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Usuario para documentos
+                  </label>
+                  <Select
+                    value={editFormData.usuarioId}
+                    onChange={(e) => setEditFormData({ ...editFormData, usuarioId: e.target.value })}
+                  >
+                    <option value="">Sin asignar (usa primer usuario)</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.nombre} {user.apellido} ({user.email})
+                      </option>
+                    ))}
+                  </Select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Documentos subidos por esta API key se asignan a este usuario
+                  </p>
                 </div>
 
                 <div>
@@ -508,6 +555,26 @@ export default function ApiKeysPage() {
                     required
                     placeholder="Ej: Servidor Producción"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Usuario para documentos
+                  </label>
+                  <Select
+                    value={formData.usuarioId}
+                    onChange={(e) => setFormData({ ...formData, usuarioId: e.target.value })}
+                  >
+                    <option value="">Sin asignar (usa primer usuario)</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.nombre} {user.apellido} ({user.email})
+                      </option>
+                    ))}
+                  </Select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Documentos subidos por esta API key se asignan a este usuario
+                  </p>
                 </div>
 
                 <div>
@@ -686,6 +753,7 @@ export default function ApiKeysPage() {
                 <TableRow>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Tenant</TableHead>
+                  <TableHead>Usuario</TableHead>
                   <TableHead>Key Preview</TableHead>
                   <TableHead>Permisos</TableHead>
                   <TableHead>Último Uso</TableHead>
@@ -702,6 +770,16 @@ export default function ApiKeysPage() {
                         <div className="font-medium">{apiKey.tenants.nombre}</div>
                         <div className="text-xs text-gray-500">{apiKey.tenants.slug}</div>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {apiKey.users ? (
+                        <div>
+                          <div className="text-sm">{apiKey.users.nombre} {apiKey.users.apellido}</div>
+                          <div className="text-xs text-gray-500">{apiKey.users.email}</div>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-sm">Sin asignar</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <code className="text-xs bg-gray-100 px-2 py-1 rounded">
