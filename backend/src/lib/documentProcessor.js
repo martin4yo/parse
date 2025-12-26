@@ -10,6 +10,16 @@ const imageOptimizationService = require('../services/imageOptimizationService')
 const patternLearningService = require('../services/patternLearningService');
 const { PrismaClient } = require('@prisma/client');
 
+// Importar el orquestador para unificar extracción API y Frontend
+// Nota: Se importa lazy para evitar dependencia circular
+let documentExtractionOrchestrator = null;
+function getOrchestrator() {
+  if (!documentExtractionOrchestrator) {
+    documentExtractionOrchestrator = require('../services/documentExtractionOrchestrator');
+  }
+  return documentExtractionOrchestrator;
+}
+
 const prisma = new PrismaClient();
 
 class DocumentProcessor {
@@ -2863,7 +2873,7 @@ Responde solo el JSON:`,
       let text = '';
       let extractionMethod = 'unknown';
 
-      // Extraer texto según tipo de archivo
+      // Extraer texto según tipo de archivo (necesario como fallback)
       if (ext === '.pdf') {
         const pdfResult = await this.processPDF(filePath);
         text = pdfResult.text || '';
@@ -2878,84 +2888,49 @@ Responde solo el JSON:`,
 
       console.log(`   ✅ Texto extraído: ${text.length} caracteres (método: ${extractionMethod})`);
 
-      // Extraer datos usando IA si está habilitado
-      let extractedData = {};
-      let modeloIA = 'regex-fallback';
-      let confianza = 0.5;
+      // ========================================
+      // USAR MISMO ORQUESTADOR QUE EL FRONTEND
+      // ========================================
+      console.log('\n🎯 [API] ===== USANDO DOCUMENT EXTRACTION ORCHESTRATOR =====');
+      console.log('   (Mismo proceso que el frontend para consistencia)');
+
+      const orchestrator = getOrchestrator();
+
+      // Llamar al orquestador con los mismos parámetros que el frontend
+      // userId es null porque es una llamada de API, no de un usuario específico
+      const orchestratorResult = await orchestrator.extractData(
+        text,           // documentText
+        tenantId,       // tenantId
+        null,           // userId (API no tiene usuario específico)
+        filePath,       // filePath (para Document AI y Claude Vision)
+        forceAI         // forceAI (si se quiere saltar cache de patrones)
+      );
+
+      console.log(`   ✅ Orquestador completó extracción`);
+      console.log(`   Método: ${orchestratorResult.metodo}`);
+      console.log(`   Success: ${orchestratorResult.success}`);
+
+      // Obtener los datos extraídos
+      const extractedData = orchestratorResult.datos || {};
+      const modeloIA = orchestratorResult.metodo || 'unknown';
+      const confianza = orchestratorResult.confidence || 0.8;
 
       // Metadata de patrones (para API)
       let usedPattern = false;
       let patternInfo = null;
 
-      // ========================================
-      // MISMO FLUJO QUE EL FRONTEND (Orquestador)
-      // ========================================
-
-      // 0. PRIORIDAD MÁXIMA: Intentar con Document AI si está configurado Y activo
-      if (filePath && documentAIProcessor.isConfigured()) {
-        const documentAIActivo = await this.isDocumentAIActive(tenantId);
-
-        if (documentAIActivo) {
-          try {
-            console.log('\n🎯 [API] ===== USANDO DOCUMENT AI (PRIORIDAD) =====');
-            const result = await documentAIProcessor.processInvoice(filePath, { tenantId });
-
-            if (result.success && result.data) {
-              console.log(`✅ Document AI exitoso (confianza: ${result.confidence?.toFixed(1) || 'N/A'}%)`);
-              extractedData = result.data;
-              modeloIA = 'Document AI';
-              confianza = (result.confidence || 95) / 100;
-              // Saltar al formateo de respuesta
-            } else {
-              console.warn(`⚠️  Document AI falló: ${result.error}`);
-              console.log('🔄 Continuando con métodos alternativos...\n');
-              extractedData = null; // Forzar que continue con otros métodos
-            }
-          } catch (error) {
-            console.error('❌ Error con Document AI:', error.message);
-            console.log('🔄 Continuando con métodos alternativos...\n');
-            extractedData = null;
-          }
-        } else {
-          console.log('ℹ️  Document AI está INACTIVO (switch desactivado en configuración)');
-        }
+      // Detectar si usó patrón aprendido (del resultado del orquestador o del método)
+      if (modeloIA === 'PATTERN_CACHE' || orchestratorResult.fromCache || orchestratorResult.fromTemplate) {
+        usedPattern = true;
+        patternInfo = {
+          type: orchestratorResult.fromCache ? 'exact_match' : 'template',
+          confidence: orchestratorResult.patternConfidence || confianza,
+          occurrences: orchestratorResult.patternOccurrences || null
+        };
+        console.log(`   🎯 Usado patrón aprendido (tipo: ${patternInfo.type})`);
       }
 
-      // 1. Si Document AI no funcionó, usar pipeline de IA (Claude Vision, Gemini, etc.)
-      if (!extractedData || Object.keys(extractedData).length === 0) {
-        if (process.env.ENABLE_AI_EXTRACTION === 'true') {
-          console.log('\n🎯 [API] ===== USANDO PIPELINE DE IA =====');
-          const aiResult = await this.extractDataWithAI(text, tenantId, filePath, forceAI);
-          if (aiResult && aiResult.data) {
-            extractedData = aiResult.data;
-            modeloIA = aiResult.modelUsed || aiResult.model || 'ai-extraction';
-            confianza = aiResult.confidence || 0.8;
-
-            // Detectar si usó patrón aprendido
-            if (aiResult.fromCache || aiResult.fromTemplate) {
-              usedPattern = true;
-              patternInfo = {
-                type: aiResult.fromCache ? 'exact_match' : 'template',
-                confidence: aiResult.patternConfidence || aiResult.confianza,
-                occurrences: aiResult.patternOccurrences || aiResult.num_ocurrencias
-              };
-              console.log(`   🎯 Usado patrón aprendido (tipo: ${patternInfo.type})`);
-            }
-
-            console.log(`   ✅ Extracción con IA exitosa (modelo: ${modeloIA}, confianza: ${confianza})`);
-          } else {
-            // Fallback a extracción básica
-            extractedData = await this.extractData(text);
-            console.log(`   ⚠️  Usando extracción básica (regex fallback)`);
-          }
-        } else {
-          // Extracción básica con regex
-          extractedData = await this.extractData(text);
-          console.log(`   ℹ️  IA deshabilitada, usando extracción básica`);
-        }
-      }
-
-      // Normalizar estructura de respuesta
+      // Normalizar estructura de respuesta (misma estructura que antes para compatibilidad)
       const response = {
         cabecera: {
           tipoComprobante: extractedData.tipoComprobante || extractedData.tipo || null,
@@ -2996,7 +2971,9 @@ Responde solo el JSON:`,
         confianza,
         // NUEVO: Metadata de aprendizaje de patrones
         usedPattern,
-        patternInfo
+        patternInfo,
+        // Incluir clasificación si el orquestador la devolvió
+        clasificacion: orchestratorResult.clasificacion || null
       };
 
       console.log(`✅ [processFileForAPI] Procesamiento completo`);
