@@ -117,9 +117,12 @@ export default function ApiKeysPage() {
 
   const fetchUsers = async () => {
     try {
-      const data = await get('/api/usuarios?activo=true');
-      if (data.success) {
-        setUsers(data.data || data.usuarios || []);
+      const data = await get('/api/usuarios?activo=true&limit=1000');
+      // El endpoint devuelve { users: [...] } no { success: true, data: [...] }
+      if (data.users) {
+        setUsers(data.users);
+      } else if (data.data) {
+        setUsers(data.data);
       }
     } catch (error) {
       console.error('Error fetching users:', error);
