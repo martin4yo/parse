@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
+const crypto = require('crypto');
 const { authenticateSyncClient } = require('../middleware/syncAuth');
 const { rateLimiter } = require('../middleware/rateLimiter');
 const DocumentProcessor = require('../lib/documentProcessor');
@@ -535,15 +536,41 @@ router.post('/save', authenticateSyncClient, upload.single('file'), async (req, 
     );
 
     // 2. Guardar en la base de datos usando el procesador de documentos
-    // Reutilizamos la lógica del endpoint POST /api/documentos
+    // Obtener un usuario administrador del tenant para asociar el documento
+    const adminUser = await prisma.users.findFirst({
+      where: {
+        tenantId: req.syncClient.tenantId,
+        activo: true
+      },
+      orderBy: { createdAt: 'asc' } // El primer usuario creado suele ser admin
+    });
+
+    if (!adminUser) {
+      console.error('❌ No se encontró usuario para el tenant:', req.syncClient.tenantId);
+      return res.status(500).json({
+        success: false,
+        error: 'No hay usuarios configurados para este tenant'
+      });
+    }
+
+    // Determinar tipo de archivo por extensión
+    const extension = path.extname(file.originalname).toLowerCase().replace('.', '');
+    const tipoArchivo = ['pdf'].includes(extension) ? 'pdf' :
+                        ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension) ? 'imagen' : extension;
+
     const documentoGuardado = await prisma.documentos_procesados.create({
       data: {
+        id: crypto.randomUUID(),
         tenantId: req.syncClient.tenantId,
+        usuarioId: adminUser.id,
         nombreArchivo: file.originalname,
-        pathArchivo: file.path,
-        tipoDocumento: resultado.tipoDocumento || tipoDocumento,
+        tipoArchivo: tipoArchivo,
+        rutaArchivo: file.path,
+        tipo: 'documento',
+        tipoComprobanteExtraido: resultado.tipoDocumento || tipoDocumento,
         estadoProcesamiento: 'completado',
         fechaProcesamiento: new Date(),
+        modeloIA: resultado.modeloIA,
         datosExtraidos: {
           cabecera: resultado.cabecera || {},
           items: resultado.items || [],
@@ -552,8 +579,13 @@ router.post('/save', authenticateSyncClient, upload.single('file'), async (req, 
           confianza: resultado.confianza,
           metadata: metadata
         },
-        ...metadata, // Permite extender con campos personalizados
-        createdAt: new Date(),
+        // Extraer campos del resultado para búsqueda/filtrado
+        cuitExtraido: resultado.cabecera?.cuitEmisor || null,
+        razonSocialExtraida: resultado.cabecera?.razonSocialEmisor || null,
+        importeExtraido: resultado.cabecera?.total || null,
+        fechaExtraida: resultado.cabecera?.fecha ? new Date(resultado.cabecera.fecha) : null,
+        numeroComprobanteExtraido: resultado.cabecera?.numeroComprobante || null,
+        caeExtraido: resultado.cabecera?.cae || null,
         updatedAt: new Date()
       }
     });
