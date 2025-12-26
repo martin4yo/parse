@@ -426,60 +426,47 @@ const handleSelectDocument = (documentId: string) => {
             <select
               value={selectedConnector}
               onChange={(e) => setSelectedConnector(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white min-w-[180px]"
               disabled={selectedDocuments.size === 0}
             >
-              <option value="json">📥 Descargar JSON</option>
+              <option value="json">Archivo JSON</option>
               {apiConnectors.length > 0 && (
                 <>
-                  <option disabled>──────────</option>
+                  <option disabled>───────────</option>
                   {apiConnectors.map((connector) => (
                     <option key={connector.id} value={connector.id}>
-                      🔌 {connector.nombre}
+                      {connector.nombre}
                     </option>
                   ))}
                 </>
               )}
             </select>
 
-            {/* Botón de exportación dinámico */}
-            {selectedConnector === 'json' ? (
-              <Button
-                onClick={handleExport}
-                disabled={selectedDocuments.size === 0 || exporting}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                {exporting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Exportando...
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4 mr-2" />
-                    Descargar JSON ({selectedDocuments.size})
-                  </>
-                )}
-              </Button>
-            ) : (
-              <Button
-                onClick={handleExportToApi}
-                disabled={selectedDocuments.size === 0 || exportingToApi}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                {exportingToApi ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Exportando a API...
-                  </>
-                ) : (
-                  <>
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    Exportar a API ({selectedDocuments.size})
-                  </>
-                )}
-              </Button>
-            )}
+            {/* Botón de exportación */}
+            <Button
+              onClick={selectedConnector === 'json' ? handleExport : handleExportToApi}
+              disabled={selectedDocuments.size === 0 || exporting || exportingToApi}
+              className={selectedConnector === 'json'
+                ? "bg-green-600 hover:bg-green-700 text-white"
+                : "bg-blue-600 hover:bg-blue-700 text-white"}
+            >
+              {exporting || exportingToApi ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Exportando...
+                </>
+              ) : selectedConnector === 'json' ? (
+                <>
+                  <Download className="w-4 h-4 mr-2" />
+                  Descargar ({selectedDocuments.size})
+                </>
+              ) : (
+                <>
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Exportar ({selectedDocuments.size})
+                </>
+              )}
+            </Button>
           </div>
         </div>
 
