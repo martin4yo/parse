@@ -38,7 +38,17 @@ const authMiddleware = async (req, res, next) => {
       return res.status(401).json({ error: 'User not found or inactive' });
     }
 
-    req.user = user;
+    // Usar tenantId del token si está presente (para superusers que cambiaron de tenant)
+    // Si no hay tenantId en el token, usar el tenantId del usuario en la base de datos
+    const effectiveTenantId = decoded.tenantId || user.tenantId;
+
+    req.user = {
+      ...user,
+      tenantId: effectiveTenantId // Sobreescribir con el del token
+    };
+    req.tenantId = effectiveTenantId; // También agregarlo directamente al request
+    req.isSuperuser = user.superuser;
+
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {

@@ -583,6 +583,13 @@ router.get('/parse-logs', authWithTenant, async (req, res) => {
       })
     ]);
 
+    console.log('[parse-logs] Resultados:', {
+      effectiveTenantId,
+      logsEncontrados: logs.length,
+      total,
+      whereUsado: JSON.stringify(where)
+    });
+
     res.json({
       success: true,
       logs,
@@ -600,6 +607,13 @@ router.get('/parse-logs', authWithTenant, async (req, res) => {
           ? Math.round((completados / (completados + errores)) * 100)
           : 0,
         promedioMs: Math.round(avgDuration._avg.duracionMs || 0)
+      },
+      // Debug temporal - remover después
+      _debug: {
+        effectiveTenantId,
+        reqTenantId: req.tenantId,
+        isSuperuser: req.isSuperuser,
+        expectedTenant: 'ef9d53eb-9c7c-4713-9565-0cd6f898dac6'
       }
     });
 
