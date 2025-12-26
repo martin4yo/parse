@@ -46,6 +46,54 @@ const upload = multer({
 });
 
 /**
+ * Helper para guardar logs de operaciones de Parse API
+ * @param {Object} params - Parámetros del log
+ */
+async function saveParseLog(params) {
+  try {
+    await prisma.parse_api_logs.create({
+      data: {
+        tenantId: params.tenantId,
+        apiKeyId: params.apiKeyId || null,
+        operacion: params.operacion,
+        nombreArchivo: params.nombreArchivo || null,
+        tipoArchivo: params.tipoArchivo || null,
+        tamanoBytes: params.tamanoBytes || null,
+        estado: params.estado,
+        modeloIA: params.modeloIA || null,
+        confianza: params.confianza || null,
+        tipoDocumento: params.tipoDocumento || null,
+        documentoId: params.documentoId || null,
+        itemsExtraidos: params.itemsExtraidos || null,
+        impuestosExtraidos: params.impuestosExtraidos || null,
+        reglasAplicadas: params.reglasAplicadas || 0,
+        duracionMs: params.duracionMs || null,
+        duracionIAMs: params.duracionIAMs || null,
+        errorTipo: params.errorTipo || null,
+        errorMensaje: params.errorMensaje || null,
+        errorStack: params.errorStack || null,
+        ipAddress: params.ipAddress || null,
+        userAgent: params.userAgent || null,
+        metadata: params.metadata || null
+      }
+    });
+  } catch (err) {
+    // No bloqueamos el request si falla el logging
+    console.error('⚠️ Error guardando parse_api_log:', err.message);
+  }
+}
+
+/**
+ * Helper para obtener IP del request
+ */
+function getClientIp(req) {
+  return req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+         req.connection?.remoteAddress ||
+         req.socket?.remoteAddress ||
+         req.ip;
+}
+
+/**
  * POST /api/v1/parse/document
  * Parsear documento y devolver JSON (sin guardar en BD)
  *
@@ -130,6 +178,25 @@ router.post('/document', authenticateSyncClient, upload.single('file'), async (r
     const duration = Date.now() - startTime;
     console.log(`✅ Documento procesado exitosamente en ${duration}ms`);
 
+    // Guardar log de éxito
+    saveParseLog({
+      tenantId: req.syncClient.tenantId,
+      apiKeyId: req.syncClient.apiKeyId,
+      operacion: 'parse',
+      nombreArchivo: file.originalname,
+      tipoArchivo: path.extname(file.originalname).toLowerCase().replace('.', ''),
+      tamanoBytes: file.size,
+      estado: 'completado',
+      modeloIA: resultado.modeloIA,
+      confianza: resultado.confianza,
+      tipoDocumento: resultado.tipoDocumento,
+      itemsExtraidos: resultado.items?.length || 0,
+      impuestosExtraidos: resultado.impuestos?.length || 0,
+      duracionMs: duration,
+      ipAddress: getClientIp(req),
+      userAgent: req.headers['user-agent']
+    });
+
     res.json({
       success: true,
       documento: {
@@ -147,6 +214,25 @@ router.post('/document', authenticateSyncClient, upload.single('file'), async (r
 
   } catch (error) {
     console.error('❌ Error parseando documento:', error);
+
+    const duration = Date.now() - startTime;
+
+    // Guardar log de error
+    saveParseLog({
+      tenantId: req.syncClient?.tenantId,
+      apiKeyId: req.syncClient?.apiKeyId,
+      operacion: 'parse',
+      nombreArchivo: req.file?.originalname,
+      tipoArchivo: req.file ? path.extname(req.file.originalname).toLowerCase().replace('.', '') : null,
+      tamanoBytes: req.file?.size,
+      estado: 'error',
+      duracionMs: duration,
+      errorTipo: error.name || 'Error',
+      errorMensaje: error.message,
+      errorStack: process.env.NODE_ENV === 'development' ? error.stack : null,
+      ipAddress: getClientIp(req),
+      userAgent: req.headers['user-agent']
+    });
 
     // Limpiar archivo en caso de error
     if (req.file?.path) {
@@ -432,6 +518,27 @@ router.post('/full', authenticateSyncClient, upload.single('file'), async (req, 
     const totalTime = Date.now() - startTime;
     console.log(`✅ Procesamiento completo en ${totalTime}ms`);
 
+    // Guardar log de éxito
+    saveParseLog({
+      tenantId: req.syncClient.tenantId,
+      apiKeyId: req.syncClient.apiKeyId,
+      operacion: 'full',
+      nombreArchivo: file.originalname,
+      tipoArchivo: path.extname(file.originalname).toLowerCase().replace('.', ''),
+      tamanoBytes: file.size,
+      estado: 'completado',
+      modeloIA: documentoParsed.modeloIA,
+      confianza: documentoParsed.confianza,
+      tipoDocumento: documentoParsed.tipoDocumento,
+      itemsExtraidos: documentoParsed.items?.length || 0,
+      impuestosExtraidos: documentoParsed.impuestos?.length || 0,
+      reglasAplicadas: reglasAplicadas.length,
+      duracionMs: totalTime,
+      duracionIAMs: parseTime,
+      ipAddress: getClientIp(req),
+      userAgent: req.headers['user-agent']
+    });
+
     const response = {
       success: true,
       documentoParsed: {
@@ -460,6 +567,26 @@ router.post('/full', authenticateSyncClient, upload.single('file'), async (req, 
 
   } catch (error) {
     console.error('❌ Error en procesamiento completo:', error);
+
+    const totalTime = Date.now() - startTime;
+
+    // Guardar log de error
+    saveParseLog({
+      tenantId: req.syncClient?.tenantId,
+      apiKeyId: req.syncClient?.apiKeyId,
+      operacion: 'full',
+      nombreArchivo: req.file?.originalname,
+      tipoArchivo: req.file ? path.extname(req.file.originalname).toLowerCase().replace('.', '') : null,
+      tamanoBytes: req.file?.size,
+      estado: 'error',
+      duracionMs: totalTime,
+      errorTipo: error.name || 'Error',
+      errorMensaje: error.message,
+      errorStack: process.env.NODE_ENV === 'development' ? error.stack : null,
+      ipAddress: getClientIp(req),
+      userAgent: req.headers['user-agent']
+    });
+
     if (req.file?.path) {
       await fs.unlink(req.file.path).catch(() => {});
     }
@@ -629,6 +756,28 @@ router.post('/save', authenticateSyncClient, upload.single('file'), async (req, 
     const duration = Date.now() - startTime;
     console.log(`✅ Documento guardado exitosamente (ID: ${documentoGuardado.id}) en ${duration}ms`);
 
+    // Guardar log de éxito
+    saveParseLog({
+      tenantId: req.syncClient.tenantId,
+      apiKeyId: req.syncClient.apiKeyId,
+      operacion: 'save',
+      nombreArchivo: file.originalname,
+      tipoArchivo: tipoArchivo,
+      tamanoBytes: file.size,
+      estado: 'completado',
+      modeloIA: resultado.modeloIA,
+      confianza: resultado.confianza,
+      tipoDocumento: resultado.tipoDocumento || tipoDocumento,
+      documentoId: documentoGuardado.id,
+      itemsExtraidos: resultado.items?.length || 0,
+      impuestosExtraidos: resultado.impuestos?.length || 0,
+      reglasAplicadas: reglasAplicadas.length,
+      duracionMs: duration,
+      ipAddress: getClientIp(req),
+      userAgent: req.headers['user-agent'],
+      metadata: metadata
+    });
+
     const response = {
       success: true,
       documento: {
@@ -658,6 +807,26 @@ router.post('/save', authenticateSyncClient, upload.single('file'), async (req, 
 
   } catch (error) {
     console.error('❌ Error guardando documento:', error);
+
+    const duration = Date.now() - startTime;
+
+    // Guardar log de error
+    saveParseLog({
+      tenantId: req.syncClient?.tenantId,
+      apiKeyId: req.syncClient?.apiKeyId,
+      operacion: 'save',
+      nombreArchivo: req.file?.originalname,
+      tipoArchivo: req.file ? path.extname(req.file.originalname).toLowerCase().replace('.', '') : null,
+      tamanoBytes: req.file?.size,
+      estado: 'error',
+      duracionMs: duration,
+      errorTipo: error.name || 'Error',
+      errorMensaje: error.message,
+      errorStack: process.env.NODE_ENV === 'development' ? error.stack : null,
+      ipAddress: getClientIp(req),
+      userAgent: req.headers['user-agent']
+    });
+
     if (req.file?.path) {
       await fs.unlink(req.file.path).catch(() => {});
     }
@@ -1280,6 +1449,185 @@ router.get('/sync/documentos', authenticateSyncClient, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Error al sincronizar documentos'
+    });
+  }
+});
+
+/**
+ * GET /api/v1/parse/logs
+ * Obtener logs de procesamiento de Parse API
+ *
+ * Query params:
+ *   - limit: Número de registros (default: 50, max: 200)
+ *   - offset: Desplazamiento para paginación (default: 0)
+ *   - estado: Filtrar por estado (completado, error, procesando)
+ *   - operacion: Filtrar por operación (parse, save, full)
+ *   - desde: Fecha inicio (ISO 8601)
+ *   - hasta: Fecha fin (ISO 8601)
+ *
+ * Response:
+ *   {
+ *     "success": true,
+ *     "logs": [...],
+ *     "pagination": { total, limit, offset, hasMore },
+ *     "stats": { total, completados, errores, promedioMs }
+ *   }
+ */
+router.get('/logs', authenticateSyncClient, async (req, res) => {
+  try {
+    // Validar permiso (usamos parse como permiso base)
+    if (!req.syncClient.permisos.parse) {
+      return res.status(403).json({
+        success: false,
+        error: 'Sin permiso para ver logs'
+      });
+    }
+
+    const {
+      limit = '50',
+      offset = '0',
+      estado,
+      operacion,
+      desde,
+      hasta
+    } = req.query;
+
+    const limitNum = Math.min(parseInt(limit) || 50, 200);
+    const offsetNum = parseInt(offset) || 0;
+
+    // Construir filtros
+    const where = {
+      tenantId: req.syncClient.tenantId
+    };
+
+    if (estado) {
+      where.estado = estado;
+    }
+
+    if (operacion) {
+      where.operacion = operacion;
+    }
+
+    if (desde || hasta) {
+      where.createdAt = {};
+      if (desde) {
+        where.createdAt.gte = new Date(desde);
+      }
+      if (hasta) {
+        where.createdAt.lte = new Date(hasta);
+      }
+    }
+
+    // Obtener logs y total en paralelo
+    const [logs, total, stats] = await Promise.all([
+      prisma.parse_api_logs.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: limitNum,
+        skip: offsetNum,
+        select: {
+          id: true,
+          operacion: true,
+          nombreArchivo: true,
+          tipoArchivo: true,
+          tamanoBytes: true,
+          estado: true,
+          modeloIA: true,
+          confianza: true,
+          tipoDocumento: true,
+          documentoId: true,
+          itemsExtraidos: true,
+          impuestosExtraidos: true,
+          reglasAplicadas: true,
+          duracionMs: true,
+          duracionIAMs: true,
+          errorTipo: true,
+          errorMensaje: true,
+          ipAddress: true,
+          createdAt: true
+        }
+      }),
+      prisma.parse_api_logs.count({ where }),
+      prisma.parse_api_logs.aggregate({
+        where: { tenantId: req.syncClient.tenantId },
+        _count: { id: true },
+        _avg: { duracionMs: true }
+      })
+    ]);
+
+    // Calcular estadísticas adicionales
+    const [completados, errores] = await Promise.all([
+      prisma.parse_api_logs.count({
+        where: { tenantId: req.syncClient.tenantId, estado: 'completado' }
+      }),
+      prisma.parse_api_logs.count({
+        where: { tenantId: req.syncClient.tenantId, estado: 'error' }
+      })
+    ]);
+
+    res.json({
+      success: true,
+      logs,
+      pagination: {
+        total,
+        limit: limitNum,
+        offset: offsetNum,
+        hasMore: offsetNum + logs.length < total
+      },
+      stats: {
+        total: stats._count.id,
+        completados,
+        errores,
+        promedioMs: Math.round(stats._avg.duracionMs || 0)
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo logs:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/v1/parse/logs/:id
+ * Obtener detalle de un log específico
+ */
+router.get('/logs/:id', authenticateSyncClient, async (req, res) => {
+  try {
+    if (!req.syncClient.permisos.parse) {
+      return res.status(403).json({
+        success: false,
+        error: 'Sin permiso para ver logs'
+      });
+    }
+
+    const log = await prisma.parse_api_logs.findFirst({
+      where: {
+        id: req.params.id,
+        tenantId: req.syncClient.tenantId
+      }
+    });
+
+    if (!log) {
+      return res.status(404).json({
+        success: false,
+        error: 'Log no encontrado'
+      });
+    }
+
+    res.json({
+      success: true,
+      log
+    });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo log:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
     });
   }
 });

@@ -424,6 +424,55 @@ model sync_api_keys {
   @@index([tenantId])
 }
 
+// Logs de procesamiento de documentos via Parse API
+model parse_api_logs {
+  id                String    @id @default(uuid())
+  tenantId          String
+  apiKeyId          String?   // Referencia a sync_api_keys
+
+  // Request
+  operacion         String    @db.VarChar(50)  // parse, save, parse-and-save
+  nombreArchivo     String?
+  tipoArchivo       String?   @db.VarChar(20)
+  tamanoBytes       Int?
+
+  // Procesamiento
+  estado            String    @db.VarChar(20)  // procesando, completado, error
+  modeloIA          String?   @db.VarChar(50)
+  confianza         Decimal?
+  tipoDocumento     String?   @db.VarChar(50)
+
+  // Resultado
+  documentoId       String?   // ID del documento guardado (si aplica)
+  itemsExtraidos    Int?
+  impuestosExtraidos Int?
+  reglasAplicadas   Int       @default(0)
+
+  // Performance
+  duracionMs        Int?
+  duracionIAMs      Int?      // Tiempo específico de IA
+
+  // Error
+  errorTipo         String?   @db.VarChar(100)
+  errorMensaje      String?   @db.Text
+  errorStack        String?   @db.Text
+
+  // Metadata
+  ipAddress         String?   @db.VarChar(50)
+  userAgent         String?   @db.Text
+  metadata          Json?
+
+  createdAt         DateTime  @default(now())
+
+  tenants           tenants   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([apiKeyId])
+  @@index([estado])
+  @@index([operacion])
+  @@index([createdAt])
+}
+
 model webhooks {
   id             String         @id
   tenantId       String?        // Opcional: Para webhooks de tenant (sistema interno)
@@ -611,6 +660,7 @@ model tenants {
   webhooks                  webhooks[]
   oauth_clients             oauth_clients[]
   oauth_api_logs            oauth_api_logs[]
+  parse_api_logs            parse_api_logs[]
   planes                    planes?                     @relation(fields: [planId], references: [id])
   users                     users[]
 

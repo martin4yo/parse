@@ -419,4 +419,143 @@ router.post('/:id/regenerate', authWithTenant, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/sync/api-keys/parse-logs
+ * Obtener logs de Parse API para el tenant actual (uso interno desde frontend)
+ */
+router.get('/parse-logs', authWithTenant, async (req, res) => {
+  try {
+    if (!req.tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Debe tener un tenant asignado'
+      });
+    }
+
+    const {
+      limit = '50',
+      offset = '0',
+      estado,
+      operacion,
+      desde,
+      hasta
+    } = req.query;
+
+    const limitNum = Math.min(parseInt(limit) || 50, 200);
+    const offsetNum = parseInt(offset) || 0;
+
+    // Construir filtros
+    const where = {
+      tenantId: req.tenantId
+    };
+
+    if (estado) {
+      where.estado = estado;
+    }
+
+    if (operacion) {
+      where.operacion = operacion;
+    }
+
+    if (desde || hasta) {
+      where.createdAt = {};
+      if (desde) {
+        where.createdAt.gte = new Date(desde);
+      }
+      if (hasta) {
+        where.createdAt.lte = new Date(hasta);
+      }
+    }
+
+    // Obtener logs y estadísticas en paralelo
+    const [logs, total, completados, errores, avgDuration] = await Promise.all([
+      prisma.parse_api_logs.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: limitNum,
+        skip: offsetNum
+      }),
+      prisma.parse_api_logs.count({ where }),
+      prisma.parse_api_logs.count({
+        where: { tenantId: req.tenantId, estado: 'completado' }
+      }),
+      prisma.parse_api_logs.count({
+        where: { tenantId: req.tenantId, estado: 'error' }
+      }),
+      prisma.parse_api_logs.aggregate({
+        where: { tenantId: req.tenantId, estado: 'completado' },
+        _avg: { duracionMs: true }
+      })
+    ]);
+
+    res.json({
+      success: true,
+      logs,
+      pagination: {
+        total,
+        limit: limitNum,
+        offset: offsetNum,
+        hasMore: offsetNum + logs.length < total
+      },
+      stats: {
+        total: completados + errores,
+        completados,
+        errores,
+        tasaExito: completados + errores > 0
+          ? Math.round((completados / (completados + errores)) * 100)
+          : 0,
+        promedioMs: Math.round(avgDuration._avg.duracionMs || 0)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo parse logs:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/sync/api-keys/parse-logs/:id
+ * Obtener detalle de un log específico
+ */
+router.get('/parse-logs/:id', authWithTenant, async (req, res) => {
+  try {
+    if (!req.tenantId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Debe tener un tenant asignado'
+      });
+    }
+
+    const log = await prisma.parse_api_logs.findFirst({
+      where: {
+        id: req.params.id,
+        tenantId: req.tenantId
+      }
+    });
+
+    if (!log) {
+      return res.status(404).json({
+        success: false,
+        error: 'Log no encontrado'
+      });
+    }
+
+    res.json({
+      success: true,
+      log
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo log:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = { router, hashApiKey };
