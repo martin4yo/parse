@@ -222,8 +222,6 @@ router.post('/document', authenticateSyncClient, upload.single('file'), async (r
       },
       metadata: {
         tipoDocumento: resultado.tipoDocumento,
-        modeloIA: resultado.modeloIA,
-        confianza: resultado.confianza,
         processingTimeMs: duration
       }
     });
@@ -564,7 +562,6 @@ router.post('/full', authenticateSyncClient, upload.single('file'), async (req, 
       },
       metadata: {
         tipoDocumento: documentoParsed.tipoDocumento,
-        modeloIA: documentoParsed.modeloIA,
         parseTimeMs: parseTime,
         rulesTimeMs: rulesTime,
         totalTimeMs: totalTime
@@ -805,20 +802,26 @@ router.post('/save', authenticateSyncClient, upload.single('file'), async (req, 
     const lineItems = datosExtraidos.lineItems || [];
     if (lineItems.length > 0) {
       console.log(`   📦 Guardando ${lineItems.length} line items...`);
-      for (const item of lineItems) {
+      for (let i = 0; i < lineItems.length; i++) {
+        const item = lineItems[i];
+        const subtotal = parseFloat(item.subtotal) || 0;
+        const importeIva = parseFloat(item.importeIva) || 0;
+        const totalLinea = subtotal + importeIva;
+
         await prisma.documento_lineas.create({
           data: {
             id: crypto.randomUUID(),
             documentoId: documentoGuardado.id,
             tenantId: req.syncClient.tenantId,
-            numeroLinea: item.numero || 0,
+            numero: item.numero || (i + 1),
             descripcion: item.descripcion || '',
             cantidad: item.cantidad || 1,
             unidad: item.unidad || null,
             precioUnitario: item.precioUnitario || 0,
-            subtotal: item.subtotal || 0,
+            subtotal: subtotal,
+            totalLinea: totalLinea,
             alicuotaIva: item.alicuotaIva || null,
-            importeIva: item.importeIva || null,
+            importeIva: importeIva || null,
             codigoProducto: item.codigoProducto || null
           }
         });
@@ -919,9 +922,7 @@ router.post('/save', authenticateSyncClient, upload.single('file'), async (req, 
         impuestos: resultado.impuestos || []
       },
       metadata: {
-        processingTimeMs: duration,
-        modeloIA: resultado.modeloIA,
-        confianza: resultado.confianza
+        processingTimeMs: duration
       },
       message: 'Documento guardado exitosamente'
     };

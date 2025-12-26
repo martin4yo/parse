@@ -498,7 +498,15 @@ router.post('/:id/regenerate', authWithTenant, async (req, res) => {
  */
 router.get('/parse-logs', authWithTenant, async (req, res) => {
   try {
-    if (!req.tenantId) {
+    console.log('[parse-logs] Debug:', {
+      tenantId: req.tenantId,
+      isSuperuser: req.isSuperuser,
+      userId: req.userId,
+      queryTenantId: req.query.tenantId
+    });
+
+    // Superusers pueden ver logs sin tenant, usuarios normales necesitan tenant
+    if (!req.tenantId && !req.isSuperuser) {
       return res.status(400).json({
         success: false,
         error: 'Debe tener un tenant asignado'
@@ -511,16 +519,27 @@ router.get('/parse-logs', authWithTenant, async (req, res) => {
       estado,
       operacion,
       desde,
-      hasta
+      hasta,
+      tenantId: queryTenantId // Permitir filtrar por tenant via query
     } = req.query;
 
     const limitNum = Math.min(parseInt(limit) || 50, 200);
     const offsetNum = parseInt(offset) || 0;
 
+    // Determinar qué tenant usar para el filtro
+    // Prioridad: query param > req.tenantId > todos (para superusers)
+    let effectiveTenantId = req.tenantId;
+    if (req.isSuperuser && queryTenantId) {
+      effectiveTenantId = queryTenantId;
+    }
+
     // Construir filtros
-    const where = {
-      tenantId: req.tenantId
-    };
+    const where = {};
+
+    // Solo filtrar por tenant si hay uno definido
+    if (effectiveTenantId) {
+      where.tenantId = effectiveTenantId;
+    }
 
     if (estado) {
       where.estado = estado;
@@ -540,6 +559,9 @@ router.get('/parse-logs', authWithTenant, async (req, res) => {
       }
     }
 
+    // Construir filtro base para stats (con o sin tenantId)
+    const statsWhere = effectiveTenantId ? { tenantId: effectiveTenantId } : {};
+
     // Obtener logs y estadísticas en paralelo
     const [logs, total, completados, errores, avgDuration] = await Promise.all([
       prisma.parse_api_logs.findMany({
@@ -550,13 +572,13 @@ router.get('/parse-logs', authWithTenant, async (req, res) => {
       }),
       prisma.parse_api_logs.count({ where }),
       prisma.parse_api_logs.count({
-        where: { tenantId: req.tenantId, estado: 'completado' }
+        where: { ...statsWhere, estado: 'completado' }
       }),
       prisma.parse_api_logs.count({
-        where: { tenantId: req.tenantId, estado: 'error' }
+        where: { ...statsWhere, estado: 'error' }
       }),
       prisma.parse_api_logs.aggregate({
-        where: { tenantId: req.tenantId, estado: 'completado' },
+        where: { ...statsWhere, estado: 'completado' },
         _avg: { duracionMs: true }
       })
     ]);
