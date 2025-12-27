@@ -349,24 +349,36 @@ export default function DashboardPage() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               </div>
             ) : (
-              <div className="h-48 flex items-end justify-between gap-2 pt-4">
-                {documentosPorDia.map((dia, index) => {
-                  const height = maxDocs > 0 ? (dia.cantidad / maxDocs) * 100 : 0;
-                  const fecha = new Date(dia.fecha);
-                  const diaSemana = fecha.toLocaleDateString('es-AR', { weekday: 'short' });
+              <div>
+                {/* Area del grafico - altura fija 140px */}
+                <div className="flex items-end justify-between gap-3 px-2" style={{ height: '140px' }}>
+                  {documentosPorDia.map((dia, index) => {
+                    const barHeight = maxDocs > 0 ? Math.max((dia.cantidad / maxDocs) * 120, 4) : 4;
 
-                  return (
-                    <div key={index} className="flex-1 flex flex-col items-center">
-                      <span className="text-xs text-gray-600 mb-1">{dia.cantidad}</span>
-                      <div
-                        className="w-full bg-blue-500 rounded-t transition-all duration-300 hover:bg-blue-600"
-                        style={{ height: `${Math.max(height, 4)}%` }}
-                        title={`${dia.fecha}: ${dia.cantidad} documentos`}
-                      />
-                      <span className="text-xs text-gray-500 mt-2 capitalize">{diaSemana}</span>
-                    </div>
-                  );
-                })}
+                    return (
+                      <div key={index} className="flex-1 flex flex-col items-center justify-end h-full">
+                        <span className="text-xs text-gray-600 mb-1 font-medium">{dia.cantidad}</span>
+                        <div
+                          className="w-full bg-blue-500 rounded-t-md transition-all duration-500 hover:bg-blue-600 cursor-pointer"
+                          style={{ height: `${barHeight}px` }}
+                          title={`${dia.fecha}: ${dia.cantidad} documentos`}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Labels de dias */}
+                <div className="flex justify-between gap-3 px-2 pt-2 border-t border-gray-100 mt-2">
+                  {documentosPorDia.map((dia, index) => {
+                    const fecha = new Date(dia.fecha);
+                    const diaSemana = fecha.toLocaleDateString('es-AR', { weekday: 'short' });
+                    return (
+                      <div key={index} className="flex-1 text-center">
+                        <span className="text-xs text-gray-500 capitalize">{diaSemana}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </CardContent>
