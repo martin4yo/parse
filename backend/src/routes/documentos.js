@@ -2868,6 +2868,8 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo, forceAI 
       fecha: datosExtraidos?.fecha ? 'SÍ' : 'NO',
       importe: datosExtraidos?.importe ? 'SÍ' : 'NO',
       cuit: datosExtraidos?.cuit ? 'SÍ' : 'NO',
+      cuitDestinatario: datosExtraidos?.cuitDestinatario ? 'SÍ' : 'NO',
+      cuitsExtraidos: datosExtraidos?.cuitsExtraidos?.length || 0,
       numeroComprobante: datosExtraidos?.numeroComprobante ? 'SÍ' : 'NO'
     });
 
@@ -2953,6 +2955,8 @@ async function processDocumentAsync(documentoId, filePath, tipoArchivo, forceAI 
         })() : null,
         importeExtraido: datosExtraidos?.importe || null,
         cuitExtraido: datosExtraidos?.cuit || null,
+        cuitDestinatario: datosExtraidos?.cuitDestinatario || null,
+        cuitsExtraidos: datosExtraidos?.cuitsExtraidos || null,
         numeroComprobanteExtraido: datosExtraidos?.numeroComprobante || null,
         caeExtraido: datosExtraidos?.caeExtraido || datosExtraidos?.cae || null,
         razonSocialExtraida: datosExtraidos?.razonSocial || null,

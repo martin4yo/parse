@@ -1,7 +1,25 @@
 # 🗺️ Roadmap - Sistema Parse 2025
 
-**Última actualización:** 18 de Enero 2025
+**Última actualización:** 27 de Diciembre 2025
 **Estado del proyecto:** En producción con nuevas funcionalidades
+
+---
+
+## ✅ Completado (Diciembre 2025)
+
+### 0. Extracción de Múltiples CUITs (27 Dic) ⭐
+**Impacto:** 🔥 Alto - Identificación automática emisor/destinatario
+
+- ✅ Nuevos campos: `cuitDestinatario`, `cuitsExtraidos`
+- ✅ Prompt actualizado para extraer TODOS los CUITs
+- ✅ Parámetro maestro `cuit_propio` para empresas del tenant
+- ✅ Nueva acción de regla `VALIDAR_CUITS_PROPIOS`
+- ✅ Corrección automática si IA confunde emisor/destinatario
+- ✅ Fix: Logs de Parse API no se mostraban (orden de rutas Express)
+
+**ROI:** Identificación correcta de CUITs sin intervención manual
+
+**Ver:** `docs/SESION-2025-12-27-CUITS-MULTIPLES.md`
 
 ---
 
@@ -497,11 +515,14 @@ OLLAMA_MODEL=llama3.2:3b
 
 | Fecha | Cambios |
 |-------|---------|
+| 27 Dic 2025 | Extracción múltiples CUITs (emisor/destinatario) |
+| 27 Dic 2025 | Fix: Logs Parse API no se mostraban |
+| 27 Dic 2025 | Nueva acción regla: VALIDAR_CUITS_PROPIOS |
 | 18 Ene 2025 | Roadmap inicial creado |
 | 18 Ene 2025 | Agregadas mejoras UX validaciones |
 | 17 Ene 2025 | Agregado sistema de aprendizaje de patrones |
 
 ---
 
-**Última revisión:** 18 de Enero 2025
-**Próxima revisión:** 1 de Febrero 2025
+**Última revisión:** 27 de Diciembre 2025
+**Próxima revisión:** 15 de Enero 2026

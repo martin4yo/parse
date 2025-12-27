@@ -512,6 +512,9 @@ class BusinessRulesEngine {
                 } else if (operacion === 'CREATE_DISTRIBUTION') {
                   // Crear distribución con dimensiones y subcuentas
                   await this.applyCreateDistribution(result, fullData, accion, transformedData, contexto);
+                } else if (operacion === 'VALIDAR_CUITS_PROPIOS') {
+                  // Validar y corregir CUITs emisor/destinatario contra cuit_propio
+                  await this.applyValidarCuitsPropios(result, fullData, accion, transformedData);
                 }
               }
             }
@@ -2117,6 +2120,129 @@ class BusinessRulesEngine {
     } catch (error) {
       console.error(`[CREATE_DISTRIBUTION] Error:`, error.message);
       throw error;
+    }
+  }
+
+  /**
+   * Validar y corregir CUITs emisor/destinatario contra lista de cuit_propio
+   *
+   * Lógica:
+   * - Si cuitExtraido está en cuit_propio → es del destinatario, intercambiar
+   * - Si cuitDestinatario NO está en cuit_propio pero cuitExtraido SÍ → intercambiar
+   *
+   * @param {Object} result - Objeto donde se guardan los cambios
+   * @param {Object} fullData - Datos completos del documento
+   * @param {Object} accion - Configuración de la acción
+   * @param {Object} transformedData - Datos ya transformados
+   */
+  async applyValidarCuitsPropios(result, fullData, accion, transformedData = null) {
+    const dataToUse = transformedData || fullData;
+    const {
+      tipoCampoValidacion = 'cuit_propio',
+      campoEmisor = 'cuitExtraido',
+      campoDestinatario = 'cuitDestinatario',
+      campoCuitsExtraidos = 'cuitsExtraidos',
+      intercambiarSiNecesario = true
+    } = accion;
+
+    try {
+      // Obtener valores actuales
+      let cuitEmisor = this.getNestedValue(dataToUse, campoEmisor);
+      let cuitDestinatario = this.getNestedValue(dataToUse, campoDestinatario);
+      const cuitsExtraidos = this.getNestedValue(dataToUse, campoCuitsExtraidos) || [];
+
+      console.log(`🔍 [VALIDAR_CUITS] Verificando CUITs:`);
+      console.log(`   Emisor actual: ${cuitEmisor || 'N/A'}`);
+      console.log(`   Destinatario actual: ${cuitDestinatario || 'N/A'}`);
+      console.log(`   CUITs extraídos: ${cuitsExtraidos.length}`);
+
+      if (!cuitEmisor && cuitsExtraidos.length === 0) {
+        console.log(`   ⏭️ No hay CUITs para validar`);
+        return;
+      }
+
+      // Normalizar CUITs (quitar guiones)
+      const normalizarCuit = (cuit) => cuit ? String(cuit).replace(/-/g, '') : null;
+      const cuitEmisorNorm = normalizarCuit(cuitEmisor);
+      const cuitDestinatarioNorm = normalizarCuit(cuitDestinatario);
+
+      // Buscar todos los cuit_propio del tenant
+      const cuitsPropio = await prisma.parametros_maestros.findMany({
+        where: {
+          tipo_campo: tipoCampoValidacion,
+          activo: true,
+          ...(this.tenantId ? { tenantId: this.tenantId } : {})
+        },
+        select: {
+          codigo: true,
+          nombre: true,
+          parametros_json: true
+        }
+      });
+
+      if (cuitsPropio.length === 0) {
+        console.log(`   ⚠️ No hay CUITs propios configurados (tipo_campo=${tipoCampoValidacion})`);
+        return;
+      }
+
+      console.log(`   📋 CUITs propios del tenant: ${cuitsPropio.map(c => c.codigo).join(', ')}`);
+
+      // Crear set de CUITs propios para búsqueda rápida
+      const setCuitsPropios = new Set(cuitsPropio.map(c => normalizarCuit(c.codigo)));
+
+      // Verificar si el CUIT emisor es en realidad del destinatario (empresa propia)
+      const emisorEsPropio = cuitEmisorNorm && setCuitsPropios.has(cuitEmisorNorm);
+      const destinatarioEsPropio = cuitDestinatarioNorm && setCuitsPropios.has(cuitDestinatarioNorm);
+
+      console.log(`   🔎 ¿Emisor es propio? ${emisorEsPropio ? 'SÍ' : 'NO'}`);
+      console.log(`   🔎 ¿Destinatario es propio? ${destinatarioEsPropio ? 'SÍ' : 'NO'}`);
+
+      // Lógica de corrección
+      if (emisorEsPropio && !destinatarioEsPropio && intercambiarSiNecesario) {
+        // El CUIT del "emisor" es en realidad del destinatario → intercambiar
+        console.log(`   🔄 INTERCAMBIANDO: El CUIT ${cuitEmisor} es del destinatario (empresa propia)`);
+
+        // Si no hay cuitDestinatario, buscarlo en cuitsExtraidos
+        if (!cuitDestinatario && cuitsExtraidos.length > 1) {
+          // Buscar el CUIT que NO sea propio
+          const cuitNoPropio = cuitsExtraidos.find(c => {
+            const valorNorm = normalizarCuit(c.valor || c);
+            return valorNorm && !setCuitsPropios.has(valorNorm);
+          });
+          if (cuitNoPropio) {
+            cuitDestinatario = cuitNoPropio.valor || cuitNoPropio;
+            console.log(`   📍 Encontrado CUIT no-propio en cuitsExtraidos: ${cuitDestinatario}`);
+          }
+        }
+
+        // Intercambiar
+        this.setNestedValue(result, campoDestinatario, cuitEmisor); // El "emisor" pasa a destinatario
+        this.setNestedValue(result, campoEmisor, cuitDestinatario || null); // El "destinatario" pasa a emisor
+
+        console.log(`   ✅ Nuevo emisor: ${cuitDestinatario || 'N/A'}`);
+        console.log(`   ✅ Nuevo destinatario: ${cuitEmisor}`);
+
+      } else if (!cuitDestinatario && cuitsExtraidos.length > 0) {
+        // No hay destinatario asignado, buscar en cuitsExtraidos
+        console.log(`   🔍 Buscando destinatario en cuitsExtraidos...`);
+
+        const cuitPropio = cuitsExtraidos.find(c => {
+          const valorNorm = normalizarCuit(c.valor || c);
+          return valorNorm && setCuitsPropios.has(valorNorm);
+        });
+
+        if (cuitPropio) {
+          const valorCuitPropio = cuitPropio.valor || cuitPropio;
+          this.setNestedValue(result, campoDestinatario, valorCuitPropio);
+          console.log(`   ✅ Asignado destinatario desde cuitsExtraidos: ${valorCuitPropio}`);
+        }
+      } else {
+        console.log(`   ✅ CUITs correctamente asignados, no se requieren cambios`);
+      }
+
+    } catch (error) {
+      console.error(`[VALIDAR_CUITS_PROPIOS] Error:`, error.message);
+      // No lanzar error para no interrumpir el procesamiento
     }
   }
 

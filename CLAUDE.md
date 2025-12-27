@@ -56,9 +56,11 @@ AXIO_MODEL=claude-sonnet-4-20250514
 
 | Campo | Descripción |
 |-------|-------------|
-| `cuitExtraido` | CUIT del proveedor (NO usar "cuitProveedor") |
+| `cuitExtraido` | CUIT del emisor/proveedor |
+| `cuitDestinatario` | CUIT del cliente/destinatario (empresa propia) |
+| `cuitsExtraidos` | JSON array con todos los CUITs: `[{valor, contexto, confianza}]` |
 | `codigoProveedor` | Código interno del proveedor |
-| `razonSocialExtraida` | Razón social |
+| `razonSocialExtraida` | Razón social del emisor |
 | `fechaExtraida` | Fecha del documento |
 | `importeExtraido` | Importe total |
 | `tipoComprobanteExtraido` | Tipo (FACTURA_A, etc.) |
@@ -80,7 +82,18 @@ GREATER_THAN, LESS_THAN, GREATER_OR_EQUAL, LESS_OR_EQUAL
 ```
 SET, LOOKUP, LOOKUP_JSON, AI_LOOKUP
 EXTRACT_REGEX, CALCULATE, CREATE_DISTRIBUTION
+VALIDAR_CUITS_PROPIOS
 ```
+
+### Parámetro Maestro `cuit_propio`
+
+Para configurar CUITs de empresas propias del tenant:
+
+```bash
+node src/scripts/setup-cuit-propio.js
+```
+
+Esto permite que la regla `VALIDAR_CUITS_PROPIOS` identifique automáticamente cuál CUIT es del emisor y cuál del destinatario.
 
 ## Transformaciones de Campo
 

@@ -162,6 +162,8 @@ model documentos_procesados {
   fechaExtraida             DateTime?
   importeExtraido           Decimal?
   cuitExtraido              String?
+  cuitDestinatario          String?                    // CUIT del cliente/destinatario de la factura
+  cuitsExtraidos            Json?                      // Array con todos los CUITs encontrados: [{valor, contexto, confianza}]
   numeroComprobanteExtraido String?
   observaciones             String?
   usuarioId                 String
