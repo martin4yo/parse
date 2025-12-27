@@ -551,14 +551,17 @@ router.get('/:id/archivo', authWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    
+    const tenantId = req.tenantId;
+
     console.log('Solicitud de archivo:', { id, userId, hasToken: !!req.query.token });
-    
+
+    // Superusers pueden ver archivos de cualquier documento del tenant
+    const whereClause = req.isSuperuser
+      ? { id, tenantId }
+      : { id, usuarioId: userId, tenantId };
+
     const documento = await prisma.documentos_procesados.findFirst({
-      where: { 
-        id,
-        usuarioId: userId 
-      }
+      where: whereClause
     });
 
     if (!documento) {
@@ -599,13 +602,15 @@ router.get('/view/:id', authWithTenant, async (req, res) => {
     console.log('🔍 [VIEW ROUTE] Request received for document:', req.params.id);
     const { id } = req.params;
     const userId = req.user.id;
+    const tenantId = req.tenantId;
 
-    // Buscar por usuario directo
+    // Superusers pueden ver cualquier documento del tenant
+    const whereClause = req.isSuperuser
+      ? { id, tenantId }
+      : { id, usuarioId: userId, tenantId };
+
     let documento = await prisma.documentos_procesados.findFirst({
-      where: {
-        id,
-        usuarioId: userId
-      }
+      where: whereClause
     });
 
     if (!documento) {
@@ -2124,13 +2129,16 @@ router.put('/:id/observaciones', authWithTenant, async (req, res) => {
     const { id } = req.params;
     const { observaciones } = req.body;
     const userId = req.user.id;
+    const tenantId = req.tenantId;
 
-    // Verificar que el documento pertenece al usuario
+    // Superusers pueden actualizar cualquier documento del tenant
+    const whereClause = req.isSuperuser
+      ? { id, tenantId }
+      : { id, usuarioId: userId, tenantId };
+
+    // Verificar que el documento pertenece al usuario/tenant
     const documento = await prisma.documentos_procesados.findFirst({
-      where: { 
-        id,
-        usuarioId: userId 
-      }
+      where: whereClause
     });
 
     if (!documento) {
@@ -2239,13 +2247,16 @@ router.put('/:id/datos-extraidos', authWithTenant, async (req, res) => {
       codigoProveedor
     } = req.body;
     const userId = req.user.id;
+    const tenantId = req.tenantId;
 
-    // Verificar que el documento pertenece al usuario
+    // Superusers pueden actualizar cualquier documento del tenant
+    const whereClause = req.isSuperuser
+      ? { id, tenantId }
+      : { id, usuarioId: userId, tenantId };
+
+    // Verificar que el documento pertenece al usuario/tenant
     const documento = await prisma.documentos_procesados.findFirst({
-      where: { 
-        id,
-        usuarioId: userId 
-      }
+      where: whereClause
     });
 
     if (!documento) {
@@ -2344,15 +2355,18 @@ router.delete('/:id', authWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
+    const tenantId = req.tenantId;
 
     console.log('Intentando eliminar documento:', { id, userId });
 
+    // Superusers pueden eliminar cualquier documento del tenant
+    const whereClause = req.isSuperuser
+      ? { id, tenantId }
+      : { id, usuarioId: userId, tenantId };
+
     // Buscar documento
     const documento = await prisma.documentos_procesados.findFirst({
-      where: {
-        id,
-        usuarioId: userId
-      }
+      where: whereClause
     });
 
     if (!documento) {
@@ -3496,37 +3510,31 @@ router.get('/:id', authWithTenant, async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
+    const tenantId = req.tenantId;
 
-    // Primero buscar por usuario directo
-    let documento = await prisma.documentos_procesados.findFirst({
-      where: {
-        id,
-        usuarioId: userId
-      },
-      include: {
-        usuario: {
-          select: {
-            nombre: true,
-            apellido: true
-          }
-        },
-        caja: true
-      }
-    });
+    let documento = null;
 
-    // Si no se encuentra, buscar por acceso a caja (para comprobantes de efectivo)
-    if (!documento) {
+    // Superusers pueden ver cualquier documento del tenant
+    if (req.isSuperuser) {
+      documento = await prisma.documentos_procesados.findFirst({
+        where: { id, tenantId },
+        include: {
+          usuario: {
+            select: {
+              nombre: true,
+              apellido: true
+            }
+          },
+          caja: true
+        }
+      });
+    } else {
+      // Primero buscar por usuario directo
       documento = await prisma.documentos_procesados.findFirst({
         where: {
           id,
-          caja: {
-            user_cajas: {
-              some: {
-                userId: userId,
-                activo: true
-              }
-            }
-          }
+          usuarioId: userId,
+          tenantId
         },
         include: {
           usuario: {
@@ -3538,6 +3546,33 @@ router.get('/:id', authWithTenant, async (req, res) => {
           caja: true
         }
       });
+
+      // Si no se encuentra, buscar por acceso a caja (para comprobantes de efectivo)
+      if (!documento) {
+        documento = await prisma.documentos_procesados.findFirst({
+          where: {
+            id,
+            tenantId,
+            caja: {
+              user_cajas: {
+                some: {
+                  userId: userId,
+                  activo: true
+                }
+              }
+            }
+          },
+          include: {
+            usuario: {
+              select: {
+                nombre: true,
+                apellido: true
+              }
+            },
+            caja: true
+          }
+        });
+      }
     }
 
     if (!documento) {
@@ -4326,13 +4361,14 @@ router.post('/:id/desmarcar-reglas', authWithTenant, async (req, res) => {
     const userId = req.user.id;
     const tenantId = req.tenantId;
 
+    // Superusers pueden desmarcar cualquier documento del tenant
+    const whereClause = req.isSuperuser
+      ? { id, tenantId }
+      : { id, usuarioId: userId, tenantId };
+
     // Verificar que el documento existe y pertenece al usuario/tenant
     const documento = await prisma.documentos_procesados.findFirst({
-      where: {
-        id: id,
-        usuarioId: userId,
-        tenantId: tenantId
-      }
+      where: whereClause
     });
 
     if (!documento) {

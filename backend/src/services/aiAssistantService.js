@@ -122,14 +122,31 @@ TRANSFORMACIONES DE CAMPO DISPONIBLES (usar en transformacionesCampo):
 - REMOVE_LEADING_ZEROS, REMOVE_TRAILING_ZEROS: Remueve ceros
 - CUSTOM_FUNCTION: Función personalizada JavaScript (usar funcionPersonalizada)
 
-Ejemplo de regla con transformación:
+Ejemplo de regla con transformación NORMALIZE_CUIT para buscar proveedor por CUIT:
 {
+  "codigo": "BUSCAR_PROVEEDOR_POR_CUIT",
+  "nombre": "Buscar código de proveedor por CUIT",
+  "tipo": "TRANSFORMACION",
+  "aplicaA": "DOCUMENTO",
+  "prioridad": 10,
   "transformacionesCampo": [
     { "campo": "cuitExtraido", "transformacion": "NORMALIZE_CUIT" }
   ],
-  "condiciones": [...],
-  "acciones": [...]
+  "condiciones": [
+    { "campo": "cuitExtraido", "operador": "IS_NOT_EMPTY" }
+  ],
+  "acciones": [
+    {
+      "operacion": "LOOKUP_JSON",
+      "campo": "codigoProveedor",
+      "tipoCampo": "proveedor",
+      "campoJSON": "cuit",
+      "valorConsulta": "{cuitExtraido}",
+      "campoResultado": "codigo"
+    }
+  ]
 }
+IMPORTANTE: SIEMPRE usar transformacionesCampo con NORMALIZE_CUIT cuando se busca por CUIT, ya que el CUIT extraído puede venir con guiones (30-70717404-4) pero en la tabla puede estar sin guiones (30707174044).
 
 CONTEXTOS DISPONIBLES:
 - DOCUMENTO: Aplica al documento completo
