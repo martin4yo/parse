@@ -2452,7 +2452,7 @@ export default function ComprobantesPage() {
           <div className="absolute inset-0 bg-palette-dark/40 backdrop-blur-sm"></div>
 
           {/* Contenedor del indicador */}
-          <div className="relative z-10 bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center space-y-6 min-w-[450px] max-w-[500px]">
+          <div className="relative z-10 bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center space-y-6 min-w-[450px] max-w-[500px] min-h-[520px]">
             {/* Indicador de estado: Spinner durante procesamiento, Checkmark al completar */}
             <div className="relative">
               {processingComplete ? (
