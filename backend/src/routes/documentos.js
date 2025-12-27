@@ -1449,15 +1449,16 @@ async function enrichDocumentWithParameterNames(documento, tenantId) {
   return documento;
 }
 
-// GET /api/documentos - Obtener documentos del usuario
+// GET /api/documentos - Obtener documentos del usuario (o todos del tenant para superusers)
 router.get('/', authWithTenant, async (req, res) => {
   try {
     const userId = req.user.id;
     const { rendicionItemId, includeMetrics, tipo } = req.query;
 
-    const where = req.filterByTenant({
-      usuarioId: userId
-    });
+    // Superusers ven todos los documentos del tenant, usuarios normales solo los suyos
+    const where = req.isSuperuser
+      ? req.filterByTenant({})  // Solo filtrar por tenant
+      : req.filterByTenant({ usuarioId: userId });  // Filtrar por tenant y usuario
 
     if (rendicionItemId) {
       where.rendicionItemId = rendicionItemId;
