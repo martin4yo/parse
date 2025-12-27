@@ -2451,10 +2451,10 @@ export default function ComprobantesPage() {
           {/* Backdrop con desenfoque */}
           <div className="absolute inset-0 bg-palette-dark/40 backdrop-blur-sm"></div>
 
-          {/* Contenedor del indicador */}
-          <div className="relative z-10 bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center space-y-6 min-w-[450px] max-w-[500px] min-h-[520px]">
+          {/* Contenedor del indicador - altura fija para evitar cambios de tamaño */}
+          <div className="relative z-10 bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center min-w-[450px] max-w-[500px] h-[540px]">
             {/* Indicador de estado: Spinner durante procesamiento, Checkmark al completar */}
-            <div className="relative">
+            <div className="relative mb-6">
               {processingComplete ? (
                 <>
                   {/* Checkmark verde de éxito */}
@@ -2475,7 +2475,7 @@ export default function ComprobantesPage() {
             </div>
 
             {/* Texto de estado */}
-            <div className="text-center space-y-2">
+            <div className="text-center space-y-2 mb-6">
               <h3 className="text-2xl font-bold text-palette-dark">
                 {processingComplete
                   ? (associationProgress.total === 0 ? 'Sin Documentos Pendientes' : 'Proceso Completado')
@@ -2490,125 +2490,135 @@ export default function ComprobantesPage() {
               </p>
             </div>
 
-            {/* Barra de progreso con documento actual (solo si hay documentos) */}
-            {associationProgress.total > 0 && (
-              <div className="w-full space-y-4">
-                {/* Información del documento actual (solo durante procesamiento) */}
-                {!processingComplete && associationProgress.currentDocumentName && (
-                  <div className="bg-palette-cream/30 border border-palette-cream rounded-lg p-3">
-                    <p className="text-xs text-palette-dark/60 font-medium mb-1">Procesando:</p>
-                    <p className="text-sm text-palette-dark font-semibold truncate">
-                      {associationProgress.currentDocumentName}
-                    </p>
+            {/* Contenido principal - flex-1 para ocupar espacio disponible */}
+            <div className="w-full flex-1 flex flex-col">
+              {/* Barra de progreso con documento actual (solo si hay documentos) */}
+              {associationProgress.total > 0 ? (
+                <div className="w-full space-y-4 flex-1 flex flex-col">
+                  {/* Contenedor de altura fija para documento actual / detalle */}
+                  <div className="h-[60px]">
+                    {!processingComplete && associationProgress.currentDocumentName ? (
+                      <div className="bg-palette-cream/30 border border-palette-cream rounded-lg p-3">
+                        <p className="text-xs text-palette-dark/60 font-medium mb-1">Procesando:</p>
+                        <p className="text-sm text-palette-dark font-semibold truncate">
+                          {associationProgress.currentDocumentName}
+                        </p>
+                      </div>
+                    ) : processingComplete ? (
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <p className="text-xs text-gray-500 mb-1 font-medium">Detalle de transformaciones:</p>
+                        <div className="flex justify-around text-center">
+                          <div>
+                            <span className="text-sm font-bold text-gray-700">{associationProgress.documentosTransformados}</span>
+                            <span className="text-xs text-gray-500 ml-1">Docs</span>
+                          </div>
+                          <div>
+                            <span className="text-sm font-bold text-gray-700">{associationProgress.lineasTransformadas}</span>
+                            <span className="text-xs text-gray-500 ml-1">Líneas</span>
+                          </div>
+                          <div>
+                            <span className="text-sm font-bold text-gray-700">{associationProgress.impuestosTransformados}</span>
+                            <span className="text-xs text-gray-500 ml-1">Impuestos</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
-                )}
 
-                {/* Progreso numérico */}
-                <div className="flex justify-between items-center text-sm">
-                  <span className="font-semibold text-palette-dark">
-                    {associationProgress.current} de {associationProgress.total} documentos
-                  </span>
-                  <span className="text-2xl font-bold text-palette-purple">
-                    {Math.round((associationProgress.current / associationProgress.total) * 100)}%
-                  </span>
-                </div>
+                  {/* Progreso numérico */}
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="font-semibold text-palette-dark">
+                      {associationProgress.current} de {associationProgress.total} documentos
+                    </span>
+                    <span className="text-2xl font-bold text-palette-purple">
+                      {Math.round((associationProgress.current / associationProgress.total) * 100)}%
+                    </span>
+                  </div>
 
-                {/* Barra de progreso */}
-                <div className="relative">
-                  <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                    <div
-                      className="h-3 rounded-full transition-all duration-500 ease-out"
-                      style={{
-                        width: `${(associationProgress.current / associationProgress.total) * 100}%`,
-                        background: processingComplete
-                          ? 'linear-gradient(90deg, #22c55e 0%, #16a34a 100%)'
-                          : 'linear-gradient(90deg, #8E6AAA 0%, #F1ABB5 100%)'
-                      }}
-                    >
-                      {!processingComplete && (
-                        <div className="h-full w-full bg-white/20 animate-pulse"></div>
-                      )}
+                  {/* Barra de progreso */}
+                  <div className="relative">
+                    <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                      <div
+                        className="h-3 rounded-full transition-all duration-500 ease-out"
+                        style={{
+                          width: `${(associationProgress.current / associationProgress.total) * 100}%`,
+                          background: processingComplete
+                            ? 'linear-gradient(90deg, #22c55e 0%, #16a34a 100%)'
+                            : 'linear-gradient(90deg, #8E6AAA 0%, #F1ABB5 100%)'
+                        }}
+                      >
+                        {!processingComplete && (
+                          <div className="h-full w-full bg-white/20 animate-pulse"></div>
+                        )}
+                      </div>
                     </div>
+
+                    {/* Indicador de pulso en el extremo (solo durante procesamiento) */}
+                    {!processingComplete && (
+                      <div
+                        className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-palette-purple rounded-full shadow-lg transition-all duration-500"
+                        style={{
+                          left: `calc(${(associationProgress.current / associationProgress.total) * 100}% - 8px)`
+                        }}
+                      >
+                        <div className="absolute inset-0 bg-palette-purple rounded-full animate-ping opacity-75"></div>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Indicador de pulso en el extremo (solo durante procesamiento) */}
-                  {!processingComplete && (
-                    <div
-                      className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-palette-purple rounded-full shadow-lg transition-all duration-500"
-                      style={{
-                        left: `calc(${(associationProgress.current / associationProgress.total) * 100}% - 8px)`
-                      }}
-                    >
-                      <div className="absolute inset-0 bg-palette-purple rounded-full animate-ping opacity-75"></div>
+                  {/* Estadísticas */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-2 text-center">
+                      <p className="text-lg font-bold text-green-600">
+                        {associationProgress.reglasAplicadas}
+                      </p>
+                      <p className="text-xs text-green-600/70">Reglas aplicadas</p>
                     </div>
-                  )}
-                </div>
-
-                {/* Estadísticas */}
-                <div className="grid grid-cols-3 gap-3 mt-2">
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-2 text-center">
-                    <p className="text-lg font-bold text-green-600">
-                      {associationProgress.reglasAplicadas}
-                    </p>
-                    <p className="text-xs text-green-600/70">Reglas aplicadas</p>
-                  </div>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-center">
-                    <p className="text-lg font-bold text-blue-600">
-                      {associationProgress.documentosTransformados}
-                    </p>
-                    <p className="text-xs text-blue-600/70">Docs modificados</p>
-                  </div>
-                  <div className={`rounded-lg p-2 text-center ${
-                    associationProgress.errores > 0
-                      ? 'bg-red-50 border border-red-200'
-                      : 'bg-gray-50 border border-gray-200'
-                  }`}>
-                    <p className={`text-lg font-bold ${
-                      associationProgress.errores > 0 ? 'text-red-600' : 'text-gray-400'
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-center">
+                      <p className="text-lg font-bold text-blue-600">
+                        {associationProgress.documentosTransformados}
+                      </p>
+                      <p className="text-xs text-blue-600/70">Docs modificados</p>
+                    </div>
+                    <div className={`rounded-lg p-2 text-center ${
+                      associationProgress.errores > 0
+                        ? 'bg-red-50 border border-red-200'
+                        : 'bg-gray-50 border border-gray-200'
                     }`}>
-                      {associationProgress.errores}
-                    </p>
-                    <p className={`text-xs ${
-                      associationProgress.errores > 0 ? 'text-red-600/70' : 'text-gray-400'
-                    }`}>Errores</p>
-                  </div>
-                </div>
-
-                {/* Detalle adicional cuando está completo */}
-                {processingComplete && (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-2">
-                    <p className="text-xs text-gray-500 mb-2 font-medium">Detalle de transformaciones:</p>
-                    <div className="flex justify-around text-center">
-                      <div>
-                        <p className="text-sm font-bold text-gray-700">{associationProgress.documentosTransformados}</p>
-                        <p className="text-xs text-gray-500">Documentos</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-gray-700">{associationProgress.lineasTransformadas}</p>
-                        <p className="text-xs text-gray-500">Líneas</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-gray-700">{associationProgress.impuestosTransformados}</p>
-                        <p className="text-xs text-gray-500">Impuestos</p>
-                      </div>
+                      <p className={`text-lg font-bold ${
+                        associationProgress.errores > 0 ? 'text-red-600' : 'text-gray-400'
+                      }`}>
+                        {associationProgress.errores}
+                      </p>
+                      <p className={`text-xs ${
+                        associationProgress.errores > 0 ? 'text-red-600/70' : 'text-gray-400'
+                      }`}>Errores</p>
                     </div>
                   </div>
-                )}
-              </div>
-            )}
+                </div>
+              ) : (
+                /* Espacio vacío cuando no hay documentos para mantener altura */
+                <div className="flex-1" />
+              )}
+            </div>
 
-            {/* Botón de cerrar con countdown (siempre visible cuando está completo) */}
-            {processingComplete && (
-              <button
-                onClick={handleCloseProcessingModal}
-                className="w-full mt-4 py-3 px-4 bg-palette-purple hover:bg-palette-purple/90 text-white font-semibold rounded-lg transition-colors flex items-center justify-center space-x-2"
-              >
-                <span>Cerrar</span>
-                <span className="bg-white/20 px-2 py-0.5 rounded text-sm">
-                  {closeCountdown}s
-                </span>
-              </button>
-            )}
+            {/* Botón de cerrar - siempre en la misma posición */}
+            <div className="w-full mt-4 h-[52px]">
+              {processingComplete ? (
+                <button
+                  onClick={handleCloseProcessingModal}
+                  className="w-full py-3 px-4 bg-palette-purple hover:bg-palette-purple/90 text-white font-semibold rounded-lg transition-colors flex items-center justify-center space-x-2"
+                >
+                  <span>Cerrar</span>
+                  <span className="bg-white/20 px-2 py-0.5 rounded text-sm">
+                    {closeCountdown}s
+                  </span>
+                </button>
+              ) : (
+                /* Placeholder invisible para mantener espacio */
+                <div className="h-full" />
+              )}
+            </div>
           </div>
         </div>
       )}
