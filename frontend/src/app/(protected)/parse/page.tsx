@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Upload, Link2, FileText, CheckCircle, Clock, AlertCircle, Zap, ExternalLink, LinkIcon, Trash2, FileIcon, Image as ImageIcon, XCircle, Info, Receipt, Edit2, Edit, Unlink, Save, X, Calendar, MessageSquare, ScanText, Plus, Pencil, Sparkles, RotateCcw, Grid3x3, AlertTriangle, AlertOctagon, ShieldAlert } from 'lucide-react';
+import { Upload, Link2, FileText, CheckCircle, Check, Clock, AlertCircle, Zap, ExternalLink, LinkIcon, Trash2, FileIcon, Image as ImageIcon, XCircle, Info, Receipt, Edit2, Edit, Unlink, Save, X, Calendar, MessageSquare, ScanText, Plus, Pencil, Sparkles, RotateCcw, Grid3x3, AlertTriangle, AlertOctagon, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { DocumentUploadModal } from '@/components/shared/DocumentUploadModal';
@@ -57,6 +57,9 @@ export default function ComprobantesPage() {
     impuestosTransformados: 0,
     errores: 0
   });
+  const [processingComplete, setProcessingComplete] = useState(false);
+  const [closeCountdown, setCloseCountdown] = useState(10);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [hoveredDoc, setHoveredDoc] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [hoveredCupon, setHoveredCupon] = useState<string | null>(null);
@@ -855,10 +858,32 @@ export default function ComprobantesPage() {
     desmarcarReglasMutation.mutate(() => api.post(`/documentos/${documentoId}/desmarcar-reglas`));
   };
 
+  // Función para cerrar el modal de procesamiento
+  const handleCloseProcessingModal = () => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+    }
+    setProcessingAssociation(false);
+    setProcessingComplete(false);
+    setCloseCountdown(10);
+    setAssociationProgress({
+      current: 0,
+      total: 0,
+      currentDocumentName: '',
+      currentCupon: '',
+      reglasAplicadas: 0,
+      documentosTransformados: 0,
+      lineasTransformadas: 0,
+      impuestosTransformados: 0,
+      errores: 0
+    });
+  };
+
   // Función para ejecutar asociación automática con SSE
   const handleAutoAssociation = async () => {
     try {
       setProcessingAssociation(true);
+      setProcessingComplete(false);
       setAssociationProgress({
         current: 0,
         total: 0,
@@ -946,51 +971,33 @@ export default function ComprobantesPage() {
 
           case 'complete':
             eventSource.close();
-            setProcessingAssociation(false);
 
-            const totalTransformaciones = (data.transformados?.documentos || 0) +
-                                         (data.transformados?.lineas || 0) +
-                                         (data.transformados?.impuestos || 0);
+            // Actualizar estadísticas finales
+            setAssociationProgress(prev => ({
+              ...prev,
+              lineasTransformadas: data.transformados?.lineas || 0,
+              impuestosTransformados: data.transformados?.impuestos || 0
+            }));
 
-            // Mostrar resumen de errores si hubo
-            if (erroresAcumulados.length > 0) {
-              toast.error(
-                `${erroresAcumulados.length} error(es) al procesar documentos`,
-                { duration: 5000 }
-              );
-            }
-
-            // Mostrar resumen final
-            if (totalTransformaciones > 0) {
-              toast.success(
-                `✓ ${data.transformados.documentos} docs, ${data.transformados.lineas} líneas, ${data.transformados.impuestos} impuestos procesados`,
-                { duration: 4000 }
-              );
-            } else if (erroresAcumulados.length === 0) {
-              toast(
-                `Se revisaron ${data.procesados} documentos. No hubo cambios.`,
-                {
-                  icon: <AlertCircle className="h-5 w-5 text-amber-500" />,
-                  duration: 3000
-                }
-              );
-            }
+            // Marcar como completado (no cerrar modal aún)
+            setProcessingComplete(true);
 
             // Refrescar la grilla
             loadDocumentos();
 
-            // Limpiar progreso
-            setTimeout(() => {
-              setAssociationProgress({
-                current: 0,
-                total: 0,
-                currentDocumentName: '',
-                currentCupon: '',
-                reglasAplicadas: 0,
-                documentosTransformados: 0,
-                lineasTransformadas: 0,
-                impuestosTransformados: 0,
-                errores: 0
+            // Iniciar countdown de 10 segundos
+            setCloseCountdown(10);
+            countdownIntervalRef.current = setInterval(() => {
+              setCloseCountdown(prev => {
+                if (prev <= 1) {
+                  // Cerrar modal
+                  if (countdownIntervalRef.current) {
+                    clearInterval(countdownIntervalRef.current);
+                  }
+                  handleCloseProcessingModal();
+                  return 0;
+                }
+                return prev - 1;
               });
             }, 1000);
             break;
@@ -2446,30 +2453,44 @@ export default function ComprobantesPage() {
 
           {/* Contenedor del indicador */}
           <div className="relative z-10 bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center space-y-6 min-w-[450px] max-w-[500px]">
-            {/* Spinner animado con colores de la paleta */}
+            {/* Indicador de estado: Spinner durante procesamiento, Checkmark al completar */}
             <div className="relative">
-              <div className="w-24 h-24 border-4 border-palette-pink/30 rounded-full"></div>
-              <div className="absolute top-0 left-0 w-24 h-24 border-4 border-palette-purple rounded-full border-t-transparent animate-spin"></div>
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                <Zap className="w-10 h-10 text-palette-purple animate-pulse" />
-              </div>
+              {processingComplete ? (
+                <>
+                  {/* Checkmark verde de éxito */}
+                  <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center">
+                    <Check className="w-12 h-12 text-green-600" />
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Spinner animado durante procesamiento */}
+                  <div className="w-24 h-24 border-4 border-palette-pink/30 rounded-full"></div>
+                  <div className="absolute top-0 left-0 w-24 h-24 border-4 border-palette-purple rounded-full border-t-transparent animate-spin"></div>
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                    <Zap className="w-10 h-10 text-palette-purple animate-pulse" />
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Texto de estado */}
             <div className="text-center space-y-2">
               <h3 className="text-2xl font-bold text-palette-dark">
-                Aplicando Reglas de Negocio
+                {processingComplete ? 'Proceso Completado' : 'Aplicando Reglas de Negocio'}
               </h3>
               <p className="text-sm text-gray-600">
-                Procesando documentos y aplicando transformaciones...
+                {processingComplete
+                  ? 'Se procesaron todos los documentos'
+                  : 'Procesando documentos y aplicando transformaciones...'}
               </p>
             </div>
 
             {/* Barra de progreso con documento actual */}
             {associationProgress.total > 0 && (
               <div className="w-full space-y-4">
-                {/* Información del documento actual */}
-                {associationProgress.currentDocumentName && (
+                {/* Información del documento actual (solo durante procesamiento) */}
+                {!processingComplete && associationProgress.currentDocumentName && (
                   <div className="bg-palette-cream/30 border border-palette-cream rounded-lg p-3">
                     <p className="text-xs text-palette-dark/60 font-medium mb-1">Procesando:</p>
                     <p className="text-sm text-palette-dark font-semibold truncate">
@@ -2495,25 +2516,31 @@ export default function ComprobantesPage() {
                       className="h-3 rounded-full transition-all duration-500 ease-out"
                       style={{
                         width: `${(associationProgress.current / associationProgress.total) * 100}%`,
-                        background: 'linear-gradient(90deg, #8E6AAA 0%, #F1ABB5 100%)'
+                        background: processingComplete
+                          ? 'linear-gradient(90deg, #22c55e 0%, #16a34a 100%)'
+                          : 'linear-gradient(90deg, #8E6AAA 0%, #F1ABB5 100%)'
                       }}
                     >
-                      <div className="h-full w-full bg-white/20 animate-pulse"></div>
+                      {!processingComplete && (
+                        <div className="h-full w-full bg-white/20 animate-pulse"></div>
+                      )}
                     </div>
                   </div>
 
-                  {/* Indicador de pulso en el extremo */}
-                  <div
-                    className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-palette-purple rounded-full shadow-lg transition-all duration-500"
-                    style={{
-                      left: `calc(${(associationProgress.current / associationProgress.total) * 100}% - 8px)`
-                    }}
-                  >
-                    <div className="absolute inset-0 bg-palette-purple rounded-full animate-ping opacity-75"></div>
-                  </div>
+                  {/* Indicador de pulso en el extremo (solo durante procesamiento) */}
+                  {!processingComplete && (
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-palette-purple rounded-full shadow-lg transition-all duration-500"
+                      style={{
+                        left: `calc(${(associationProgress.current / associationProgress.total) * 100}% - 8px)`
+                      }}
+                    >
+                      <div className="absolute inset-0 bg-palette-purple rounded-full animate-ping opacity-75"></div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Estadísticas en tiempo real */}
+                {/* Estadísticas */}
                 <div className="grid grid-cols-3 gap-3 mt-2">
                   <div className="bg-green-50 border border-green-200 rounded-lg p-2 text-center">
                     <p className="text-lg font-bold text-green-600">
@@ -2542,6 +2569,40 @@ export default function ComprobantesPage() {
                     }`}>Errores</p>
                   </div>
                 </div>
+
+                {/* Detalle adicional cuando está completo */}
+                {processingComplete && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-2">
+                    <p className="text-xs text-gray-500 mb-2 font-medium">Detalle de transformaciones:</p>
+                    <div className="flex justify-around text-center">
+                      <div>
+                        <p className="text-sm font-bold text-gray-700">{associationProgress.documentosTransformados}</p>
+                        <p className="text-xs text-gray-500">Documentos</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-gray-700">{associationProgress.lineasTransformadas}</p>
+                        <p className="text-xs text-gray-500">Líneas</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-gray-700">{associationProgress.impuestosTransformados}</p>
+                        <p className="text-xs text-gray-500">Impuestos</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Botón de cerrar con countdown (solo cuando está completo) */}
+                {processingComplete && (
+                  <button
+                    onClick={handleCloseProcessingModal}
+                    className="w-full mt-4 py-3 px-4 bg-palette-purple hover:bg-palette-purple/90 text-white font-semibold rounded-lg transition-colors flex items-center justify-center space-x-2"
+                  >
+                    <span>Cerrar</span>
+                    <span className="bg-white/20 px-2 py-0.5 rounded text-sm">
+                      {closeCountdown}s
+                    </span>
+                  </button>
+                )}
               </div>
             )}
           </div>
