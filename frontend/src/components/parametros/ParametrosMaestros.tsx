@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Plus, Edit, Trash2, Save, X, Search, Filter, Settings } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Plus, Edit, Trash2, Save, X, Search, Filter, Settings, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { parametrosApi } from '@/lib/api';
 import { useConfirmDialog } from '@/hooks/useConfirm';
@@ -51,8 +51,12 @@ export function ParametrosMaestros() {
   const [relaciones, setRelaciones] = useState<Relacion[]>([]);
   const [campopadreDetectado, setCampoPadreDetectado] = useState<string | null>(null);
   const [campoPadreModal, setCampoPadreModal] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [filtering, setFiltering] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showJsonModal, setShowJsonModal] = useState(false);
@@ -76,9 +80,26 @@ export function ParametrosMaestros() {
     search: ''
   });
 
+  // Debounce para el search
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    searchTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearch(filters.search);
+    }, 300);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [filters.search]);
+
+  // Fetch cuando cambian los filtros (usando debouncedSearch en lugar de filters.search)
   useEffect(() => {
     fetchParametros();
-  }, [filters]);
+  }, [filters.campo_rendicion, filters.valor_padre, filters.activo, debouncedSearch]);
 
   useEffect(() => {
     // Detectar si el campo seleccionado tiene un campo padre y cargar sus valores
@@ -167,13 +188,19 @@ export function ParametrosMaestros() {
 
   const fetchParametros = async () => {
     try {
-      setLoading(true);
+      // Solo mostrar loading completo en la carga inicial
+      if (initialLoading) {
+        // Ya está en true
+      } else {
+        setFiltering(true);
+      }
+
       const filterParams = {
         ...(filters.campo_rendicion && { tipo_campo: filters.campo_rendicion }),
         // Incluir valor_padre solo si el usuario lo seleccionó manualmente
         ...(filters.valor_padre && valoresPadreFiltro.includes(filters.valor_padre) && { valor_padre: filters.valor_padre }),
         ...(filters.activo && { activo: filters.activo === 'true' }),
-        ...(filters.search && { search: filters.search }),
+        ...(debouncedSearch && { search: debouncedSearch }),
         limit: 1000 // Get all for now
       };
 
@@ -184,7 +211,8 @@ export function ParametrosMaestros() {
       console.error('Error fetching parametros maestros:', error);
       toast.error('Error al cargar los parámetros');
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
+      setFiltering(false);
     }
   };
 
@@ -336,7 +364,7 @@ export function ParametrosMaestros() {
     setJsonParameters([]);
   };
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -398,11 +426,16 @@ export function ParametrosMaestros() {
               Buscar
             </label>
             <div className="relative">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+              {filtering ? (
+                <Loader2 className="absolute left-3 top-2.5 h-4 w-4 text-gray-400 animate-spin" />
+              ) : (
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+              )}
               <input
+                ref={searchInputRef}
                 type="text"
                 value={filters.search}
-                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
                 placeholder="Código o nombre..."
                 className="input-base pl-10"
               />

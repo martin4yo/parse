@@ -773,8 +773,18 @@ class BusinessRulesEngine {
       let encontrado = null;
       for (const param of parametros) {
         if (param.parametros_json) {
-          // El campo JSON puede tener el valor directamente o en una propiedad anidada
-          const jsonValue = param.parametros_json[campoJSON];
+          // Buscar el campo en el JSON de forma case-insensitive
+          const campoJSONLower = campoJSON.toLowerCase();
+          let jsonValue = null;
+
+          // Buscar la clave que coincida (case-insensitive)
+          for (const key of Object.keys(param.parametros_json)) {
+            if (key.toLowerCase() === campoJSONLower) {
+              jsonValue = param.parametros_json[key];
+              break;
+            }
+          }
+
           if (jsonValue) {
             // Normalizar valores para comparación (remover guiones, espacios, etc.)
             const normalizedJsonValue = String(jsonValue).replace(/[-\s]/g, '').toUpperCase();

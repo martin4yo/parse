@@ -49,7 +49,13 @@ export default function ComprobantesPage() {
     current: 0,
     total: 0,
     currentDocumentName: '',
-    currentCupon: ''
+    currentCupon: '',
+    // Estadísticas de reglas
+    reglasAplicadas: 0,
+    documentosTransformados: 0,
+    lineasTransformadas: 0,
+    impuestosTransformados: 0,
+    errores: 0
   });
   const [hoveredDoc, setHoveredDoc] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
@@ -857,7 +863,12 @@ export default function ComprobantesPage() {
         current: 0,
         total: 0,
         currentDocumentName: '',
-        currentCupon: ''
+        currentCupon: '',
+        reglasAplicadas: 0,
+        documentosTransformados: 0,
+        lineasTransformadas: 0,
+        impuestosTransformados: 0,
+        errores: 0
       });
 
       // Obtener documentos pendientes (completados y no exportados)
@@ -888,12 +899,15 @@ export default function ComprobantesPage() {
         `${process.env.NEXT_PUBLIC_API_URL}/api/documentos/aplicar-reglas/stream?token=${token}&forzarReprocesamiento=${forzarReprocesamiento}`
       );
 
+      // Acumular errores para mostrar resumen al final
+      const erroresAcumulados: string[] = [];
+
       eventSource.onmessage = (event) => {
         const data = JSON.parse(event.data);
 
         switch (data.type) {
           case 'start':
-            toast.loading(data.message, { duration: 1000 });
+            // No mostrar toast - el modal ya indica que está procesando
             break;
 
           case 'info':
@@ -903,22 +917,31 @@ export default function ComprobantesPage() {
             break;
 
           case 'progress':
-            setAssociationProgress({
+            setAssociationProgress(prev => ({
+              ...prev,
               current: data.current,
               total: data.total,
               currentDocumentName: data.documentName,
               currentCupon: ''
-            });
+            }));
             break;
 
           case 'document-processed':
-            toast.success(`${data.documentName}: ${data.reglas} regla(s) aplicada(s)`, {
-              duration: 1500
-            });
+            // Actualizar estadísticas en tiempo real
+            setAssociationProgress(prev => ({
+              ...prev,
+              reglasAplicadas: prev.reglasAplicadas + (data.reglas || 0),
+              documentosTransformados: prev.documentosTransformados + (data.reglas > 0 ? 1 : 0)
+            }));
             break;
 
           case 'error':
-            toast.error(`Error en ${data.documentName}: ${data.error}`);
+            // Acumular errores para mostrar resumen al final
+            erroresAcumulados.push(`${data.documentName}: ${data.error}`);
+            setAssociationProgress(prev => ({
+              ...prev,
+              errores: prev.errores + 1
+            }));
             break;
 
           case 'complete':
@@ -929,16 +952,26 @@ export default function ComprobantesPage() {
                                          (data.transformados?.lineas || 0) +
                                          (data.transformados?.impuestos || 0);
 
+            // Mostrar resumen de errores si hubo
+            if (erroresAcumulados.length > 0) {
+              toast.error(
+                `${erroresAcumulados.length} error(es) al procesar documentos`,
+                { duration: 5000 }
+              );
+            }
+
+            // Mostrar resumen final
             if (totalTransformaciones > 0) {
               toast.success(
-                `Reglas aplicadas: ${data.transformados.documentos} documentos, ${data.transformados.lineas} líneas, ${data.transformados.impuestos} impuestos`
+                `✓ ${data.transformados.documentos} docs, ${data.transformados.lineas} líneas, ${data.transformados.impuestos} impuestos procesados`,
+                { duration: 4000 }
               );
-            } else {
+            } else if (erroresAcumulados.length === 0) {
               toast(
-                `Se procesaron ${data.procesados} documentos. No se aplicaron transformaciones.`,
+                `Se revisaron ${data.procesados} documentos. No hubo cambios.`,
                 {
                   icon: <AlertCircle className="h-5 w-5 text-amber-500" />,
-                  duration: 4000
+                  duration: 3000
                 }
               );
             }
@@ -952,7 +985,12 @@ export default function ComprobantesPage() {
                 current: 0,
                 total: 0,
                 currentDocumentName: '',
-                currentCupon: ''
+                currentCupon: '',
+                reglasAplicadas: 0,
+                documentosTransformados: 0,
+                lineasTransformadas: 0,
+                impuestosTransformados: 0,
+                errores: 0
               });
             }, 1000);
             break;
@@ -968,7 +1006,12 @@ export default function ComprobantesPage() {
           current: 0,
           total: 0,
           currentDocumentName: '',
-          currentCupon: ''
+          currentCupon: '',
+          reglasAplicadas: 0,
+          documentosTransformados: 0,
+          lineasTransformadas: 0,
+          impuestosTransformados: 0,
+          errores: 0
         });
       };
 
@@ -980,7 +1023,12 @@ export default function ComprobantesPage() {
         current: 0,
         total: 0,
         currentDocumentName: '',
-        currentCupon: ''
+        currentCupon: '',
+        reglasAplicadas: 0,
+        documentosTransformados: 0,
+        lineasTransformadas: 0,
+        impuestosTransformados: 0,
+        errores: 0
       });
     }
   };
@@ -2465,10 +2513,35 @@ export default function ComprobantesPage() {
                   </div>
                 </div>
 
-                {/* Mensaje motivacional */}
-                <p className="text-xs text-center text-palette-dark/50 italic">
-                  Optimizando tus documentos...
-                </p>
+                {/* Estadísticas en tiempo real */}
+                <div className="grid grid-cols-3 gap-3 mt-2">
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-2 text-center">
+                    <p className="text-lg font-bold text-green-600">
+                      {associationProgress.reglasAplicadas}
+                    </p>
+                    <p className="text-xs text-green-600/70">Reglas aplicadas</p>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-center">
+                    <p className="text-lg font-bold text-blue-600">
+                      {associationProgress.documentosTransformados}
+                    </p>
+                    <p className="text-xs text-blue-600/70">Docs modificados</p>
+                  </div>
+                  <div className={`rounded-lg p-2 text-center ${
+                    associationProgress.errores > 0
+                      ? 'bg-red-50 border border-red-200'
+                      : 'bg-gray-50 border border-gray-200'
+                  }`}>
+                    <p className={`text-lg font-bold ${
+                      associationProgress.errores > 0 ? 'text-red-600' : 'text-gray-400'
+                    }`}>
+                      {associationProgress.errores}
+                    </p>
+                    <p className={`text-xs ${
+                      associationProgress.errores > 0 ? 'text-red-600/70' : 'text-gray-400'
+                    }`}>Errores</p>
+                  </div>
+                </div>
               </div>
             )}
           </div>
