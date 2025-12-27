@@ -2477,16 +2477,20 @@ export default function ComprobantesPage() {
             {/* Texto de estado */}
             <div className="text-center space-y-2">
               <h3 className="text-2xl font-bold text-palette-dark">
-                {processingComplete ? 'Proceso Completado' : 'Aplicando Reglas de Negocio'}
+                {processingComplete
+                  ? (associationProgress.total === 0 ? 'Sin Documentos Pendientes' : 'Proceso Completado')
+                  : 'Aplicando Reglas de Negocio'}
               </h3>
               <p className="text-sm text-gray-600">
                 {processingComplete
-                  ? 'Se procesaron todos los documentos'
+                  ? (associationProgress.total === 0
+                      ? 'No hay documentos pendientes para procesar'
+                      : 'Se procesaron todos los documentos')
                   : 'Procesando documentos y aplicando transformaciones...'}
               </p>
             </div>
 
-            {/* Barra de progreso con documento actual */}
+            {/* Barra de progreso con documento actual (solo si hay documentos) */}
             {associationProgress.total > 0 && (
               <div className="w-full space-y-4">
                 {/* Información del documento actual (solo durante procesamiento) */}
@@ -2590,20 +2594,20 @@ export default function ComprobantesPage() {
                     </div>
                   </div>
                 )}
-
-                {/* Botón de cerrar con countdown (solo cuando está completo) */}
-                {processingComplete && (
-                  <button
-                    onClick={handleCloseProcessingModal}
-                    className="w-full mt-4 py-3 px-4 bg-palette-purple hover:bg-palette-purple/90 text-white font-semibold rounded-lg transition-colors flex items-center justify-center space-x-2"
-                  >
-                    <span>Cerrar</span>
-                    <span className="bg-white/20 px-2 py-0.5 rounded text-sm">
-                      {closeCountdown}s
-                    </span>
-                  </button>
-                )}
               </div>
+            )}
+
+            {/* Botón de cerrar con countdown (siempre visible cuando está completo) */}
+            {processingComplete && (
+              <button
+                onClick={handleCloseProcessingModal}
+                className="w-full mt-4 py-3 px-4 bg-palette-purple hover:bg-palette-purple/90 text-white font-semibold rounded-lg transition-colors flex items-center justify-center space-x-2"
+              >
+                <span>Cerrar</span>
+                <span className="bg-white/20 px-2 py-0.5 rounded text-sm">
+                  {closeCountdown}s
+                </span>
+              </button>
             )}
           </div>
         </div>
