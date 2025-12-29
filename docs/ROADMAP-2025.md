@@ -1,13 +1,30 @@
 # 🗺️ Roadmap - Sistema Parse 2025
 
-**Última actualización:** 27 de Diciembre 2025
+**Última actualización:** 28 de Diciembre 2025
 **Estado del proyecto:** En producción con nuevas funcionalidades
 
 ---
 
 ## ✅ Completado (Diciembre 2025)
 
-### 0. Extracción de Múltiples CUITs (27 Dic) ⭐
+### 0. Tipos de Parámetro Dinámicos (28 Dic) ⭐
+**Impacto:** 🔥 Alto - Extensibilidad y API para Hub
+
+- ✅ Nueva tabla global `tipos_parametro` (sin tenant)
+- ✅ CRUD completo de tipos (solo superusers)
+- ✅ Grupos editables (se pueden crear nuevos)
+- ✅ API externa: `GET /api/v1/parse/parametros/:tipoCampo`
+- ✅ API externa: `GET /api/v1/parse/tipos`
+- ✅ Frontend: Nueva pestaña "Tipos de Parámetro"
+- ✅ 22 tipos iniciales migrados desde código hardcodeado
+
+**ROI:** Hub y otras apps pueden consultar parámetros maestros. Nuevos tipos sin deploy.
+
+**Ver:** `docs/SESION-2025-12-28-TIPOS-PARAMETRO.md`
+
+---
+
+### 1. Extracción de Múltiples CUITs (27 Dic) ⭐
 **Impacto:** 🔥 Alto - Identificación automática emisor/destinatario
 
 - ✅ Nuevos campos: `cuitDestinatario`, `cuitsExtraidos`
@@ -515,6 +532,9 @@ OLLAMA_MODEL=llama3.2:3b
 
 | Fecha | Cambios |
 |-------|---------|
+| 28 Dic 2025 | Tipos de Parámetro dinámicos (tabla global, CRUD, API externa) |
+| 28 Dic 2025 | API Hub: `/api/v1/parse/parametros/:tipoCampo` y `/tipos` |
+| 28 Dic 2025 | Frontend: Nueva pestaña "Tipos de Parámetro" con grupos editables |
 | 27 Dic 2025 | Extracción múltiples CUITs (emisor/destinatario) |
 | 27 Dic 2025 | Fix: Logs Parse API no se mostraban |
 | 27 Dic 2025 | Nueva acción regla: VALIDAR_CUITS_PROPIOS |
@@ -524,5 +544,5 @@ OLLAMA_MODEL=llama3.2:3b
 
 ---
 
-**Última revisión:** 27 de Diciembre 2025
+**Última revisión:** 28 de Diciembre 2025
 **Próxima revisión:** 15 de Enero 2026

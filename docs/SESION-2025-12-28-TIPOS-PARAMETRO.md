@@ -7,6 +7,7 @@ Migrar los tipos de parámetros maestros de una lista hardcodeada a una tabla de
 - Los tipos de parámetros (proveedor, cuenta_contable, etc.) estaban hardcodeados en `maestros.js`
 - No se podían agregar nuevos tipos sin modificar código
 - Otras aplicaciones (Hub) necesitaban consultar la lista de tipos disponibles
+- Los grupos estaban fijos y no se podían crear nuevos
 
 ## Solución Implementada
 
@@ -26,12 +27,16 @@ model tipos_parametro {
   icono       String?                   // Icono opcional para UI
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([grupo])
+  @@index([activo])
 }
 ```
 
 **Características:**
 - Sin tenantId → Global para todos los tenants
 - Cada tenant usa los tipos que necesita para sus parámetros maestros
+- Grupos editables (se pueden crear nuevos grupos escribiendo)
 
 ### 2. API Interna (Backend)
 
@@ -46,6 +51,11 @@ model tipos_parametro {
 | `/api/parametros/tipos/grupos` | GET | Listar grupos únicos | Usuario autenticado |
 
 **Archivo:** `backend/src/routes/parametros/tiposParametro.js`
+
+**Filtros disponibles:**
+```bash
+GET /api/parametros/tipos?grupo=Contabilidad&activo=true&search=cuenta
+```
 
 ### 3. Endpoint Modificado
 
@@ -76,19 +86,51 @@ curl -H "X-API-Key: xxx" https://api.parsedemo.../api/v1/parse/tipos
 
 # Obtener proveedores del tenant
 curl -H "X-API-Key: xxx" https://api.parsedemo.../api/v1/parse/parametros/proveedor
+
+# Obtener sectores del tenant
+curl -H "X-API-Key: xxx" https://api.parsedemo.../api/v1/parse/parametros/sector
+```
+
+**Respuesta típica:**
+```json
+[
+  {
+    "id": 1,
+    "tipo_campo": "sector",
+    "codigo": "ADM",
+    "valor": "Administración",
+    "activo": true
+  },
+  {
+    "id": 2,
+    "tipo_campo": "sector",
+    "codigo": "VTA",
+    "valor": "Ventas",
+    "activo": true
+  }
+]
 ```
 
 ### 5. Frontend - Nueva Pestaña
 
-**Ubicación:** Parámetros → "Tipos de Parámetro"
+**Ubicación:** Parámetros → "Tipos de Parámetro" (segundo tab)
 
 **Archivo:** `frontend/src/components/parametros/TiposParametro.tsx`
 
 **Funcionalidades:**
-- Lista tipos agrupados por grupo
+- Lista tipos agrupados por grupo con scroll vertical
 - Crear/Editar/Eliminar tipos (solo superusers)
 - Filtros por grupo, estado y búsqueda
 - Validación: no permite eliminar tipos en uso
+- Grupos editables: input con autocompletado (datalist) permite escribir nuevos grupos
+- UI responsive con flex layout
+
+**Orden de tabs actualizado:**
+1. Relaciones entre Campos
+2. **Tipos de Parámetro** (nuevo)
+3. Parámetros Maestros
+4. Atributos
+5. Reglas de Negocio
 
 ## Tipos Iniciales Migrados (22)
 
@@ -104,29 +146,44 @@ curl -H "X-API-Key: xxx" https://api.parsedemo.../api/v1/parse/parametros/provee
 ### Backend
 - `backend/prisma/schema.prisma` - Nuevo modelo tipos_parametro
 - `backend/src/routes/parametros/tiposParametro.js` - **NUEVO** CRUD tipos
-- `backend/src/routes/parametros/index.js` - Registro de ruta
+- `backend/src/routes/parametros.js` - Registro de ruta `/tipos`
+- `backend/src/routes/parametros/index.js` - Registro de ruta (backup)
 - `backend/src/routes/parametros/maestros.js` - campos-rendicion lee de BD
 - `backend/src/routes/parseApi.js` - Endpoints genéricos para API externa
 - `backend/src/scripts/migrate-tipos-parametro.js` - **NUEVO** Script migración
 
 ### Frontend
 - `frontend/src/lib/api.ts` - Funciones getTipos, createTipo, etc.
-- `frontend/src/components/parametros/TiposParametro.tsx` - **NUEVO** Componente
-- `frontend/src/app/(protected)/parametros/page.tsx` - Nueva pestaña
+- `frontend/src/components/parametros/TiposParametro.tsx` - **NUEVO** Componente con scroll y grupos editables
+- `frontend/src/app/(protected)/parametros/page.tsx` - Nueva pestaña, orden actualizado
 
-## Comandos de Referencia
+## Comandos de Producción
 
 ```bash
-# Ejecutar migración de tipos (si no se ejecutó)
+# 1. Actualizar esquema de BD
 cd backend
+npx prisma db push
+
+# 2. Ejecutar migración de tipos iniciales
 node src/scripts/migrate-tipos-parametro.js
 
-# Regenerar cliente Prisma
+# 3. Regenerar cliente Prisma (si es necesario)
 npx prisma generate
 ```
+
+## Problemas Resueltos Durante la Sesión
+
+1. **Archivo duplicado**: Existía `parametros.js` y `parametros/index.js`. Node.js cargaba el `.js` en lugar de la carpeta. Se actualizó `parametros.js` para incluir la ruta de tipos.
+
+2. **Scroll vertical**: El componente no scrolleaba. Se agregó `flex-col`, `max-h-[calc(100vh-200px)]` y `overflow-y-auto` al contenedor de la lista.
+
+3. **Grupos no editables**: Se usaba `<select>` fijo. Se cambió a `<input>` con `<datalist>` que permite escribir nuevos grupos o seleccionar existentes.
+
+4. **Error de tipos TypeScript**: `confirmDelete` esperaba string, no objeto. Se simplificó la llamada.
 
 ## Próximos Pasos Sugeridos
 
 1. Probar en producción que Hub puede consultar los tipos
 2. Agregar más tipos según necesidad de los clientes
 3. Considerar UI para reordenar tipos con drag & drop
+4. Agregar icono visual por tipo (campo `icono` ya existe)

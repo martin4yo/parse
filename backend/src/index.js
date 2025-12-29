@@ -50,6 +50,8 @@ const patronesAprendidosRoutes = require('./routes/patrones-aprendidos');
 const documentDetectionConfigRoutes = require('./routes/document-detection-config');
 const syncRoutes = require('./routes/sync');
 const { router: syncApiKeysRoutes } = require('./routes/syncApiKeys');
+const syncDataRoutes = require('./routes/syncData');
+const syncEntityConfigRoutes = require('./routes/syncEntityConfig');
 const apiConnectorsRoutes = require('./routes/api-connectors');
 const webhooksRoutes = require('./routes/webhooks');
 const metricsRoutes = require('./routes/metrics');
@@ -185,6 +187,10 @@ app.use('/api/document-detection-config', documentDetectionConfigRoutes);
 // Sincronización SQL
 app.use('/api/sync', syncRoutes);
 app.use('/api/sync/api-keys', syncApiKeysRoutes);
+
+// Sincronización genérica Hub ↔ ERP
+app.use('/api/sync-data', syncDataRoutes);
+app.use('/api/sync-entity-config', syncEntityConfigRoutes);
 
 // API Connectors - Sincronización via APIs REST
 app.use('/api/api-connectors', apiConnectorsRoutes);

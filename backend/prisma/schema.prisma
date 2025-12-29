@@ -686,6 +686,8 @@ model tenants {
   oauth_clients             oauth_clients[]
   oauth_api_logs            oauth_api_logs[]
   parse_api_logs            parse_api_logs[]
+  sync_entity_config        sync_entity_config[]
+  sync_data                 sync_data[]
   planes                    planes?                     @relation(fields: [planId], references: [id])
   users                     users[]
 
@@ -1085,29 +1087,122 @@ model oauth_api_logs {
   id                  String    @id @default(uuid())
   clientId            String
   tenantId            String
-  
+
   // Request
   method              String    @db.VarChar(10)
   endpoint            String    @db.VarChar(500)
   ipAddress           String?   @db.VarChar(50)
   userAgent           String?   @db.Text
-  
+
   // Response
   statusCode          Int
   responseTime        Int       // en milliseconds
-  
+
   // Rate limiting
   rateLimitHit        Boolean   @default(false)
-  
+
   // Metadata
   timestamp           DateTime  @default(now())
   errorMessage        String?   @db.Text
-  
+
   client              oauth_clients @relation(fields: [clientId], references: [id], onDelete: Cascade)
   tenants             tenants   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  
+
   @@index([clientId])
   @@index([tenantId])
   @@index([timestamp])
   @@index([endpoint])
+}
+
+// ============================================
+// SISTEMA DE SINCRONIZACION GENERICA (HUB <-> ERP)
+// ============================================
+
+// Configuracion por entidad/ERP (Schema Registry)
+model sync_entity_config {
+  id              String   @id @default(uuid())
+  tenantId        String
+
+  // Identificacion
+  entityType      String   @db.VarChar(50)   // 'PURCHASE_ORDER', 'RECEPTION', 'SUPPLIER'
+  erpType         String   @db.VarChar(20)   // 'AXIOMA', 'SOFTLAND'
+
+  // Tabla origen/destino en el ERP
+  sourceTable     String?  @db.VarChar(100)  // Tabla en el ERP
+  primaryKey      String?  @db.VarChar(50)   // Campo PK en el ERP
+  timestampField  String?  @db.VarChar(50)   // Campo para sync incremental
+
+  // Queries SQL para el ERP
+  queries         Json                        // { select_all, select_since, insert, update }
+
+  // Mapeo de campos Hub <-> ERP
+  fieldMapping    Json                        // { hub_to_erp: {}, erp_to_hub: {} }
+
+  // Reglas de transformacion
+  transformRules  Json?                       // { campo: { type, format } }
+
+  // Configuracion
+  direction       String   @db.VarChar(10)   // 'IN', 'OUT', 'BOTH'
+  enabled         Boolean  @default(true)
+  syncFrequency   String?  @db.VarChar(20)   // 'realtime', 'hourly', 'daily'
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenants         tenants  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sync_data       sync_data[]
+
+  @@unique([tenantId, entityType, erpType])
+  @@index([tenantId])
+  @@index([entityType])
+  @@index([enabled])
+}
+
+// Datos a sincronizar (payload generico JSONB)
+model sync_data {
+  id              String   @id @default(uuid())
+  tenantId        String
+
+  // Referencia a config (opcional)
+  configId        String?
+
+  // Identificacion del registro
+  entityType      String   @db.VarChar(50)   // 'PURCHASE_ORDER', 'RECEPTION'
+  entityId        String   @db.VarChar(100)  // ID en Hub (ej: OC-2025-001)
+  erpType         String   @db.VarChar(20)   // 'AXIOMA', 'SOFTLAND'
+
+  // Payload generico (cualquier estructura)
+  payload         Json                        // Datos completos del registro
+
+  // Control de cambios
+  payloadHash     String?  @db.VarChar(64)   // SHA256 para detectar cambios
+  version         Int      @default(1)
+
+  // Direccion y estado
+  direction       String   @db.VarChar(10)   // 'OUT' (Hub->ERP), 'IN' (ERP->Hub)
+  status          String   @default("PENDING") @db.VarChar(20) // PENDING, PROCESSING, COMPLETED, FAILED
+
+  // Resultado de sincronizacion
+  externalId      String?  @db.VarChar(100)  // ID asignado por el ERP
+  syncedAt        DateTime?
+  errorMessage    String?  @db.Text
+  retryCount      Int      @default(0)
+
+  // Origen
+  sourceSystem    String   @db.VarChar(20)   // 'HUB', 'ERP'
+  sourceUserId    String?                    // Usuario que origino el cambio
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenants         tenants  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  config          sync_entity_config? @relation(fields: [configId], references: [id])
+
+  @@unique([tenantId, entityType, entityId, erpType])
+  @@index([tenantId, status])
+  @@index([entityType, entityId])
+  @@index([status, createdAt])
+  @@index([erpType])
 }
