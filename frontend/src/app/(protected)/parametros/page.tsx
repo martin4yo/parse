@@ -1,14 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { Settings, Link, Database, Tags, Workflow } from 'lucide-react';
+import { Settings, Link, Database, Tags, Workflow, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { RelacionesParametros } from '@/components/parametros/RelacionesParametros';
 import { ParametrosMaestros } from '@/components/parametros/ParametrosMaestros';
+import { TiposParametro } from '@/components/parametros/TiposParametro';
 import AtributosTab from '@/components/parametros/AtributosTab';
 import ReglasNegocioTab from '@/components/parametros/ReglasNegocioTab';
 
-type TabType = 'relaciones' | 'parametros' | 'atributos' | 'reglas';
+type TabType = 'relaciones' | 'parametros' | 'tipos' | 'atributos' | 'reglas';
 
 export default function ParametrosPage() {
   const [activeTab, setActiveTab] = useState<TabType>('relaciones');
@@ -49,6 +50,21 @@ export default function ParametrosPage() {
               <div className="flex items-center space-x-2">
                 <Link className="w-4 h-4" />
                 <span>Relaciones entre Campos</span>
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('tipos')}
+              className={`
+                py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200
+                ${activeTab === 'tipos'
+                  ? 'border-palette-purple text-palette-purple'
+                  : 'border-transparent text-text-secondary hover:text-palette-dark hover:border-palette-purple/30'
+                }
+              `}
+            >
+              <div className="flex items-center space-x-2">
+                <Layers className="w-4 h-4" />
+                <span>Tipos de Parámetro</span>
               </div>
             </button>
             <button
@@ -104,6 +120,10 @@ export default function ParametrosPage() {
       <div className="flex-1 overflow-hidden">
         {activeTab === 'relaciones' ? (
           <RelacionesParametros />
+        ) : activeTab === 'tipos' ? (
+          <div className="p-6">
+            <TiposParametro />
+          </div>
         ) : activeTab === 'parametros' ? (
           <ParametrosMaestros />
         ) : activeTab === 'atributos' ? (

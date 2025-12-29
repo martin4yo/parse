@@ -269,6 +269,23 @@ model parametros_relaciones {
   @@index([tenantId])
 }
 
+// Tipos de parámetros maestros - Catálogo GLOBAL (sin tenant)
+// Define qué tipos de campos existen: proveedor, cuenta_contable, etc.
+model tipos_parametro {
+  id          Int      @id @default(autoincrement())
+  codigo      String   @unique          // proveedor, cuenta_contable, etc.
+  nombre      String                    // Proveedor, Cuenta Contable, etc.
+  descripcion String?
+  grupo       String                    // Categoría para agrupar en UI
+  orden       Int      @default(1)      // Orden dentro del grupo
+  activo      Boolean  @default(true)
+  icono       String?                   // Icono opcional para UI
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([grupo])
+  @@index([activo])
+}
 model plan_features {
   id        String   @id
   planId    String

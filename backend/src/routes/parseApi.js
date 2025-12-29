@@ -1763,4 +1763,177 @@ router.get('/logs/:id', authenticateSyncClient, async (req, res) => {
   }
 });
 
+
+
+// ============================================
+// PARÁMETROS MAESTROS - ENDPOINT GENÉRICO
+// ============================================
+
+/**
+ * GET /api/v1/parse/parametros/:tipoCampo
+ * Obtiene parámetros maestros de cualquier tipo para el tenant
+ *
+ * Ejemplos:
+ *   GET /api/v1/parse/parametros/proveedor
+ *   GET /api/v1/parse/parametros/cuenta_contable
+ *   GET /api/v1/parse/parametros/codigo_dimension
+ *
+ * Query params:
+ *   - limit: número máximo de resultados (default: 100, max: 1000)
+ *   - offset: desplazamiento para paginación (default: 0)
+ *   - search: búsqueda por código o nombre
+ *   - activo: filtrar por estado (true/false)
+ *   - updatedSince: solo registros actualizados después de esta fecha (ISO)
+ */
+router.get('/parametros/:tipoCampo', authenticateSyncClient, async (req, res) => {
+  try {
+    // Verificar permiso sync
+    if (!req.syncClient.permisos.sync) {
+      return res.status(403).json({
+        success: false,
+        error: 'Sin permiso "sync". La API key debe tener el permiso "sync" habilitado.'
+      });
+    }
+
+    const { tipoCampo } = req.params;
+    const {
+      limit = 100,
+      offset = 0,
+      search,
+      activo,
+      updatedSince
+    } = req.query;
+
+    // Verificar que el tipo de campo existe
+    const tipoExiste = await prisma.tipos_parametro.findUnique({
+      where: { codigo: tipoCampo }
+    });
+
+    if (!tipoExiste) {
+      return res.status(400).json({
+        success: false,
+        error: `Tipo de parámetro "${tipoCampo}" no existe`,
+        availableTypes: 'Consultar GET /api/v1/parse/tipos para ver tipos disponibles'
+      });
+    }
+
+    // Construir filtros
+    const where = {
+      tenantId: req.syncClient.tenantId,
+      tipo_campo: tipoCampo
+    };
+
+    if (search) {
+      where.OR = [
+        { codigo: { contains: search, mode: 'insensitive' } },
+        { nombre: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    if (activo !== undefined) {
+      where.activo = activo === 'true';
+    }
+
+    if (updatedSince) {
+      where.updatedAt = { gte: new Date(updatedSince) };
+    }
+
+    // Ejecutar consulta
+    const [parametros, total] = await Promise.all([
+      prisma.parametros_maestros.findMany({
+        where,
+        take: Math.min(parseInt(limit), 1000),
+        skip: parseInt(offset),
+        orderBy: [
+          { orden: 'asc' },
+          { codigo: 'asc' }
+        ],
+        select: {
+          id: true,
+          codigo: true,
+          nombre: true,
+          descripcion: true,
+          valor_padre: true,
+          orden: true,
+          activo: true,
+          parametros_json: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      }),
+      prisma.parametros_maestros.count({ where })
+    ]);
+
+    console.log(`📋 [Parse API] Parámetros ${tipoCampo}: ${parametros.length} de ${total} para tenant ${req.syncClient.tenant.nombre}`);
+
+    res.json({
+      success: true,
+      tipoCampo,
+      tipoNombre: tipoExiste.nombre,
+      data: parametros,
+      pagination: {
+        total,
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        hasMore: total > (parseInt(offset) + parametros.length)
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo parámetros:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/v1/parse/tipos
+ * Obtiene la lista de tipos de parámetros disponibles (catálogo global)
+ */
+router.get('/tipos', authenticateSyncClient, async (req, res) => {
+  try {
+    const tipos = await prisma.tipos_parametro.findMany({
+      where: { activo: true },
+      orderBy: [
+        { grupo: 'asc' },
+        { orden: 'asc' }
+      ],
+      select: {
+        codigo: true,
+        nombre: true,
+        grupo: true,
+        descripcion: true
+      }
+    });
+
+    // Agrupar por grupo para mejor visualización
+    const tiposPorGrupo = tipos.reduce((acc, tipo) => {
+      if (!acc[tipo.grupo]) {
+        acc[tipo.grupo] = [];
+      }
+      acc[tipo.grupo].push({
+        codigo: tipo.codigo,
+        nombre: tipo.nombre,
+        descripcion: tipo.descripcion
+      });
+      return acc;
+    }, {});
+
+    res.json({
+      success: true,
+      tipos: tiposPorGrupo,
+      total: tipos.length
+    });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo tipos:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;

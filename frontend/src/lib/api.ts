@@ -688,6 +688,62 @@ export const parametrosApi = {
   deleteRelacion: async (id: number) => {
     const response = await api.delete(`/parametros/relaciones/${id}`);
     return response.data;
+  },
+  // CRUD operations for tipos de parámetro (catálogo global)
+  getTipos: async (filters?: {
+    grupo?: string;
+    activo?: boolean;
+    search?: string;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.grupo) params.append('grupo', filters.grupo);
+    if (filters?.activo !== undefined) params.append('activo', filters.activo.toString());
+    if (filters?.search) params.append('search', filters.search);
+
+    const queryString = params.toString();
+    const response = await api.get(`/parametros/tipos${queryString ? `?${queryString}` : ''}`);
+    return response.data;
+  },
+
+  getTiposGrupos: async () => {
+    const response = await api.get('/parametros/tipos/grupos');
+    return response.data;
+  },
+
+  getTipoById: async (id: number) => {
+    const response = await api.get(`/parametros/tipos/${id}`);
+    return response.data;
+  },
+
+  createTipo: async (tipoData: {
+    codigo: string;
+    nombre: string;
+    descripcion?: string;
+    grupo: string;
+    orden?: number;
+    activo?: boolean;
+    icono?: string;
+  }) => {
+    const response = await api.post('/parametros/tipos', tipoData);
+    return response.data;
+  },
+
+  updateTipo: async (id: number, tipoData: {
+    codigo?: string;
+    nombre?: string;
+    descripcion?: string;
+    grupo?: string;
+    orden?: number;
+    activo?: boolean;
+    icono?: string;
+  }) => {
+    const response = await api.put(`/parametros/tipos/${id}`, tipoData);
+    return response.data;
+  },
+
+  deleteTipo: async (id: number) => {
+    const response = await api.delete(`/parametros/tipos/${id}`);
+    return response.data;
   }
 };
 

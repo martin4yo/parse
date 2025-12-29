@@ -93,40 +93,31 @@ router.get('/', authWithTenant, async (req, res) => {
   }
 });
 
-// GET /api/parametros/maestros/campos-rendicion - Obtener campos parametrizables de rendicion_tarjeta
+// GET /api/parametros/maestros/campos-rendicion - Obtener tipos de parámetros desde BD
+// NOTA: Ahora lee de la tabla tipos_parametro (global, sin tenant)
 router.get('/campos-rendicion', authWithTenant, async (req, res) => {
   try {
-    // Lista de campos parametrizables de la tabla rendicion_tarjeta (usando snake_case como en la BD)
-    const camposParametrizables = [
-      { codigo: 'tipo_producto', nombre: 'Tipo de Producto', grupo: 'Productos y Conceptos' },
-      { codigo: 'codigo_producto', nombre: 'Código de Producto', grupo: 'Productos y Conceptos' },
-      { codigo: 'concepto_modulo', nombre: 'Concepto Módulo', grupo: 'Productos y Conceptos' },
-      { codigo: 'concepto_tipo', nombre: 'Concepto Tipo', grupo: 'Productos y Conceptos' },
-      { codigo: 'concepto_codigo', nombre: 'Concepto Código', grupo: 'Productos y Conceptos' },
-      { codigo: 'concepto_liquidacion', nombre: 'Concepto de Liquidacion', grupo: 'Productos y Conceptos' },
-      { codigo: 'modulo_comprobante', nombre: 'Módulo Comprobante', grupo: 'Comercio/Proveedor' },
-      { codigo: 'tipo_registro', nombre: 'Tipo de Registro', grupo: 'Comercio/Proveedor' },
-      { codigo: 'comprobante_origen', nombre: 'Comprobante Origen', grupo: 'Comercio/Proveedor' },
-      { codigo: 'codigo_origen', nombre: 'Código Origen', grupo: 'Comercio/Proveedor' },
-      { codigo: 'proveedor', nombre: 'Proveedor', grupo: 'Comercio/Proveedor' },
-      { codigo: 'tipo_orden_compra', nombre: 'Tipo Orden Compra', grupo: 'Comercio/Proveedor' },
-      { codigo: 'tipo_documento', nombre: 'Tipo de Documento', grupo: 'Información Fiscal' },
-      { codigo: 'codigo_pais', nombre: 'Código País', grupo: 'Información Fiscal' },
-      { codigo: 'condicion_iva', nombre: 'Condición IVA', grupo: 'Información Fiscal' },
-      { codigo: 'codigo_moneda', nombre: 'Código Moneda', grupo: 'Información Fiscal' },
-      { codigo: 'tipo_operacion', nombre: 'Tipo de Operación', grupo: 'Contabilidad' },
-      { codigo: 'tipo_comprobante', nombre: 'Tipo de Comprobante', grupo: 'Contabilidad' },
-      { codigo: 'codigo_dimension', nombre: 'Código Dimensión', grupo: 'Contabilidad' },
-      { codigo: 'subcuenta', nombre: 'Subcuenta', grupo: 'Contabilidad' },
-      { codigo: 'cuenta_contable', nombre: 'Cuenta Contable', grupo: 'Contabilidad' }
-    ];
-    
-    res.json(camposParametrizables);
+    // Obtener tipos de parámetro activos desde la BD (tabla global)
+    const tiposParametro = await prisma.tipos_parametro.findMany({
+      where: { activo: true },
+      orderBy: [
+        { grupo: 'asc' },
+        { orden: 'asc' },
+        { nombre: 'asc' }
+      ],
+      select: {
+        codigo: true,
+        nombre: true,
+        grupo: true
+      }
+    });
+
+    res.json(tiposParametro);
   } catch (error) {
     console.error('Error fetching campos rendicion:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Error interno del servidor',
-      message: error.message 
+      message: error.message
     });
   }
 });
