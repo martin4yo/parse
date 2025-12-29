@@ -178,11 +178,7 @@ export function TiposParametro() {
   const handleDelete = async (tipo: TipoParametro) => {
     if (!tipo.id) return;
 
-    const confirmed = await confirmDelete({
-      title: 'Eliminar Tipo de Parámetro',
-      message: `¿Está seguro que desea eliminar el tipo "${tipo.nombre}"? Esta acción no se puede deshacer.`,
-      confirmLabel: 'Eliminar'
-    });
+    const confirmed = await confirmDelete(tipo.nombre);
 
     if (confirmed) {
       try {
